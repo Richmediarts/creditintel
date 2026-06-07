@@ -35,7 +35,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ThemeContext.Provider value={{ darkMode, toggleDarkMode }}>
-      <div className={mounted && darkMode ? 'dark' : ''}>
+      <div className={`${mounted && darkMode ? 'dark' : ''} bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen`}>
         {children}
       </div>
     </ThemeContext.Provider>
