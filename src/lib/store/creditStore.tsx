@@ -5,6 +5,7 @@ import type { Bureau, BureauReport, CreditData, GlobalSummary, MergedAccount, Ac
 import { parseFile } from '@/lib/parsers'
 import { generateAIFindings } from '@/lib/utils/analysis'
 import { generateDisputeItems } from '@/lib/utils/analysis'
+import { useAuth } from '@/lib/auth-context'
 
 const STORAGE_KEY = 'credit-dashboard-state'
 
@@ -24,34 +25,8 @@ type CreditAction =
   | { type: 'SET_ERROR'; payload: string | null }
   | { type: 'CLEAR_ALL' }
   | { type: 'RECOMPUTE' }
-
-function loadPersistedState(): CreditState {
-  if (typeof window === 'undefined') return { reports: [], creditData: null, loading: false, error: null, isAnalyzing: false }
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      const parsed = JSON.parse(saved) as Partial<CreditState>
-      return {
-        reports: parsed.reports || [],
-        creditData: parsed.creditData || null,
-        loading: false,
-        error: null,
-        isAnalyzing: false,
-      }
-    }
-  } catch { /* ignore corrupt state */ }
-  return { reports: [], creditData: null, loading: false, error: null, isAnalyzing: false }
-}
-
-function persistState(state: CreditState): void {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      reports: state.reports,
-      creditData: state.creditData,
-    }))
-  } catch { /* quota exceeded or private browsing */ }
-}
+  | { type: 'REPLACE_STATE'; payload: { reports: BureauReport[]; creditData: CreditData | null } }
+  | { type: 'HYDRATE'; payload: { reports: BureauReport[] } }
 
 const initialState: CreditState = {
   reports: [],
@@ -190,6 +165,25 @@ function computeGlobalSummary(reports: BureauReport[], _mergedAccounts: MergedAc
   }
 }
 
+function persistLocal(reports: BureauReport[]): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ reports }))
+  } catch { /* ignore */ }
+}
+
+function loadLocal(): BureauReport[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      return parsed.reports || []
+    }
+  } catch { /* ignore */ }
+  return []
+}
+
 function reducer(state: CreditState, action: CreditAction): CreditState {
   let next: CreditState
   switch (action.type) {
@@ -213,14 +207,46 @@ function reducer(state: CreditState, action: CreditAction): CreditState {
       break
     }
     case 'RECOMPUTE': next = { ...state, creditData: state.reports.length > 0 ? computeCreditData(state.reports) : null }; break
+    case 'REPLACE_STATE': {
+      const reports = action.payload.reports
+      next = { ...state, reports, creditData: reports.length > 0 ? computeCreditData(reports) : null }
+      break
+    }
     default: return state
   }
-  persistState(next)
   return next
+}
+
+async function fetchServerReports(): Promise<BureauReport[]> {
+  try {
+    const res = await fetch('/api/reports')
+    if (res.ok) {
+      const data = await res.json()
+      return data.reports || []
+    }
+  } catch { /* ignore */ }
+  return []
+}
+
+async function saveReportToServer(report: BureauReport): Promise<void> {
+  try {
+    await fetch('/api/reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bureau: report.bureau, data: report }),
+    })
+  } catch { /* ignore */ }
+}
+
+async function deleteReportFromServer(bureau: Bureau): Promise<void> {
+  try {
+    await fetch(`/api/reports?bureau=${bureau}`, { method: 'DELETE' })
+  } catch { /* ignore */ }
 }
 
 interface CreditContextType {
   state: CreditState
+  initialized: boolean
   uploadFile: (file: File) => Promise<void>
   removeReport: (bureau: Bureau) => void
   clearAll: () => void
@@ -229,7 +255,31 @@ interface CreditContextType {
 const CreditContext = createContext<CreditContextType | null>(null)
 
 export function CreditProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, initialState, () => loadPersistedState())
+  const { user, loading: authLoading } = useAuth()
+  const [state, dispatch] = useReducer(reducer, initialState)
+  const [initialized, setInitialized] = React.useState(false)
+
+  // Hydrate on auth state change
+  useEffect(() => {
+    if (authLoading) return
+
+    if (user) {
+      fetchServerReports().then(reports => {
+        dispatch({ type: 'REPLACE_STATE', payload: { reports, creditData: null } })
+        setInitialized(true)
+      })
+    } else {
+      dispatch({ type: 'CLEAR_ALL' })
+      setInitialized(true)
+    }
+  }, [user, authLoading])
+
+  // Persist to localStorage on every state change (non-logged-in cache)
+  useEffect(() => {
+    if (initialized && !user) {
+      persistLocal(state.reports)
+    }
+  }, [state.reports, initialized, user])
 
   const uploadFile = useCallback(async (file: File) => {
     dispatch({ type: 'SET_LOADING', payload: true })
@@ -245,29 +295,41 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
       const fileName = file.name
       const data = { ...result.data, filename: fileName }
 
-      // Check for potential data quality issues
       if (data.accounts.length === 0) {
         dispatch({ type: 'SET_ERROR', payload: `Parsed ${result.bureau} report but found 0 accounts. The PDF may need text extraction improvements. Data imported with available information.` })
       }
 
       dispatch({ type: 'ADD_REPORT', payload: data })
+
+      if (user) {
+        await saveReportToServer(data)
+      }
     } catch (e: unknown) {
       dispatch({ type: 'SET_ERROR', payload: e instanceof Error ? e.message : 'Upload failed' })
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false })
     }
-  }, [])
+  }, [user])
 
   const removeReport = useCallback((bureau: Bureau) => {
     dispatch({ type: 'REMOVE_REPORT', payload: bureau })
-  }, [])
+    if (user) {
+      deleteReportFromServer(bureau)
+    }
+  }, [user])
 
   const clearAll = useCallback(() => {
     dispatch({ type: 'CLEAR_ALL' })
-  }, [])
+    if (user) {
+      const bureaus = state.reports.map(r => r.bureau)
+      for (const b of bureaus) {
+        deleteReportFromServer(b)
+      }
+    }
+  }, [user, state.reports])
 
   return (
-    <CreditContext.Provider value={{ state, uploadFile, removeReport, clearAll }}>
+    <CreditContext.Provider value={{ state, initialized, uploadFile, removeReport, clearAll }}>
       {children}
     </CreditContext.Provider>
   )

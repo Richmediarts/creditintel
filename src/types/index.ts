@@ -169,3 +169,37 @@ export interface DisputeItem {
   recommendedAction: string
   estimatedScoreGain?: number
 }
+
+export type DisputeStatus = 'not_filed' | 'filed' | 'in_dispute' | 'resolved' | 'closed'
+
+export interface DisputeTracking {
+  id: number
+  userId: number
+  creditorName: string
+  bureau: Bureau
+  inaccuracies: string[]
+  status: DisputeStatus
+  filedDate: string | null
+  expectedResponseDate: string | null
+  resolvedDate: string | null
+  notes: string
+  createdAt: string
+  updatedAt: string
+  isOverdue: boolean
+  daysUntilResponse: number | null
+}
+
+export interface User {
+  id: number
+  name: string
+  email: string
+  role: 'admin' | 'member'
+  createdAt: string
+}
+
+export interface FicoScoreEntry {
+  score: number | null
+  dateUpdated: string | null
+}
+
+export type FicoScores = Partial<Record<Bureau, FicoScoreEntry>>
