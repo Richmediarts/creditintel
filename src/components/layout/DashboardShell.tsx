@@ -11,8 +11,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  if (loading) return null
-  if (!user) return <>{children}</>
+  if (loading || !user) return <>{children}</>
 
   return (
     <div className={darkMode ? 'dark' : ''}>
