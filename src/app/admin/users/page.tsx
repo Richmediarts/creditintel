@@ -83,7 +83,7 @@ export default function AdminUsersPage() {
           <CardContent className="p-4">
             <form onSubmit={handleAdd} className="space-y-3">
               {error && <p className="text-sm text-red-500">{error}</p>}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <input
                   value={name} onChange={e => setName(e.target.value)}
                   placeholder="Name" required
@@ -95,7 +95,7 @@ export default function AdminUsersPage() {
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <input
                   value={password} onChange={e => setPassword(e.target.value)}
                   type="password" placeholder="Password" required

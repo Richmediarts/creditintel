@@ -31,7 +31,7 @@ export default function AIAnalysisPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/" className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+        <Link href="/" className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <h1 className="text-xl font-bold text-gray-900 dark:text-white">AI Credit Analysis</h1>
