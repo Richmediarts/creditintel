@@ -2,10 +2,56 @@ import Database from 'better-sqlite3'
 import path from 'path'
 import fs from 'fs'
 
-const DB_DIR = path.join(process.cwd(), 'data')
+const DB_DIR = process.env.VERCEL
+  ? '/tmp/credit-dashboard'
+  : path.join(process.cwd(), 'data')
 const DB_PATH = path.join(DB_DIR, 'credit-dashboard.db')
 
 let db: Database.Database | null = null
+
+function seedFromFile(): void {
+  const seedPath = path.join(process.cwd(), 'seed', 'seed.json')
+  if (!fs.existsSync(seedPath)) return
+
+  const userCount = (db!.prepare('SELECT COUNT(*) as c FROM users').get() as { c: number }).c
+  if (userCount > 0) return
+
+  try {
+    const raw = fs.readFileSync(seedPath, 'utf-8')
+    const seed = JSON.parse(raw)
+
+    const insertUser = db!.prepare(
+      'INSERT OR IGNORE INTO users (id, name, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+    )
+    const insertReport = db!.prepare(
+      'INSERT OR IGNORE INTO reports (user_id, bureau, data, updated_at) VALUES (?, ?, ?, ?)'
+    )
+    const insertFico = db!.prepare(
+      'INSERT OR IGNORE INTO fico_scores (user_id, bureau, score, date_updated) VALUES (?, ?, ?, ?)'
+    )
+    const insertDispute = db!.prepare(
+      'INSERT OR IGNORE INTO disputes (id, user_id, creditor_name, bureau, inaccuracies, status, filed_date, expected_response_date, resolved_date, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    )
+
+    const transaction = db!.transaction(() => {
+      for (const u of seed.users) {
+        insertUser.run(u.id, u.name, u.email, u.password_hash, u.role, u.created_at)
+      }
+      for (const r of seed.reports) {
+        insertReport.run(r.user_id, r.bureau, r.data, r.updated_at)
+      }
+      for (const f of seed.fico_scores) {
+        insertFico.run(f.user_id, f.bureau, f.score, f.date_updated)
+      }
+      for (const d of seed.disputes) {
+        insertDispute.run(d.id, d.user_id, d.creditor_name, d.bureau, d.inaccuracies, d.status, d.filed_date, d.expected_response_date, d.resolved_date, d.notes, d.created_at, d.updated_at)
+      }
+    })
+    transaction()
+  } catch (e) {
+    console.error('Seed failed:', e)
+  }
+}
 
 export function getDb(): Database.Database {
   if (!db) {
@@ -14,6 +60,7 @@ export function getDb(): Database.Database {
     db.pragma('journal_mode = WAL')
     db.pragma('foreign_keys = ON')
     initSchema()
+    seedFromFile()
   }
   return db
 }
