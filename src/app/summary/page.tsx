@@ -9,6 +9,31 @@ import { useCredit } from '@/lib/store/creditStore'
 import { formatCurrency } from '@/lib/utils/analysis'
 import type { Bureau } from '@/types'
 
+function statHref(label: string): string {
+  switch (label) {
+    case 'Total Accounts':
+    case 'Open Accounts':
+    case 'Open':
+    case 'Closed Accounts':
+    case 'Closed':
+    case 'Total Balance':
+    case 'Balance':
+    case 'Utilization':
+      return '/summary'
+    case 'Derogatory':
+    case 'Charge Offs':
+    case 'Collections':
+    case 'Late Accounts':
+    case 'Bankruptcies':
+      return '/derogatory'
+    case 'Hard Inquiries':
+    case 'Soft Inquiries':
+      return '/inquiries'
+    default:
+      return '/summary'
+  }
+}
+
 const bureauColors: Record<Bureau, string> = {
   Experian: 'text-blue-600',
   Equifax: 'text-emerald-600',
@@ -110,10 +135,12 @@ function SummaryDetail({ label, value, variant = 'default' }: { label: string; v
     warning: 'text-yellow-600 dark:text-yellow-400',
   }
   return (
-    <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-      <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
-      <p className={`text-lg font-bold ${colorMap[variant]}`}>{value}</p>
-    </div>
+    <Link href={statHref(label)} className="block hover:opacity-80 transition-opacity">
+      <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+        <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+        <p className={`text-lg font-bold ${colorMap[variant]}`}>{value}</p>
+      </div>
+    </Link>
   )
 }
 
@@ -124,9 +151,9 @@ function Row({ label, value, variant = 'default' }: { label: string; value: stri
     warning: 'text-yellow-500',
   }
   return (
-    <div className="flex justify-between">
+    <Link href={statHref(label)} className="flex justify-between hover:opacity-80 transition-opacity">
       <span className="text-gray-500 dark:text-gray-400">{label}</span>
       <span className={`font-medium ${colorMap[variant]}`}>{value}</span>
-    </div>
+    </Link>
   )
 }

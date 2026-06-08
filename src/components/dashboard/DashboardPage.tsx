@@ -2,12 +2,33 @@
 
 import React from 'react'
 import { Upload } from 'lucide-react'
+import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useCredit } from '@/lib/store/creditStore'
 import { formatCurrency, formatPercentage } from '@/lib/utils/analysis'
 import type { Bureau, BureauReport } from '@/types'
 import { UploadZone } from '@/components/dashboard/UploadZone'
+
+function statHref(label: string): string {
+  switch (label) {
+    case 'Total Accounts':
+    case 'Open Accounts':
+    case 'Closed Accounts':
+    case 'Utilization':
+      return '/summary'
+    case 'Derogatory':
+    case 'Charge Offs':
+    case 'Collections':
+    case 'Late Accounts':
+      return '/derogatory'
+    case 'Hard Inquiries':
+    case 'Soft Inquiries':
+      return '/inquiries'
+    default:
+      return '/summary'
+  }
+}
 
 const bureauGradients: Record<Bureau, string> = {
   Experian: 'from-blue-500 to-blue-600',
@@ -206,12 +227,14 @@ function SummaryStat({ label, value, variant = 'default' }: { label: string; val
     warning: 'text-yellow-600 dark:text-yellow-400',
   }
   return (
-    <Card>
-      <CardContent className="p-3">
-        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{label}</p>
-        <p className={`text-lg font-bold ${colorMap[variant]}`}>{value}</p>
-      </CardContent>
-    </Card>
+    <Link href={statHref(label)} className="block hover:opacity-80 transition-opacity">
+      <Card>
+        <CardContent className="p-3">
+          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{label}</p>
+          <p className={`text-lg font-bold ${colorMap[variant]}`}>{value}</p>
+        </CardContent>
+      </Card>
+    </Link>
   )
 }
 
