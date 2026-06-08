@@ -1,12 +1,13 @@
 'use client'
 
 import React, { useState } from 'react'
-import { ArrowLeft, Search } from 'lucide-react'
+import { ArrowLeft, Search, FileText } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useCredit } from '@/lib/store/creditStore'
 import { formatCurrency } from '@/lib/utils/analysis'
+import { OriginalDocumentViewer } from '@/components/report-viewer/OriginalDocumentViewer'
 import type { Bureau, Account } from '@/types'
 
 const bureauColors: Record<string, string> = {
@@ -57,6 +58,19 @@ export default function ReportViewerPage() {
         </Link>
         <h1 className="text-xl font-bold text-gray-900 dark:text-white">Interactive Report Viewer</h1>
       </div>
+
+      {/* Original Documents */}
+      {creditData.reports.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+            <FileText className="w-4 h-4" />
+            Original Reports
+          </div>
+          {creditData.reports.map(report => (
+            <OriginalDocumentViewer key={report.bureau} report={report} />
+          ))}
+        </div>
+      )}
 
       {/* Filters */}
       <Card>

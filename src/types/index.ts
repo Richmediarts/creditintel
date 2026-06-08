@@ -86,6 +86,8 @@ export interface BureauReport {
   summary: BureauSummary
   rawText?: string
   filename?: string
+  fileData?: string
+  fileType?: 'pdf' | 'txt'
 }
 
 export interface BureauSummary {

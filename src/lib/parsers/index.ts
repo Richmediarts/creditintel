@@ -42,9 +42,23 @@ export function parseReport(text: string, bureau: Bureau): BureauReport {
   }
 }
 
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      const base64 = result.split(',')[1]
+      resolve(base64)
+    }
+    reader.onerror = () => reject(new Error('Failed to read file'))
+    reader.readAsDataURL(file)
+  })
+}
+
 export async function parseFile(file: File): Promise<ParseResult> {
   try {
     const isPDF = file.type === 'application/pdf' || file.name.endsWith('.pdf')
+    const fileData = await readFileAsBase64(file)
     let text: string
 
     if (isPDF) {
@@ -64,6 +78,8 @@ export async function parseFile(file: File): Promise<ParseResult> {
     }
 
     const data = parseReport(text, bureau)
+    data.fileData = fileData
+    data.fileType = isPDF ? 'pdf' : 'txt'
     return { success: true, bureau, data }
   } catch (e: unknown) {
     return { success: false, bureau: null, error: e instanceof Error ? e.message : 'Unknown parse error' }
