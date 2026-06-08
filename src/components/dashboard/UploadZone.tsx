@@ -1,8 +1,9 @@
 'use client'
 
 import React from 'react'
-import { FileText, Upload, AlertTriangle, CheckCircle } from 'lucide-react'
+import { FileText, Upload, AlertTriangle, CheckCircle, Trash2, RotateCcw } from 'lucide-react'
 import { useCredit } from '@/lib/store/creditStore'
+import { Button } from '@/components/ui/button'
 import type { Bureau } from '@/types'
 
 const bureauConfig: Record<Bureau, { color: string; bg: string; border: string; lightBg: string }> = {
@@ -12,7 +13,7 @@ const bureauConfig: Record<Bureau, { color: string; bg: string; border: string; 
 }
 
 export function UploadZone() {
-  const { state, uploadFile } = useCredit()
+  const { state, uploadFile, removeReport, clearAll } = useCredit()
   const fileInputRef = React.useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = React.useState(false)
 
@@ -80,7 +81,12 @@ export function UploadZone() {
 
       {state.reports.length > 0 && (
         <div className="mt-4 space-y-2">
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Uploaded Reports</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Uploaded Reports</p>
+            <Button variant="ghost" size="sm" onClick={clearAll} className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20">
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Reset All
+            </Button>
+          </div>
           {state.reports.map(report => {
             const config = bureauConfig[report.bureau]
             return (
@@ -96,6 +102,13 @@ export function UploadZone() {
                   </p>
                 </div>
                 <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                <button
+                  onClick={() => removeReport(report.bureau)}
+                  className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                  title={`Remove ${report.bureau} report`}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             )
           })}
