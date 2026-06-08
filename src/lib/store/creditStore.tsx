@@ -168,7 +168,8 @@ function computeGlobalSummary(reports: BureauReport[], _mergedAccounts: MergedAc
 function persistLocal(reports: BureauReport[]): void {
   if (typeof window === 'undefined') return
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ reports }))
+    const clean = reports.map(({ fileData, ...rest }) => rest)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ reports: clean }))
   } catch { /* ignore */ }
 }
 
@@ -230,10 +231,11 @@ async function fetchServerReports(): Promise<BureauReport[]> {
 
 async function saveReportToServer(report: BureauReport): Promise<void> {
   try {
+    const { fileData, ...stripped } = report
     await fetch('/api/reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bureau: report.bureau, data: report }),
+      body: JSON.stringify({ bureau: report.bureau, data: stripped }),
     })
   } catch { /* ignore */ }
 }
