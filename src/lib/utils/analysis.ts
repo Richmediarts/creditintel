@@ -188,10 +188,12 @@ export function generateDisputeItems(
   return items
 }
 
-export function formatCurrency(amount: number): string {
+export function formatCurrency(amount: number | null | undefined): string {
+  if (amount == null || isNaN(amount)) return '$0.00'
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
 }
 
-export function formatPercentage(value: number): string {
+export function formatPercentage(value: number | null | undefined): string {
+  if (value == null || isNaN(value)) return '0.0%'
   return `${value.toFixed(1)}%`
 }
