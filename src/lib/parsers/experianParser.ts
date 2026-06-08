@@ -25,7 +25,7 @@ export function parseExperian(text: string): Omit<BureauReport, 'filename'> {
 
   const personalInfo = extractPersonalInfo(lines, deobfuscated)
   const accounts = extractAccounts(deobfuscated)
-  const inquiries: Inquiry[] = []
+  const inquiries = extractInquiries(deobfuscated)
   const publicRecords: PublicRecord[] = []
   const summary = computeSummary(accounts, inquiries, publicRecords)
 
@@ -277,6 +277,80 @@ function finalizeAccount(acc: Partial<Account>, isClosed: boolean): Account {
     dateFirstDelinquency: acc.dateFirstDelinquency,
     status,
   }
+}
+
+function extractInquiries(text: string): Inquiry[] {
+  const inquiries: Inquiry[] = []
+
+  const hardStart = text.search(/Hard\s+Inquiries/i)
+  const softStart = text.search(/Soft\s+Inquiries/i)
+  if (hardStart < 0 && softStart < 0) return inquiries
+
+  let hardSection = ''
+  let softSection = ''
+
+  if (hardStart >= 0) {
+    hardSection = softStart > hardStart ? text.slice(hardStart, softStart) : text.slice(hardStart)
+  }
+  if (softStart >= 0) {
+    softSection = text.slice(softStart)
+  }
+
+  const parseSection = (section: string, type: 'Hard' | 'Soft') => {
+    const lines = section.split('\n')
+    let i = 0
+    while (i < lines.length) {
+      const line = lines[i].trim()
+      if (!line || line.match(/^(Hard|Soft)\s+Inquiries/i)) { i++; continue }
+      if (line.match(/^No\s+(hard|soft)\s+inquiries/i)) break
+
+      // Check if this line looks like the start of a company name (all-caps, not an address)
+      if (/^[A-Z][A-Z\s.&]+$/.test(line) && line.length > 2 && !line.includes('PO BOX')) {
+        const nameLines: string[] = [line]
+        let j = i + 1
+        while (j < lines.length) {
+          const nl = lines[j].trim()
+          if (!nl) { j++; break }
+          if (nl.match(/^Inquired\s+on/i)) break
+          if (/^[A-Z][A-Z\s.&]+$/.test(nl) && nl.length > 2) {
+            nameLines.push(nl)
+            j++
+          } else break
+        }
+
+        const companyName = nameLines.join(' ').trim()
+
+        // Find "Inquired on" line
+        let dateStr = ''
+        for (let k = j; k < Math.min(j + 5, lines.length); k++) {
+          const dl = lines[k].trim()
+          if (dl.match(/^Inquired\s+on/i)) {
+            const dateLine = lines[k + 1]?.trim() || ''
+            const dateMatch = dateLine.match(/(\d{2}\/\d{2}\/\d{4})/)
+            if (dateMatch) dateStr = dateMatch[1]
+            break
+          }
+        }
+
+        if (companyName && dateStr) {
+          inquiries.push({
+            bureau: 'Experian' as Bureau,
+            creditorName: companyName,
+            date: dateStr,
+            type,
+          })
+        }
+        i = j
+      } else {
+        i++
+      }
+    }
+  }
+
+  if (hardSection) parseSection(hardSection, 'Hard')
+  if (softSection) parseSection(softSection, 'Soft')
+
+  return inquiries
 }
 
 function computeSummary(accounts: Account[], inquiries: Inquiry[], publicRecords: PublicRecord[]): BureauSummary {
