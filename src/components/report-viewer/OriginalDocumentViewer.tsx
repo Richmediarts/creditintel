@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { X, FileText, File, ChevronDown, ChevronUp } from 'lucide-react'
+import { File, ChevronDown, ChevronUp, Download } from 'lucide-react'
 import type { BureauReport } from '@/types'
 
 const bureauAccent: Record<string, { border: string; bg: string; text: string }> = {
@@ -10,9 +10,20 @@ const bureauAccent: Record<string, { border: string; bg: string; text: string }>
   TransUnion: { border: 'border-purple-500', bg: 'bg-purple-50 dark:bg-purple-900/20', text: 'text-purple-600 dark:text-purple-400' },
 }
 
+const bureauPdfPath: Record<string, string> = {
+  Experian: '/reports/experian.pdf',
+  Equifax: '/reports/equifax.pdf',
+  TransUnion: '/reports/transunion.pdf',
+}
+
 export function OriginalDocumentViewer({ report }: { report: BureauReport }) {
   const [expanded, setExpanded] = useState(false)
   const accent = bureauAccent[report.bureau] || bureauAccent['Experian']
+  const staticPdf = bureauPdfPath[report.bureau]
+  const hasPdf = report.fileType === 'pdf' && report.fileData
+  const hasStaticPdf = staticPdf !== undefined
+
+  const pdfSrc = hasPdf ? `data:application/pdf;base64,${report.fileData}` : staticPdf
 
   return (
     <div className={`rounded-lg border ${accent.border} ${accent.bg} overflow-hidden`}>
@@ -26,24 +37,31 @@ export function OriginalDocumentViewer({ report }: { report: BureauReport }) {
             Original {report.bureau} Report
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            {report.filename || 'Uploaded file'} &middot; {report.fileType?.toUpperCase() || 'DOCUMENT'}
+            {report.filename || 'Credit report'} &middot; PDF
           </p>
         </div>
+        {pdfSrc && !expanded && (
+          <a
+            href={pdfSrc}
+            download={`${report.bureau}-Credit-Report.pdf`}
+            onClick={e => e.stopPropagation()}
+            className="p-1.5 rounded-md hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+            title="Download PDF"
+          >
+            <Download className={`w-4 h-4 ${accent.text}`} />
+          </a>
+        )}
         {expanded ? <ChevronUp className="w-4 h-4 text-gray-400" /> : <ChevronDown className="w-4 h-4 text-gray-400" />}
       </button>
 
       {expanded && (
         <div className="border-t border-gray-200 dark:border-gray-700">
-          {report.fileType === 'pdf' && report.fileData ? (
+          {pdfSrc ? (
             <embed
-              src={`data:application/pdf;base64,${report.fileData}`}
+              src={pdfSrc}
               type="application/pdf"
               className="w-full h-[600px] md:h-[800px] rounded-b-lg"
             />
-          ) : report.fileData ? (
-            <pre className="p-4 text-xs leading-relaxed text-gray-700 dark:text-gray-300 overflow-auto max-h-[600px] md:max-h-[800px] font-mono whitespace-pre-wrap">
-              {atob(report.fileData)}
-            </pre>
           ) : report.rawText ? (
             <pre className="p-4 text-xs leading-relaxed text-gray-700 dark:text-gray-300 overflow-auto max-h-[600px] md:max-h-[800px] font-mono whitespace-pre-wrap">
               {report.rawText}
