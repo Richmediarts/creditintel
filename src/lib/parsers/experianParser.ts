@@ -9,6 +9,8 @@ const CHAR_MAP: Record<string, string> = {
   '\u01ea': 'Q',   // Ǫ → Q
   '\u1e3a': 'L',   // Ḻ → L
   '\u00cf': 'F',   // Ï → F
+  '\u00ab': '4',   // « → 4
+  '\u00ae': '8',   // ® → 8
 }
 
 function deobfuscate(text: string): string {
@@ -282,8 +284,10 @@ function finalizeAccount(acc: Partial<Account>, isClosed: boolean): Account {
 function extractInquiries(text: string): Inquiry[] {
   const inquiries: Inquiry[] = []
 
-  const hardStart = text.search(/Hard\s+Inquiries/i)
-  const softStart = text.search(/Soft\s+Inquiries/i)
+  const hardMatch = text.match(/^[Hh]ard\s+[Ii]nqui\w+\s*$/m)
+  const softMatch = text.match(/^[Ss]oft\s+[Ii]nqui\w+\s*$/m)
+  const hardStart = hardMatch ? hardMatch.index! : -1
+  const softStart = softMatch ? softMatch.index! : -1
   if (hardStart < 0 && softStart < 0) return inquiries
 
   let hardSection = ''
@@ -301,18 +305,18 @@ function extractInquiries(text: string): Inquiry[] {
     let i = 0
     while (i < lines.length) {
       const line = lines[i].trim()
-      if (!line || line.match(/^(Hard|Soft)\s+Inquiries/i)) { i++; continue }
-      if (line.match(/^No\s+(hard|soft)\s+inquiries/i)) break
+      if (!line || line.match(/^[Hh]ard\s+[Ii]nqui|^[Ss]oft\s+[Ii]nqui/i)) { i++; continue }
+      if (line.match(/^No\s+(hard|soft)\s+inquir/i)) break
 
       // Check if this line looks like the start of a company name (all-caps, not an address)
-      if (/^[A-Z][A-Z\s.&]+$/.test(line) && line.length > 2 && !line.includes('PO BOX')) {
+      if (/^[A-Z][A-Z\d\s.&\/\\-]+$/.test(line) && line.length > 3 && !line.match(/PO\s*BOX|,\s*[A-Z]{2}/i)) {
         const nameLines: string[] = [line]
         let j = i + 1
         while (j < lines.length) {
           const nl = lines[j].trim()
           if (!nl) { j++; break }
-          if (nl.match(/^Inquired\s+on/i)) break
-          if (/^[A-Z][A-Z\s.&]+$/.test(nl) && nl.length > 2) {
+          if (nl.match(/^Inqui\w+\s+on/i)) break
+          if (/^[A-Z][A-Z\d\s.&\/\\-]+$/.test(nl) && nl.length > 2) {
             nameLines.push(nl)
             j++
           } else break
@@ -324,7 +328,7 @@ function extractInquiries(text: string): Inquiry[] {
         let dateStr = ''
         for (let k = j; k < Math.min(j + 5, lines.length); k++) {
           const dl = lines[k].trim()
-          if (dl.match(/^Inquired\s+on/i)) {
+          if (dl.match(/^Inqui\w+\s+on/i)) {
             const dateLine = lines[k + 1]?.trim() || ''
             const dateMatch = dateLine.match(/(\d{2}\/\d{2}\/\d{4})/)
             if (dateMatch) dateStr = dateMatch[1]
