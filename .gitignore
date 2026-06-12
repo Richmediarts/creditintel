@@ -6,3 +6,6 @@ tsconfig.tsbuildinfo
 next-env.d.ts
 data/
 .vercel
+*.pdf
+*.docx
+.~lock.*

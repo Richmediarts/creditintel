@@ -45,10 +45,11 @@ function LoginForm() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4 relative">
       <button
         onClick={toggleDarkMode}
-        className="absolute top-4 right-4 p-3 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+        className="absolute top-4 right-4 flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-300 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shadow-sm"
         aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
       >
-        {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+        {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        <span className="hidden sm:inline">{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
       </button>
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
