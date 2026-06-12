@@ -48,7 +48,7 @@ export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mob
 
   const handleLogout = async () => {
     await logout()
-    router.push('/login')
+    router.push('/')
   }
 
   return (
