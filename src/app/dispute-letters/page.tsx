@@ -137,6 +137,42 @@ export default function DisputeLettersPage() {
 
           <Card>
             <CardContent className="p-4">
+              <CardTitle className="mb-3">Where to Send Letters</CardTitle>
+              <div className="space-y-3 text-sm">
+                <div className="p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <p className="font-semibold text-blue-800 dark:text-blue-300 mb-0.5">Experian</p>
+                  <p className="text-gray-600 dark:text-gray-400 text-xs leading-relaxed">
+                    Experian Dispute Department<br />
+                    P.O. Box 4500<br />
+                    Allen, TX 75013
+                  </p>
+                </div>
+                <div className="p-2.5 bg-green-50 dark:bg-emerald-900/20 rounded-lg border border-green-200 dark:border-emerald-800">
+                  <p className="font-semibold text-green-800 dark:text-emerald-300 mb-0.5">Equifax</p>
+                  <p className="text-gray-600 dark:text-gray-400 text-xs leading-relaxed">
+                    Equifax Information Services LLC<br />
+                    P.O. Box 740256<br />
+                    Atlanta, GA 30374-0256
+                  </p>
+                </div>
+                <div className="p-2.5 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                  <p className="font-semibold text-purple-800 dark:text-purple-300 mb-0.5">TransUnion</p>
+                  <p className="text-gray-600 dark:text-gray-400 text-xs leading-relaxed">
+                    TransUnion LLC<br />
+                    Consumer Dispute Center<br />
+                    P.O. Box 2000<br />
+                    Chester, PA 19016-2000
+                  </p>
+                </div>
+              </div>
+              <p className="mt-3 text-[10px] text-gray-400 dark:text-gray-500 leading-relaxed">
+                Send all letters via <strong>Certified Mail Return Receipt Requested</strong> via USPS for proof of delivery.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-4">
               <CardTitle className="mb-3">FCRA Citations</CardTitle>
               <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
                 <p>• FCRA §604 - Permissible Purpose</p>
