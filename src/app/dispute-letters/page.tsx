@@ -7,7 +7,7 @@ import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useCredit } from '@/lib/store/creditStore'
-import { generateRevocationLetter, generateValidationRequest, generateCombinedDisputeLetter } from '@/lib/utils/disputeLetters'
+import { generateRevocationLetter, generateValidationRequest, generateCombinedDisputeLetter, letterTextToDocx } from '@/lib/utils/disputeLetters'
 
 export default function DisputeLettersPage() {
   const { state } = useCredit()
@@ -16,6 +16,7 @@ export default function DisputeLettersPage() {
   const [consumerName, setConsumerName] = useState('Richard Johnson')
   const [consumerAddress, setConsumerAddress] = useState('52 BIRCH RIVER XING, DALLAS, GA 30132')
   const [copied, setCopied] = useState(false)
+  const [downloadingDocx, setDownloadingDocx] = useState(false)
   const [letterType, setLetterType] = useState<'dispute' | 'revocation' | 'validation'>('dispute')
 
   if (!creditData) {
@@ -57,6 +58,21 @@ export default function DisputeLettersPage() {
     a.download = `dispute-letter-${Date.now()}.txt`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  const handleDownloadDocx = async () => {
+    setDownloadingDocx(true)
+    try {
+      const blob = await letterTextToDocx(letterContent)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `dispute-letter-${Date.now()}.docx`
+      a.click()
+      URL.revokeObjectURL(url)
+    } finally {
+      setDownloadingDocx(false)
+    }
   }
 
   return (
@@ -151,7 +167,10 @@ export default function DisputeLettersPage() {
                     {copied ? 'Copied' : 'Copy'}
                   </Button>
                   <Button variant="secondary" size="sm" onClick={handleDownload}>
-                    <Download className="w-4 h-4" /> Download
+                    <Download className="w-4 h-4" /> .txt
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={handleDownloadDocx} disabled={downloadingDocx}>
+                    <Download className="w-4 h-4" /> {downloadingDocx ? '...' : '.docx'}
                   </Button>
                 </div>
               </div>

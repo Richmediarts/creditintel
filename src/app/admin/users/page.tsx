@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { UserPlus, Trash2, Shield, ShieldOff } from 'lucide-react'
+import { UserPlus, Trash2, ShieldOff, KeyRound } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +19,10 @@ export default function AdminUsersPage() {
   const [role, setRole] = useState<'member' | 'admin'>('member')
   const [error, setError] = useState('')
   const [adding, setAdding] = useState(false)
+  const [changingPw, setChangingPw] = useState<number | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [pwError, setPwError] = useState('')
+  const [pwUpdating, setPwUpdating] = useState(false)
 
   const fetchUsers = async () => {
     const res = await fetch('/api/users')
@@ -58,6 +62,28 @@ export default function AdminUsersPage() {
     if (!confirm('Delete this user and all their disputes?')) return
     const res = await fetch(`/api/users/${userId}`, { method: 'DELETE' })
     if (res.ok) fetchUsers()
+  }
+
+  const handleChangePassword = async (userId: number) => {
+    setPwError('')
+    if (!newPassword || newPassword.length < 6) {
+      setPwError('Password must be at least 6 characters')
+      return
+    }
+    setPwUpdating(true)
+    const res = await fetch(`/api/users/${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: newPassword }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      setPwError(data.error || 'Failed to update password')
+    } else {
+      setChangingPw(null)
+      setNewPassword('')
+    }
+    setPwUpdating(false)
   }
 
   if (!currentUser || currentUser.role !== 'admin') {
@@ -127,25 +153,59 @@ export default function AdminUsersPage() {
           ) : (
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {users.map(u => (
-                <div key={u.id} className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{u.name[0]}</span>
+                <div key={u.id} className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{u.name[0]}</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{u.name}</p>
+                        <p className="text-xs text-gray-500">{u.email}</p>
+                      </div>
+                      <Badge variant={u.role === 'admin' ? 'info' : 'default'}>{u.role}</Badge>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{u.name}</p>
-                      <p className="text-xs text-gray-500">{u.email}</p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setChangingPw(changingPw === u.id ? null : u.id)
+                          setNewPassword('')
+                          setPwError('')
+                        }}
+                        className="text-gray-400 hover:text-blue-500 transition-colors"
+                        title="Change password"
+                      >
+                        <KeyRound className="w-4 h-4" />
+                      </button>
+                      {u.id !== currentUser.id && (
+                        <button
+                          onClick={() => handleDelete(u.id)}
+                          className="text-gray-400 hover:text-red-500 transition-colors"
+                          title="Remove user"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
-                    <Badge variant={u.role === 'admin' ? 'info' : 'default'}>{u.role}</Badge>
                   </div>
-                  {u.id !== currentUser.id && (
-                    <button
-                      onClick={() => handleDelete(u.id)}
-                      className="text-gray-400 hover:text-red-500 transition-colors"
-                      title="Remove user"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                  {changingPw === u.id && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        placeholder="New password"
+                        className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      />
+                      <button
+                        onClick={() => handleChangePassword(u.id)}
+                        disabled={pwUpdating}
+                        className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400"
+                      >
+                        {pwUpdating ? 'Saving...' : 'Save'}
+                      </button>
+                      {pwError && <p className="text-xs text-red-500">{pwError}</p>}
+                    </div>
                   )}
                 </div>
               ))}

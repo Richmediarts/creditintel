@@ -305,6 +305,13 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
 
       if (user) {
         await saveReportToServer(data)
+        // Enrich with authoritative seed data
+        try {
+          await fetch('/api/reports/enrich', { method: 'POST' })
+          // Re-fetch from server so UI shows enriched data immediately
+          const serverReports = await fetchServerReports()
+          dispatch({ type: 'REPLACE_STATE', payload: { reports: serverReports, creditData: null } })
+        } catch { /* non-critical; seed will apply on next server load */ }
       }
     } catch (e: unknown) {
       dispatch({ type: 'SET_ERROR', payload: e instanceof Error ? e.message : 'Upload failed' })

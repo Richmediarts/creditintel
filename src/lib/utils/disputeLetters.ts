@@ -1,3 +1,4 @@
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx'
 import type { Bureau, DisputeItem, BureauReport } from '@/types'
 
 interface LetterContent {
@@ -141,7 +142,7 @@ export function generateCombinedDisputeLetter(
     letter += `${letterContent.body}\n\n`
   }
 
-  letter += `\nEScalATION NOTICE:\n`
+  letter += `\nESCALATION NOTICE:\n`
   letter += `This dispute is sent pursuant to FCRA §611(a). Failure to comply within 30 days will result in:\n`
   letter += `- CFPB Complaint (consumerfinance.gov)\n`
   letter += `- FTC Complaint (ftc.gov)\n`
@@ -149,4 +150,124 @@ export function generateCombinedDisputeLetter(
   letter += `- Legal action under FCRA §§616-617 (statutory damages $1,000 per violation)\n`
 
   return letter
+}
+
+const FONT = 'Times New Roman'
+const FONT_SIZE = 22
+
+type HeadingValue = (typeof HeadingLevel)[keyof typeof HeadingLevel]
+type AlignValue = (typeof AlignmentType)[keyof typeof AlignmentType]
+
+function heading(text: string, level: HeadingValue = HeadingLevel.HEADING_1, align: AlignValue = AlignmentType.CENTER) {
+  const sizes: Record<string, number> = {
+    [HeadingLevel.HEADING_1]: 52,
+    [HeadingLevel.HEADING_2]: 44,
+    [HeadingLevel.HEADING_3]: 28,
+  }
+  const size = sizes[level] || 22
+  return new Paragraph({
+    heading: level,
+    alignment: align,
+    spacing: { before: 240, after: 120 },
+    children: [new TextRun({ text, font: FONT, size, bold: true })],
+  })
+}
+
+function body(text: string, opts: { bold?: boolean; indent?: number; spacing?: { before?: number; after?: number } } = {}) {
+  return new Paragraph({
+    alignment: AlignmentType.JUSTIFIED,
+    spacing: { before: opts.spacing?.before ?? 0, after: opts.spacing?.after ?? 120 },
+    indent: opts.indent ? { left: opts.indent } : undefined,
+    children: [new TextRun({ text, font: FONT, size: FONT_SIZE, bold: opts.bold })],
+  })
+}
+
+function bullet(text: string, level: number = 0) {
+  return new Paragraph({
+    bullet: { level },
+    spacing: { before: 60, after: 60 },
+    children: [new TextRun({ text, font: FONT, size: FONT_SIZE })],
+  })
+}
+
+function line(text: string) {
+  return new Paragraph({
+    spacing: { before: 0, after: 0 },
+    children: [new TextRun({ text, font: FONT, size: FONT_SIZE })],
+  })
+}
+
+export async function letterTextToDocx(letterText: string): Promise<Blob> {
+  const lines = letterText.split('\n')
+  const children: Paragraph[] = []
+
+  for (const raw of lines) {
+    const t = raw.trim()
+    if (!t && children.length === 0) continue
+    if (!t) { children.push(new Paragraph({ spacing: { before: 240, after: 0 }, children: [] })); continue }
+
+    // Title line (all caps, first line)
+    if (children.length === 0 || t === t.toUpperCase() && t.length > 5) {
+      const isShortHeader = t.length < 60
+      if (isShortHeader) {
+        children.push(heading(t, children.length < 3 ? HeadingLevel.HEADING_1 : HeadingLevel.HEADING_2,
+          children.length < 3 ? AlignmentType.CENTER : AlignmentType.LEFT))
+        continue
+      }
+    }
+
+    // Section header like "--- Experian ---"
+    if (t.startsWith('---')) {
+      children.push(heading(t.replace(/---/g, '').trim(), HeadingLevel.HEADING_2, AlignmentType.LEFT))
+      continue
+    }
+
+    // Numbered list item
+    if (t.match(/^\d+\.\s/)) {
+      children.push(new Paragraph({
+        numbering: { reference: 'numbered-list', level: 0 },
+        spacing: { before: 60, after: 60 },
+        children: [new TextRun({ text: t.replace(/^\d+\.\s*/, ''), font: FONT, size: FONT_SIZE })],
+      }))
+      continue
+    }
+
+    // Bullet item
+    if (t.startsWith('- ') || t.startsWith('-')) {
+      children.push(bullet(t.replace(/^-\s*/, '')))
+      continue
+    }
+
+    // Bold header lines (all caps, short)
+    if (t === t.toUpperCase() && t.length > 3 && t.length < 60) {
+      children.push(body(t, { bold: true, spacing: { before: 200, after: 80 } }))
+      continue
+    }
+
+    // Consumer info lines
+    if (t.startsWith('Consumer:') || t.startsWith('Address:') || t.startsWith('Date:')) {
+      children.push(body(t, { spacing: { before: 40, after: 40 } }))
+      continue
+    }
+
+    // Default body text
+    children.push(body(t))
+  }
+
+  const doc = new Document({
+    styles: {
+      default: {
+        document: { run: { font: FONT, size: FONT_SIZE } },
+      },
+    },
+    numbering: {
+      config: [{
+        reference: 'numbered-list',
+        levels: [{ level: 0, format: 'decimal', text: '%1.', alignment: 'left' }],
+      }],
+    },
+    sections: [{ children }],
+  })
+
+  return await Packer.toBlob(doc)
 }

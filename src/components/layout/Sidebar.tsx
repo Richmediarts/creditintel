@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Upload, FileText, BarChart3, GitCompare,
   AlertTriangle, Search, Brain, Mail, TrendingUp, Download,
   Sun, Moon, Menu, X, ChevronLeft, ChevronRight,
-  Gavel, Shield, LogIn, LogOut, User, Activity,
+  Gavel, Shield, LogIn, LogOut, User, Activity, HelpCircle,
 } from 'lucide-react'
 import { useCredit } from '@/lib/store/creditStore'
 import { useAuth } from '@/lib/auth-context'
@@ -36,6 +36,7 @@ const navItems = [
   { href: '/fico-scores', label: 'FICO® Scores', icon: Activity },
   { href: '/score-simulator', label: 'Score Simulator', icon: TrendingUp },
   { href: '/export', label: 'Export Center', icon: Download },
+  { href: '/help', label: 'Help Guide', icon: HelpCircle },
 ]
 
 export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mobileOpen, setMobileOpen }: SidebarProps) {

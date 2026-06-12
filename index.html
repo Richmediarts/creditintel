@@ -1,12 +1,495 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CreditIntel</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Credit Report Comparison - Richard L. Johnson</title>
+<style>
+  :root {
+    --tu: #005b9f;
+    --tu-bg: #e8f0fe;
+    --ex: #0f7c3f;
+    --ex-bg: #e6f4ea;
+    --eq: #e30613;
+    --eq-bg: #fce8ea;
+    --warn: #d93025;
+    --ok: #1e8e3e;
+    --muted: #5f6368;
+    --border: #dadce0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f1f3f4;
+    color: #202124;
+    padding: 24px;
+    line-height: 1.5;
+  }
+  .container { max-width: 1400px; margin: 0 auto; }
+
+  h1 {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+
+  .bureau-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .bureau-col {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .bureau-col h2 {
+    font-size: 18px;
+    font-weight: 600;
+    padding-bottom: 10px;
+    border-bottom: 3px solid;
+    margin-bottom: 14px;
+  }
+  .bureau-col.tu h2 { border-color: var(--tu); color: var(--tu); }
+  .bureau-col.ex h2 { border-color: var(--ex); color: var(--ex); }
+  .bureau-col.eq h2 { border-color: var(--eq); color: var(--eq); }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .summary-card {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .summary-card .num {
+    font-size: 22px;
+    font-weight: 700;
+    display: block;
+  }
+  .summary-card .lbl {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+  .summary-card.warn .num { color: var(--warn); }
+  .summary-card.ok .num { color: var(--ok); }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--muted);
+    margin: 16px 0 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: #fff;
+  }
+
+  .account-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px solid #f1f3f4;
+    font-size: 13px;
+    gap: 6px;
+  }
+  .account-item:last-child { border-bottom: none; }
+  .account-name { font-weight: 500; flex: 1; min-width: 0; }
+  .account-bal {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .badge-derog { background: #fce8ea; color: var(--warn); }
+  .badge-ok { background: #e6f4ea; color: var(--ok); }
+  .badge-warn { background: #fef7e0; color: #b06000; }
+  .badge-chargeoff { background: #fce8ea; color: #c5221f; font-weight: 700; }
+  .badge-late { background: #fce8ea; color: #d93025; }
+  .badge-settled { background: #fef7e0; color: #b06000; }
+
+  .derog-item {
+    padding: 6px 0;
+    border-bottom: 1px solid #f1f3f4;
+    font-size: 13px;
+  }
+  .derog-item:last-child { border-bottom: none; }
+  .derog-name { font-weight: 500; }
+  .derog-detail { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+  .inquiry-count {
+    font-size: 24px;
+    font-weight: 700;
+    text-align: center;
+    padding: 8px 0;
+  }
+  .inquiry-list {
+    font-size: 12px;
+    color: var(--muted);
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  .inquiry-list::-webkit-scrollbar { width: 4px; }
+  .inquiry-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  @media (max-width: 900px) {
+    .bureau-row { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr 1fr 1fr; }
+  }
+
+  .sub-accounts { padding-left: 14px; }
+  .sub-accounts .account-item { font-size: 12px; padding: 3px 0; }
+  .sub-accounts .account-item .account-name { font-weight: 400; }
+</style>
 </head>
 <body>
-    <h1>CreditIntel</h1>
-    <p>Coming soon.</p>
+<div class="container">
+  <h1>Credit Report Comparison</h1>
+  <p class="subtitle">Richard L. Johnson &bull; Reports as of June 2026</p>
+
+  <div class="bureau-row">
+    <!-- ===== TransUnion ===== -->
+    <div class="bureau-col tu">
+      <h2>TransUnion</h2>
+      <div class="summary-grid">
+        <div class="summary-card warn"><span class="num">34</span><span class="lbl">Accounts</span></div>
+        <div class="summary-card warn"><span class="num">3</span><span class="lbl">Derogatory</span></div>
+        <div class="summary-card warn"><span class="num">10</span><span class="lbl">Hard Inq</span></div>
+      </div>
+
+      <div class="section-title">Open Accounts</div>
+
+      <div class="account-item"><span class="account-name">Apple Card / GS Bank USA</span><span class="account-bal">$505 <span class="badge badge-late">30d late</span></span></div>
+      <div class="account-item"><span class="account-name">Bridgecrest (Auto)</span><span class="account-bal">$3,469</span></div>
+      <div class="account-item"><span class="account-name">Capital One (5156****) FLEX</span><span class="account-bal">$471</span></div>
+      <div class="account-item"><span class="account-name">Capital One (5523****) CC</span><span class="account-bal">$284</span></div>
+      <div class="account-item"><span class="account-name">Capital One (5178*****) CC</span><span class="account-bal">$503</span></div>
+      <div class="account-item"><span class="account-name">Capital One (5178*****) CC</span><span class="account-bal">$762</span></div>
+      <div class="account-item"><span class="account-name">Capital One (5178*****) CC</span><span class="account-bal">$600</span></div>
+      <div class="account-item"><span class="account-name">Capital One Auto (6201***)</span><span class="account-bal">$16,116</span></div>
+      <div class="account-item"><span class="account-name">Credit One Bank</span><span class="account-bal">$146</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed / Nelnet (active)</span><span class="account-bal">$99,695 <span class="badge badge-ok">Deferred</span></span></div>
+      <div class="account-item"><span class="account-name">Klarna (2XZLOG***) BNPL</span><span class="account-bal">$132</span></div>
+      <div class="account-item"><span class="account-name">Klarna (5MUTAI***) BNPL</span><span class="account-bal">$134</span></div>
+      <div class="account-item"><span class="account-name">Klarna (EEVYD***) BNPL</span><span class="account-bal">$97</span></div>
+      <div class="account-item"><span class="account-name">Klarna (unnamed) BNPL</span><span class="account-bal">$39</span></div>
+      <div class="account-item"><span class="account-name">Mission Lane / Tab Bank</span><span class="account-bal">$890</span></div>
+      <div class="account-item"><span class="account-name">PennyMac Loan Services (Mortgage)</span><span class="account-bal">$224,964</span></div>
+      <div class="account-item"><span class="account-name">PNC Bank Card Services</span><span class="account-bal">$455</span></div>
+      <div class="account-item"><span class="account-name">SYNCB/Amazon PLCC</span><span class="account-bal">$391</span></div>
+      <div class="account-item"><span class="account-name">SYNCB/PPC (PayPal)</span><span class="account-bal">$1,124</span></div>
+
+      <div class="section-title">Closed / Paid Accounts</div>
+
+      <div class="account-item"><span class="account-name">1st Franklin Financial <span class="badge badge-settled">Settled</span></span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Ally Financial (Auto)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Capital One Auto (6204***) (old)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed / Nelnet (90000043239***)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed / Nelnet (90000043239***) 2nd</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed / Nelnet (90000058273***)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed / Nelnet (90000059601***)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed / Nelnet (90000060609***)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed / Nelnet (90000070487***)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed / Nelnet (90000040699***) oldest</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Great American Finance <span class="badge badge-chargeoff">CHARGE-OFF</span></span><span class="account-bal">$5,541</span></div>
+      <div class="account-item"><span class="account-name">Klarna (CFZLCI***) BNPL</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Klarna (5YYCEI***) BNPL</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Webbank/Avant <span class="badge badge-chargeoff">CHARGE-OFF</span></span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Westlake Financial Services (Auto)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+
+      <div class="section-title">Derogatory Items</div>
+      <div class="derog-item">
+        <div class="derog-name">Great American Finance <span class="badge badge-chargeoff">CHARGE-OFF</span></div>
+        <div class="derog-detail">$5,541 balance &bull; Closed 08/2022 &bull; Removes 04/2028</div>
+      </div>
+      <div class="derog-item">
+        <div class="derog-name">Webbank/Avant <span class="badge badge-chargeoff">CHARGE-OFF</span></div>
+        <div class="derog-detail">$0 balance &bull; Sold/Charged off &bull; Removes 04/2032</div>
+      </div>
+      <div class="derog-item">
+        <div class="derog-name">1st Franklin Financial <span class="badge badge-settled">SETTLED</span></div>
+        <div class="derog-detail">Paid for less than full balance</div>
+      </div>
+
+      <div class="section-title">Inquiries <span style="font-weight:700;color:var(--warn);">10 hard</span></div>
+      <div class="inquiry-list">
+        CBINDIGO (05/23/2026)<br>
+        Credit One Bank (11/18/2025)<br>
+        Wells Fargo Card (10/17/2025)<br>
+        OneMain Financial (07/14/2025)<br>
+        OneMain Financial (03/08/2025)<br>
+        Capital One Auto (03/09/2025)<br>
+        Capital One Auto (03/07/2025)<br>
+        Capital One Auto (03/06/2025)<br>
+        Rocket Mortgage / Xactus (02/03/2025)<br>
+        Rocket Mortgage / Xactus (01/23/2025)<br>
+        PennyMac / Credco (01/28/2025)<br>
+        Service Finance (11/02/2024)<br>
+        Synchrony Bank / SB Branch (08/31/2024)<br>
+        PayPal / SyncbPaypal (08/04/2024)
+      </div>
+    </div>
+
+    <!-- ===== Experian ===== -->
+    <div class="bureau-col ex">
+      <h2>Experian</h2>
+      <div class="summary-grid">
+        <div class="summary-card warn"><span class="num">35</span><span class="lbl">Accounts</span></div>
+        <div class="summary-card warn"><span class="num">4</span><span class="lbl">Derogatory</span></div>
+        <div class="summary-card warn"><span class="num">19</span><span class="lbl">Inquiries</span></div>
+      </div>
+
+      <div class="section-title">Open Accounts</div>
+
+      <div class="account-item"><span class="account-name">Apple Card / GS Bank USA</span><span class="account-bal">$505 <span class="badge badge-late">Neg</span></span></div>
+      <div class="account-item"><span class="account-name">Bridgecrest (Auto)</span><span class="account-bal">$3,121</span></div>
+      <div class="account-item"><span class="account-name">Capital One</span><span class="account-bal">$471</span></div>
+      <div class="account-item"><span class="account-name">Capital One</span><span class="account-bal">$284</span></div>
+      <div class="account-item"><span class="account-name">Capital One</span><span class="account-bal">$503</span></div>
+      <div class="account-item"><span class="account-name">Capital One</span><span class="account-bal">$762</span></div>
+      <div class="account-item"><span class="account-name">Capital One</span><span class="account-bal">$600</span></div>
+      <div class="account-item"><span class="account-name">CapOne Auto</span><span class="account-bal">$16,116</span></div>
+      <div class="account-item"><span class="account-name">CHKG/Allstate (self-reported)</span><span class="account-bal">$0</span></div>
+      <div class="account-item"><span class="account-name">Credit One Bank NA</span><span class="account-bal">$146</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed / Nelnet</span><span class="account-bal">$100,183 <span class="badge badge-ok">Deferred</span></span></div>
+      <div class="account-item"><span class="account-name">Klarna Inc (Nov 2025)</span><span class="account-bal">$132</span></div>
+      <div class="account-item"><span class="account-name">Klarna Inc (Jan 2026)</span><span class="account-bal">$148</span></div>
+      <div class="account-item"><span class="account-name">Klarna Inc (Dec 2025)</span><span class="account-bal">$58</span></div>
+      <div class="account-item"><span class="account-name">Klarna Inc (Dec 2025)</span><span class="account-bal">$114</span></div>
+      <div class="account-item"><span class="account-name">Mission Lane / Tab Bank</span><span class="account-bal">$890</span></div>
+      <div class="account-item"><span class="account-name">PennyMac Loan Services</span><span class="account-bal">$224,964</span></div>
+      <div class="account-item"><span class="account-name">PNC Bank NA</span><span class="account-bal">$455</span></div>
+      <div class="account-item"><span class="account-name">SYNCB/Amazon</span><span class="account-bal">$391</span></div>
+      <div class="account-item"><span class="account-name">SYNCB/PPC (PayPal)</span><span class="account-bal">$1,124</span></div>
+
+      <div class="section-title">Closed Accounts</div>
+
+      <div class="account-item"><span class="account-name">Ally Financial (Auto)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">CapOne Auto (old)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Concord Servicing <span class="badge badge-late">30/60/90 late</span></span><span class="account-bal">$0</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed / Nelnet (Aug 2021)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed / Nelnet (Oct 2009)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed / Nelnet (Nov 2022 signer)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed / Nelnet (Oct 2009)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed / Nelnet (Sep 2020)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed / Nelnet (Sep 2019)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed / Nelnet (Jul 2000)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Great American Finance <span class="badge badge-chargeoff">CHARGE-OFF</span></span><span class="account-bal">$5,541</span></div>
+      <div class="account-item"><span class="account-name">Klarna Inc (Sep 2025)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Klarna Inc (Nov 2025)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Westgate Resorts <span class="badge badge-chargeoff">CHARGE-OFF</span></span><span class="account-bal">$0</span></div>
+      <div class="account-item"><span class="account-name">Westlake Financial Svc (Auto)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+
+      <div class="section-title">Derogatory Items</div>
+      <div class="derog-item">
+        <div class="derog-name">Great American Finance <span class="badge badge-chargeoff">CHARGE-OFF</span></div>
+        <div class="derog-detail">$5,541 past due &bull; $3,500+ written off &bull; Closed</div>
+      </div>
+      <div class="derog-item">
+        <div class="derog-name">Westgate Resorts Ltd <span class="badge badge-chargeoff">CHARGE-OFF</span></div>
+        <div class="derog-detail">$20,186 written off &bull; Paid in settlement</div>
+      </div>
+      <div class="derog-item">
+        <div class="derog-name">Concord Servicing <span class="badge badge-late">30/60/90 LATE</span></div>
+        <div class="derog-detail">Closed at creditor's request &bull; Multiple late payments</div>
+      </div>
+      <div class="derog-item">
+        <div class="derog-name">Apple Card <span class="badge badge-late">30d LATE</span></div>
+        <div class="derog-detail">30-day late in history</div>
+      </div>
+
+      <div class="section-title">Inquiries <span style="font-weight:700;color:var(--warn);">19 total</span></div>
+      <div class="inquiry-list">
+        First Tech FCU (03/22/2026)<br>
+        JPMCB Card (01/11/2026)<br>
+        JPMCB Card (11/25/2025)<br>
+        WFBNA Card (10/04/2025)<br>
+        OneMain (07/14/2025)<br>
+        First Tech FCU (06/03/2025)<br>
+        Ally Financial (03/09/2025)<br>
+        CapOne Auto (03/09/2025)<br>
+        Exeter Finance (03/09/2025)<br>
+        Santander Consumer USA (03/09/2025)<br>
+        700 Credit/Motor Cars (03/07/2025)<br>
+        CapOne Auto (03/07/2025)<br>
+        700 Credit/Auto Barn L (03/06/2025)<br>
+        CapOne Auto (03/06/2025)<br>
+        Rocket Mortgage / Xactus (02/03/2025)<br>
+        Credco/CoreLogic (01/28/2025)<br>
+        Rocket Mortgage / Xactus (01/23/2025)<br>
+        Exeter Finance (09/03/2024)<br>
+        PNC Bank (06/10/2024)
+      </div>
+    </div>
+
+    <!-- ===== Equifax ===== -->
+    <div class="bureau-col eq">
+      <h2>Equifax</h2>
+      <div class="summary-grid">
+        <div class="summary-card warn"><span class="num">29</span><span class="lbl">Accounts</span></div>
+        <div class="summary-card warn"><span class="num">4</span><span class="lbl">Derogatory</span></div>
+        <div class="summary-card ok"><span class="num">1</span><span class="lbl">Inquiry</span></div>
+      </div>
+
+      <div class="section-title">Open Accounts</div>
+
+      <div class="account-item"><span class="account-name">Apple Card / GS Bank</span><span class="account-bal">$505</span></div>
+      <div class="account-item"><span class="account-name">Bridgecrest Credit (Auto)</span><span class="account-bal">$3,469</span></div>
+      <div class="account-item"><span class="account-name">Capital One Bank (10/2023)</span><span class="account-bal">$290</span></div>
+      <div class="account-item"><span class="account-name">Capital One Bank (09/2022)</span><span class="account-bal">$494</span></div>
+      <div class="account-item"><span class="account-name">Capital One Bank (03/2020)</span><span class="account-bal">$762</span></div>
+      <div class="account-item"><span class="account-name">Capital One Bank (11/2018)</span><span class="account-bal">$600</span></div>
+      <div class="account-item"><span class="account-name">Capital One Bank (03/2018)</span><span class="account-bal">$503</span></div>
+      <div class="account-item"><span class="account-name">Capital One Auto Fin</span><span class="account-bal">$16,313</span></div>
+      <div class="account-item"><span class="account-name">Credit One Bank</span><span class="account-bal">$85</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed / Nelnet</span><span class="account-bal">$99,695 <span class="badge badge-ok">Deferred</span></span></div>
+      <div class="account-item"><span class="account-name">Mission Lane / Tab Bank</span><span class="account-bal">$890</span></div>
+      <div class="account-item"><span class="account-name">PennyMac Loan Services</span><span class="account-bal">$224,964</span></div>
+      <div class="account-item"><span class="account-name">PNC Bank (Auth User)</span><span class="account-bal">$455</span></div>
+      <div class="account-item"><span class="account-name">SYNCB/Amazon PLCC</span><span class="account-bal">$391</span></div>
+      <div class="account-item"><span class="account-name">SYNCB/PPC (PayPal)</span><span class="account-bal">$1,124</span></div>
+
+      <div class="section-title">Closed Accounts</div>
+
+      <div class="account-item"><span class="account-name">1st Franklin Financial <span class="badge badge-settled">Settled</span></span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Ally Financial (Auto)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Capital One Auto (old)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed (10/2009) $4k</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed (10/2009) $2,334</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Dept of Ed (07/2000) $5,036</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Great American Finance <span class="badge badge-chargeoff">CHARGE-OFF</span></span><span class="account-bal">$5,541</span></div>
+      <div class="account-item"><span class="account-name">Avant/Webbank <span class="badge badge-chargeoff">CHARGE-OFF</span></span><span class="account-bal">$835</span></div>
+      <div class="account-item"><span class="account-name">Westgate Resorts <span class="badge badge-chargeoff">CHARGE-OFF</span></span><span class="account-bal badge badge-ok">Paid $0</span></div>
+      <div class="account-item"><span class="account-name">Westlake Service (Auto)</span><span class="account-bal badge badge-ok">Paid $0</span></div>
+
+      <div class="section-title">Derogatory Items</div>
+      <div class="derog-item">
+        <div class="derog-name">Great American Finance <span class="badge badge-chargeoff">CHARGE-OFF</span></div>
+        <div class="derog-detail">$5,541 balance &bull; Bad debt/collection &bull; 24mo of CO status</div>
+      </div>
+      <div class="derog-item">
+        <div class="derog-name">Avant/Webbank <span class="badge badge-chargeoff">CHARGE-OFF</span></div>
+        <div class="derog-detail">$835 balance &bull; Bad debt/collection &bull; 90+/CO in 2026</div>
+      </div>
+      <div class="derog-item">
+        <div class="derog-name">Westgate Resorts <span class="badge badge-chargeoff">CHARGE-OFF</span></div>
+        <div class="derog-detail">$0 &bull; Paid charge-off &bull; Joint account</div>
+      </div>
+      <div class="derog-item">
+        <div class="derog-name">1st Franklin <span class="badge badge-settled">SETTLED</span></div>
+        <div class="derog-detail">Paid for less than full balance</div>
+      </div>
+
+      <div class="section-title">Inquiries <span style="font-weight:700;color:var(--ok);">1 total</span></div>
+      <div class="inquiry-list">
+        US Department of Education (05/31/2025)
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Cross-Bureau Summary ===== -->
+  <div style="background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+    <h2 style="font-size:18px;font-weight:600;margin-bottom:12px;">Cross-Bureau Summary</h2>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead>
+        <tr style="border-bottom:2px solid var(--border);">
+          <th style="text-align:left;padding:8px 4px;">Item</th>
+          <th style="text-align:center;padding:8px 4px;color:var(--tu);">TransUnion</th>
+          <th style="text-align:center;padding:8px 4px;color:var(--ex);">Experian</th>
+          <th style="text-align:center;padding:8px 4px;color:var(--eq);">Equifax</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid #f1f3f4;">
+          <td style="padding:8px 4px;font-weight:500;">Total Accounts</td>
+          <td style="text-align:center;padding:8px 4px;">34</td>
+          <td style="text-align:center;padding:8px 4px;">35</td>
+          <td style="text-align:center;padding:8px 4px;">29</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f3f4;">
+          <td style="padding:8px 4px;font-weight:500;">Derogatory Items</td>
+          <td style="text-align:center;padding:8px 4px;color:var(--warn);font-weight:700;">3</td>
+          <td style="text-align:center;padding:8px 4px;color:var(--warn);font-weight:700;">4</td>
+          <td style="text-align:center;padding:8px 4px;color:var(--warn);font-weight:700;">4</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f3f4;">
+          <td style="padding:8px 4px;font-weight:500;">Charge-offs</td>
+          <td style="text-align:center;padding:8px 4px;">Great American ($5,541)<br>Webbank/Avant</td>
+          <td style="text-align:center;padding:8px 4px;">Great American ($5,541)<br>Westgate ($20,186 w/o)</td>
+          <td style="text-align:center;padding:8px 4px;">Great American ($5,541)<br>Avant ($835)<br>Westgate</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f3f4;">
+          <td style="padding:8px 4px;font-weight:500;">Settled Accounts</td>
+          <td style="text-align:center;padding:8px 4px;">1st Franklin</td>
+          <td style="text-align:center;padding:8px 4px;">Westgate</td>
+          <td style="text-align:center;padding:8px 4px;">1st Franklin</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f3f4;">
+          <td style="padding:8px 4px;font-weight:500;">Late Payments</td>
+          <td style="text-align:center;padding:8px 4px;">Apple Card (30d)</td>
+          <td style="text-align:center;padding:8px 4px;">Apple Card (30d)<br>Concord (30/60/90)</td>
+          <td style="text-align:center;padding:8px 4px;">Apple Card (30d)</td>
+        </tr>
+        <tr style="border-bottom:1px solid #f1f3f4;">
+          <td style="padding:8px 4px;font-weight:500;">Hard Inquiries</td>
+          <td style="text-align:center;padding:8px 4px;font-weight:700;">10</td>
+          <td style="text-align:center;padding:8px 4px;font-weight:700;">19</td>
+          <td style="text-align:center;padding:8px 4px;">1</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 4px;font-weight:500;">Total Debt (approx)</td>
+          <td style="text-align:center;padding:8px 4px;font-weight:700;">~$351k</td>
+          <td style="text-align:center;padding:8px 4px;font-weight:700;">~$358k</td>
+          <td style="text-align:center;padding:8px 4px;font-weight:700;">~$351k</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="margin-top:20px;padding:16px;background:#fef7e0;border-radius:8px;font-size:13px;">
+      <strong style="color:#b06000;">Key Findings:</strong>
+      <ul style="margin:6px 0 0 18px;color:#5f6368;">
+        <li><strong>Great American Finance</strong> charge-off ($5,541) appears on all 3 bureaus</li>
+        <li><strong>Avant/Webbank</strong> charge-off appears on TU and Equifax (Experian may have removed)</li>
+        <li><strong>Westgate Resorts</strong> charge-off ($20,186 written off) appears on Experian and Equifax</li>
+        <li><strong>Experian</strong> has the most inquiries (19) &mdash; significant auto loan shopping in Mar 2025</li>
+        <li><strong>Equifax</strong> shows only 1 inquiry, significantly fewer than the others</li>
+        <li>Multiple Capital One cards maxed out at 97-102% utilization across all bureaus</li>
+        <li>Mortgage with PennyMac ($224,964) and Student Loan with Nelnet ($99,695) are largest debts</li>
+        <li>Dept of Ed loans consolidated/closed on all bureaus except one active deferred loan</li>
+      </ul>
+    </div>
+  </div>
+
+  <p style="text-align:center;margin-top:24px;font-size:12px;color:var(--muted);">
+    Report generated from TransUnion (06/08/26), Experian (06/08/26), and Equifax (05/25/26) data.
+  </p>
+</div>
 </body>
 </html>

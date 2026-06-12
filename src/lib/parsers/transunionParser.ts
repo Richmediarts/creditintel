@@ -1,12 +1,12 @@
-import type { Bureau, Account, Inquiry, PublicRecord, PersonalInfo, BureauReport, BureauSummary, PaymentHistoryEntry } from '@/types'
+import type { Bureau, Account, Inquiry, PublicRecord, PersonalInfo, BureauReport, BureauSummary } from '@/types'
 
 export function parseTransUnion(text: string): Omit<BureauReport, 'filename'> {
   const lines = text.split('\n')
 
   const personalInfo = extractPersonalInfo(lines)
   const accounts = extractAccounts(lines)
-  const inquiries = extractInquiries(lines)
-  const publicRecords = extractPublicRecords(lines)
+  const inquiries = extractInquiries(lines, text)
+  const publicRecords: PublicRecord[] = []
   const summary = computeSummary(accounts, inquiries, publicRecords)
 
   return {
@@ -22,264 +22,177 @@ export function parseTransUnion(text: string): Omit<BureauReport, 'filename'> {
 
 function extractPersonalInfo(lines: string[]): PersonalInfo {
   const info: PersonalInfo = {
-    name: '',
-    ssn: '',
-    dateOfBirth: '',
-    currentAddress: '',
-    previousAddresses: [],
-    phoneNumbers: [],
-    employers: [],
-    reportDate: '',
+    name: '', ssn: '', dateOfBirth: '', currentAddress: '',
+    previousAddresses: [], phoneNumbers: [], employers: [], reportDate: '',
   }
 
-  let i = 0
-  while (i < lines.length) {
-    const line = lines[i].trim()
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim()
 
-    if (line.includes('Personal Credit Report for')) {
+    if (t.includes('Personal Credit Report for')) {
       const next = lines[i + 1]?.trim() || ''
-      info.name = next
+      if (next && !next.includes('Your credit score')) info.name = next
     }
 
-    if (line.includes('File Number:')) {
-      info.fileNumber = line.split('File Number:')[1]?.trim()
+    if (t.includes('File Number:')) {
+      info.fileNumber = t.split('File Number:')[1]?.trim()
     }
 
-    if (line.includes('Date Created:')) {
-      info.reportDate = line.split('Date Created:')[1]?.trim()
+    if (t.includes('Date Created:')) {
+      info.reportDate = t.split('Date Created:')[1]?.trim()
     }
 
-    if (line.includes('SSN has been masked') || line.includes('Social Security Number')) {
+    if (t.includes('Social Security Number') || t.includes('SSN has been masked')) {
       const ssnLine = lines[i + 3]?.trim() || ''
-      info.ssn = ssnLine
+      if (ssnLine && !ssnLine.includes('Date of Birth')) info.ssn = ssnLine
     }
 
-    if (line.includes('Date of Birth')) {
-      info.dateOfBirth = lines[i + 3]?.trim() || ''
+    if (t.includes('Date of Birth')) {
+      const dob = lines[i + 3]?.trim() || ''
+      if (dob) info.dateOfBirth = dob
     }
 
-    if (line.includes('Name') && info.name === '') {
-      const nameLine = lines[i + 3]?.trim() || ''
-      if (nameLine && !nameLine.includes('Also Known As') && !nameLine.includes('AKA')) {
-        info.name = nameLine
-      }
+    if (t === 'Current Address') {
+      const addr = lines[i + 3]?.trim() || ''
+      if (addr) info.currentAddress = addr
     }
 
-    if (line.includes('Also Known As') || line.includes('AKA')) {
-      const akaLine = lines[i + 3]?.trim() || ''
-      if (akaLine && !akaLine.includes('Also Known As')) {
-        info.alsoKnownAs = [akaLine]
-      }
-    }
-
-    if (line === 'Current Address') {
-      info.currentAddress = lines[i + 3]?.trim() || ''
-    }
-
-    if (line === 'Other Address') {
+    if (t === 'Other Address') {
       const addr = lines[i + 3]?.trim() || ''
       if (addr) info.previousAddresses.push(addr)
     }
 
-    if (line.startsWith('Phone Number')) {
+    if (t.startsWith('Phone Number')) {
       const phone = lines[i + 3]?.trim() || ''
-      if (phone) info.phoneNumbers.push(phone)
+      if (phone && phone.match(/\(\d{3}\)/)) info.phoneNumbers.push(phone)
     }
 
-    if (line === 'Employer' || line.match(/^[A-Z][A-Z\s]+$/)) {
-      const employerName = line
-      const occLine = lines[i + 3]?.trim() || ''
-      const verifiedLine = lines[i + 5]?.trim() || ''
-      if (employerName && !['Phone Number', 'Occupation', 'Location', 'Date Verified', 'Address', 'Account Information', 'Account Name', 'Accounts with Adverse Information', 'Personal Information', 'Phone Numbers', 'Employers', 'Addresses'].includes(employerName)) {
-        info.employers.push({
-          name: employerName,
-          occupation: occLine || undefined,
-          dateVerified: verifiedLine || undefined,
-        })
-      }
+    if (t === 'Employer' || t.match(/^[A-Z][A-Z\s]+$/) && t.length > 3) {
+      const skip = ['Phone Number', 'Occupation', 'Location', 'Date Verified', 'Address',
+        'Account Information', 'Account Name', 'Accounts with Adverse Information',
+        'Personal Information', 'Phone Numbers', 'Employers', 'Addresses', 'Satisfactory Accounts']
+      if (skip.includes(t)) continue
+      const occ = lines[i + 3]?.trim() || ''
+      const verified = lines[i + 5]?.trim() || ''
+      info.employers.push({ name: t, occupation: occ || undefined, dateVerified: verified || undefined })
     }
-
-    i++
   }
 
   return info
 }
 
 function extractAccounts(lines: string[]): Account[] {
+  const accounts: Account[] = []
   const accountInfoIndices: number[] = []
+
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].trim() === 'Account Information') {
       accountInfoIndices.push(i)
     }
   }
 
-  const accounts: Account[] = []
-
   for (let a = 0; a < accountInfoIndices.length; a++) {
     const infoIdx = accountInfoIndices[a]
     const nextInfoIdx = a + 1 < accountInfoIndices.length ? accountInfoIndices[a + 1] : lines.length
 
     const { creditorName, accountNumber } = extractCreditorInfo(lines, infoIdx)
+    if (!creditorName) continue
+
     const chunk = lines.slice(infoIdx, nextInfoIdx)
-    const account = parseAccountChunk(chunk)
-    if (!account) continue
+    const acc = parseAccountChunk(chunk)
+    if (!acc) continue
 
-    account.creditorName = creditorName
-    account.accountNumber = accountNumber || account.accountNumber || ''
+    acc.creditorName = creditorName
+    acc.accountNumber = accountNumber || acc.accountNumber || ''
 
-    accounts.push(finalizeAccount(account))
+    accounts.push(finalizeAccount(acc))
   }
 
   return accounts
 }
 
 function extractCreditorInfo(lines: string[], accountInfoIdx: number): { creditorName: string; accountNumber: string } {
-  const parts: string[] = []
-  let i = accountInfoIdx - 1
-
-  while (i >= 0) {
-    const line = lines[i].trim()
-    if (line === '') {
-      i--
-      continue
-    }
-    if (line === 'Account Name' || line.startsWith('Total Months')) {
-      break
-    }
-    parts.unshift(line)
-    i--
-  }
-
+  let creditorName = ''
   let accountNumber = ''
-  const nameParts = [...parts]
 
-  if (nameParts.length > 0) {
-    const last = nameParts[nameParts.length - 1]
+  for (let j = accountInfoIdx - 1; j >= Math.max(0, accountInfoIdx - 15); j--) {
+    const t = lines[j].trim()
+    if (!t) continue
+    if (t === 'Account Information') continue
+    if (t.startsWith('https://') || t.startsWith('6/') || t.startsWith('')) continue
+    if (t.match(/^\d+\/\d+$/)) continue
 
-    if (/^[A-Za-z0-9]+\*{3,4}$/.test(last)) {
-      accountNumber = last
-      nameParts.pop()
+    const m = t.match(/^(.+?)\s+([A-Za-z0-9]+\*{3,4}|[A-Za-z0-9]{4,})$/)
+    if (m) {
+      creditorName = m[1].trim()
+      accountNumber = m[2]
     } else {
-      const m = last.match(/^(.+)\s+([A-Za-z0-9]+\*{3,4})$/)
-      if (m) {
-        nameParts[nameParts.length - 1] = m[1].trim()
-        accountNumber = m[2]
-      }
+      creditorName = t
     }
+    break
   }
 
-  const creditorName = nameParts.join(' ').trim() || 'Unknown'
   return { creditorName, accountNumber }
 }
 
-const FIELD_HEADERS = new Set([
-  'Address',
-  'Phone',
-  'Date Opened',
-  'Responsibility',
-  'Account Type',
-  'Loan Type',
-  'Balance',
-  'Date Updated',
-  'Payment Received',
-  'Last Payment Made',
-  'Pay Status',
-  'Terms',
-  'Date Closed',
-  'Remarks',
-  'Payment History',
-  'Account Information',
-])
+const FIELD_PREFIXES = [
+  'Address', 'Phone', 'Date Opened', 'Responsibility', 'Account Type',
+  'Loan Type', 'Balance', 'Date Updated', 'Payment Received', 'Last Payment Made',
+  'Pay Status', 'Terms', 'Date Closed', 'Remarks', 'Payment History',
+  'Account Information', 'Monthly Payment', 'High Balance', 'Credit Limit',
+  'Estimated',
+]
 
-function isFieldHeader(line: string): boolean {
-  if (FIELD_HEADERS.has(line)) return true
-  if (line.startsWith('Monthly Payment')) return true
-  if (line.startsWith('High Balance')) return true
-  if (line.startsWith('Credit Limit')) return true
-  if (line.startsWith('Estimated')) return true
-  return false
+function isFieldHeader(s: string): boolean {
+  return FIELD_PREFIXES.some(p => s.startsWith(p))
 }
 
-function readFieldValue(lines: string[], fieldIdx: number): string {
-  let i = fieldIdx + 1
-  while (i < lines.length && lines[i].trim() === '') {
-    i++
+function extractFieldValue(line: string): string {
+  // Extract value after field name on same line in pdftotext -layout format
+  // e.g., "Monthly Payment  $0" or "Balance  $505" or "Date Opened  12/22/2020"
+  const parts = line.split(/\s{3,}/).filter(Boolean)
+  if (parts.length >= 2) {
+    for (let p = 1; p < parts.length; p++) {
+      const v = parts[p].trim()
+      if (v && v !== '-' && v !== '–' && !isFieldHeader(v)) return v
+    }
   }
-  if (i >= lines.length) return ''
 
-  const firstLine = lines[i].trim()
-  if (firstLine === '' || isFieldHeader(firstLine)) {
-    return ''
-  }
-
-  const valueLines: string[] = []
-  while (i < lines.length) {
-    const line = lines[i].trim()
-    if (line === '' || isFieldHeader(line)) {
+  // Fallback: single-space format from pdfjs-dist extraction
+  // e.g., "Monthly Payment $0" or "Balance $505" or "Date Opened 12/22/2020"
+  const trimmed = line.trim()
+  for (const prefix of FIELD_PREFIXES) {
+    if (trimmed.startsWith(prefix)) {
+      const val = trimmed.slice(prefix.length).trim()
+      if (val && val !== '-' && val !== '–') return val
       break
     }
-    valueLines.push(line)
-    i++
   }
 
-  return valueLines.join(' ')
+  return ''
 }
 
 function parseAccountChunk(lines: string[]): Partial<Account> | null {
   const acc: Partial<Account> = {}
-  let inPaymentHistory = false
-  const pendingMonths: Array<{ month: string; year: string }> = []
-  const paymentHistory: PaymentHistoryEntry[] = []
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim()
+    const t = lines[i].trim()
+    if (t === 'Account Information' || !t) continue
 
-    if (line === 'Account Information') continue
-    if (line === '' && !inPaymentHistory) continue
+    const lower = t.toLowerCase()
 
-    if (line === 'Payment History') {
-      inPaymentHistory = true
-      continue
-    }
+    // Skip payment history grid lines
+    if (['past due', 'amount paid', 'scheduled', 'rating', 'total months']
+        .some(s => lower.startsWith(s) && lower.length < 20)) continue
 
-    if (inPaymentHistory) {
-      const monthRegex = /(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/g
-      let m
-      let foundMonth = false
-      while ((m = monthRegex.exec(line)) !== null) {
-        pendingMonths.push({ month: m[1], year: m[2] })
-        foundMonth = true
-      }
-      if (foundMonth) continue
-
-      if (line === 'Rating') {
-        const ratingValue = readFieldValue(lines, i)
-        if (ratingValue && pendingMonths.length > 0) {
-          const monthInfo = pendingMonths.shift()!
-          paymentHistory.push({
-            month: monthInfo.month,
-            year: monthInfo.year,
-            rating: ratingValue,
-          })
-        }
-        continue
-      }
-
-      continue
-    }
-
-    if (line.startsWith('Monthly Payment')) {
-      const val = readFieldValue(lines, i)
-      if (val) {
-        const vm = val.match(/\$[\d,]+/)
-        if (vm) acc.monthlyPayment = parseAmount(vm[0])
-      }
-    } else if (line === 'Date Opened') {
-      acc.dateOpened = readFieldValue(lines, i)
-    } else if (line === 'Responsibility') {
-      acc.responsibility = readFieldValue(lines, i)
-    } else if (line === 'Account Type') {
-      const val = readFieldValue(lines, i).toLowerCase()
+    if (lower.startsWith('monthly payment')) {
+      acc.monthlyPayment = parseAmount(extractFieldValue(t))
+    } else if (lower.startsWith('date opened')) {
+      acc.dateOpened = extractFieldValue(t)
+    } else if (lower.startsWith('responsibility')) {
+      acc.responsibility = extractFieldValue(t)
+    } else if (lower.startsWith('account type')) {
+      const val = extractFieldValue(t).toLowerCase()
       if (val.includes('revolving')) acc.accountType = 'Revolving'
       else if (val.includes('installment')) acc.accountType = 'Installment'
       else if (val.includes('mortgage')) acc.accountType = 'Mortgage'
@@ -287,71 +200,142 @@ function parseAccountChunk(lines: string[]): Partial<Account> | null {
       else if (val.includes('student')) acc.accountType = 'Student Loan'
       else if (val.includes('auto')) acc.accountType = 'Auto'
       else acc.accountType = 'Other'
-    } else if (line === 'Loan Type') {
-      acc.loanType = readFieldValue(lines, i)
-    } else if (line === 'Balance') {
-      const val = readFieldValue(lines, i)
+    } else if (lower.startsWith('balance') && !lower.includes('high') && !lower.includes('original') && t.includes('$')) {
+      const val = extractFieldValue(t)
       if (val) {
-        const vm = val.match(/\$[\d,]+/)
-        if (vm) {
-          acc.balance = parseAmount(vm[0])
-        } else {
-          const num = parseFloat(val.replace(/[^0-9.-]/g, ''))
-          if (!isNaN(num)) acc.balance = num
-        }
+        acc.balance = parseAmount(val)
       }
-    } else if (line === 'Date Updated') {
-      acc.dateUpdated = readFieldValue(lines, i)
-    } else if (line.startsWith('Last Payment Made')) {
-      // skip, not stored
-    } else if (line.startsWith('High Balance')) {
-      const val = readFieldValue(lines, i)
+    } else if (lower.startsWith('date updated')) {
+      const val = extractFieldValue(t)
+      if (val) acc.dateUpdated = val
+    } else if (lower.startsWith('high balance') && !lower.includes(' of ')) {
+      const val = extractFieldValue(t)
       if (val) {
-        const vm = val.match(/\$[\d,]+/)
-        if (vm) acc.highBalance = parseAmount(vm[0])
+        const m = val.match(/\$[\d,]+/)
+        if (m) acc.highBalance = parseAmount(m[0])
       }
-    } else if (line === 'Pay Status') {
-      let val = readFieldValue(lines, i)
+    } else if (lower.startsWith('pay status')) {
+      let val = extractFieldValue(t)
       val = val.replace(/[<>]/g, '')
       acc.payStatus = val
-    } else if (line.startsWith('Terms')) {
-      acc.terms = readFieldValue(lines, i)
-    } else if (line === 'Date Closed') {
-      acc.dateClosed = readFieldValue(lines, i)
-    } else if (line.startsWith('Credit Limit')) {
-      const val = readFieldValue(lines, i)
+    } else if (lower.startsWith('terms')) {
+      acc.terms = extractFieldValue(t)
+    } else if (lower.startsWith('date closed')) {
+      acc.dateClosed = extractFieldValue(t)
+    } else if (lower.startsWith('credit limit') && !lower.includes('(hist')) {
+      let val = extractFieldValue(t)
+      if (!val) {
+        // TU format: "Credit limit of $1,500 from ...; $650 from" - extract last dollar amount
+        const allDollars = t.match(/\$[\d,]+/g)
+        if (allDollars && allDollars.length > 0) val = allDollars[allDollars.length - 1]
+      }
       if (val) {
-        const vm = val.match(/\$[\d,]+/)
-        if (vm) acc.creditLimit = parseAmount(vm[0])
+        const m = val.match(/\$[\d,]+/)
+        if (m) acc.creditLimit = parseAmount(m[0])
       }
-    } else if (line.startsWith('Estimated')) {
+    } else if (lower.startsWith('credit limit (hist')) {
+      // Skip historical credit limit lines
+    } else if (lower.startsWith('estimated month')) {
       let nextIdx = i + 1
-      while (nextIdx < lines.length && lines[nextIdx].trim() === '') {
-        nextIdx++
+      while (nextIdx < lines.length && lines[nextIdx].trim() === '') nextIdx++
+      const nextLine = lines[nextIdx]?.trim() || ''
+      if (nextLine === 'removed') {
+        acc.estimatedRemovalDate = extractFieldValue(t)
       }
-      if (nextIdx < lines.length && lines[nextIdx].trim() === 'removed') {
-        acc.estimatedRemovalDate = readFieldValue(lines, nextIdx)
-      } else {
-        acc.estimatedRemovalDate = readFieldValue(lines, i)
+    } else if (lower.startsWith('remarks')) {
+      // Capture context from line before Remarks (often has SETTLED info)
+      let preLine = ''
+      for (let j = i - 1; j >= Math.max(0, i - 3); j--) {
+        const pl = lines[j].trim()
+        if (!pl || isFieldHeader(pl)) continue
+        if (pl.toLowerCase().includes('settled') || pl.toLowerCase().includes('account closed')) {
+          preLine = pl
+          break
+        }
       }
-    } else if (line === 'Remarks') {
-      acc.remarks = readFieldValue(lines, i)
+      const parts: string[] = []
+      if (preLine) parts.push(preLine)
+      for (let j = i + 1; j < Math.min(i + 8, lines.length); j++) {
+        const nl = lines[j].trim()
+        if (!nl || isFieldHeader(nl)) break
+        parts.push(nl)
+      }
+      if (parts.length > 0) acc.remarks = parts.join(' ')
     }
   }
 
-  if (paymentHistory.length > 0) {
-    acc.paymentHistory = paymentHistory
+  return Object.keys(acc).length > 1 ? acc : null
+}
+
+function extractInquiries(lines: string[], text: string): Inquiry[] {
+  const inquiries: Inquiry[] = []
+
+  // Only extract hard inquiries from "Regular Inquiries" section
+  // Skip "Account Review Inquiries" (soft) — not useful for summary
+  const hardSection = text.match(/Regular Inquiries[\s\S]*?(?=Account Review Inquiries|Public Record|End of Credit File|$)/i)
+  if (hardSection) parseInquiries(hardSection[0], inquiries)
+
+  return inquiries
+}
+
+function parseInquiries(block: string, inquiries: Inquiry[]) {
+  const blockLines = block.split('\n')
+
+  // Format in the TU TXT file:
+  // [COMPANY NAME]...[URL artifacts]
+  // Name
+  // Location
+  // [Address]
+  // [City, ST ZIP]   Requested On
+  // [date(s)]
+  // Phone
+  // [phone]   Inquiry Type
+  // Individual
+  //
+  // Find lines with "Requested On", then scan backward for company name
+
+  for (let i = 0; i < blockLines.length; i++) {
+    const line = blockLines[i].trim()
+    if (!line.includes('Requested On')) continue
+
+    const dateLine = i + 1 < blockLines.length ? blockLines[i + 1].trim() : ''
+    const dates = dateLine.match(/\d{1,2}\/\d{1,2}\/\d{4}/g)
+    if (!dates) continue
+
+    // Scan backward from 'Requested On' line to find company name
+    // Skip "Name", "Location", address lines, blank lines
+    let companyName = ''
+    for (let j = i - 1; j >= Math.max(0, i - 10); j--) {
+      const t = blockLines[j].trim()
+      if (!t || t === 'Name' || t.startsWith('Location') || t.startsWith('PO BOX') ||
+          t.startsWith('P.O. BOX') || t.startsWith('LOCKBOX') || t.match(/^\d+\s/)) continue
+      // URL lines
+      if (t.startsWith('https://') || t.includes('transunion.com')) continue
+      companyName = t.replace(/https?:\/\/\S+.*$/, '').trim()
+      break
+    }
+
+    if (!companyName) continue
+
+    // Clean up company name
+    companyName = companyName.replace(/[<>]/g, '').trim()
+    // Remove trailing URL artifacts
+    companyName = companyName.replace(/\s*\d+\/\d+\/\d+.*$/, '').trim()
+
+    // Only add if it looks like a real company name (2+ uppercase letters)
+    if (companyName.length < 2) continue
+
+    for (const date of dates) {
+      if (!inquiries.some(inq => inq.creditorName === companyName && inq.date === date)) {
+        inquiries.push({
+          bureau: 'TransUnion' as Bureau,
+          creditorName: companyName,
+          date,
+          type: 'Hard',
+        })
+      }
+    }
   }
-
-  return acc
-}
-
-function extractInquiries(_: string[]): Inquiry[] {
-  return []
-}
-
-function extractPublicRecords(_: string[]): PublicRecord[] {
-  return []
 }
 
 function finalizeAccount(acc: Partial<Account>): Account {
@@ -361,7 +345,7 @@ function finalizeAccount(acc: Partial<Account>): Account {
   const hasDerogatoryPayStatus =
     payStatus.includes('charge') ||
     payStatus.includes('collection') ||
-    payStatus.includes('late') ||
+    (payStatus.includes('late') && !payStatus.includes('never')) ||
     payStatus.includes('delinquent') ||
     payStatus.includes('bad debt') ||
     payStatus.includes('past due')
@@ -370,7 +354,9 @@ function finalizeAccount(acc: Partial<Account>): Account {
     hasDerogatoryPayStatus ||
     remarks.includes('settled') ||
     remarks.includes('charge off') ||
-    remarks.includes('collection')
+    remarks.includes('collection') ||
+    remarks.includes('less than full') ||
+    payStatus.includes('settled')
 
   const isChargeOff = acc.isChargeOff ||
     payStatus.includes('charge off') ||
@@ -383,17 +369,13 @@ function finalizeAccount(acc: Partial<Account>): Account {
     payStatus.includes('collection') ||
     remarks.includes('collection')
 
-  const isLate = acc.isLate ||
-    hasDerogatoryPayStatus ||
-    (acc.paymentHistory || []).some(ph => ph.rating !== 'OK' && ph.rating !== '' && ph.rating !== 'N/R')
+  const isLate = acc.isLate || hasDerogatoryPayStatus
 
   const isClosed = acc.isClosed ||
     payStatus.includes('closed') ||
-    payStatus.includes('paid') ||
-    payStatus.startsWith('paid,')
+    payStatus.includes('paid')
 
-  const isOpen = acc.isOpen ||
-    (!isClosed && !isChargeOff && !isCollection)
+  const isOpen = acc.isOpen || (!isClosed && !isChargeOff && !isCollection)
 
   let status: Account['status'] = 'Open'
   if (isChargeOff) status = 'ChargeOff'
@@ -413,6 +395,7 @@ function finalizeAccount(acc: Partial<Account>): Account {
     dateClosed: acc.dateClosed,
     dateUpdated: acc.dateUpdated,
     balance: acc.balance || 0,
+    pastDue: acc.pastDue,
     highBalance: acc.highBalance,
     creditLimit: acc.creditLimit,
     monthlyPayment: acc.monthlyPayment,
@@ -420,14 +403,14 @@ function finalizeAccount(acc: Partial<Account>): Account {
     responsibility: acc.responsibility,
     terms: acc.terms,
     remarks: acc.remarks,
-    paymentHistory: acc.paymentHistory || [],
+    paymentHistory: [],
     isDerogatory,
     isChargeOff,
     isCollection,
     isLate,
     isOpen,
     isClosed,
-    derogatoryCount: (acc.paymentHistory || []).filter(ph => ph.rating !== 'OK' && ph.rating !== '' && ph.rating !== 'N/R').length,
+    derogatoryCount: 0,
     estimatedRemovalDate: acc.estimatedRemovalDate,
     status,
   }
@@ -446,7 +429,6 @@ function computeSummary(accounts: Account[], inquiries: Inquiry[], publicRecords
   const bankruptcies = publicRecords.filter(pr => pr.type.toLowerCase().includes('bankrupt')).length
   const totalBalance = accounts.reduce((s, a) => s + a.balance, 0)
 
-  // Credit utilization: only revolving accounts with credit limits
   const revolvingAccounts = accounts.filter(a => a.accountType === 'Revolving' && (a.creditLimit || 0) > 0)
   const revBalances = revolvingAccounts.reduce((s, a) => s + a.balance, 0)
   const revLimits = revolvingAccounts.reduce((s, a) => s + (a.creditLimit || 0), 0)
@@ -454,20 +436,11 @@ function computeSummary(accounts: Account[], inquiries: Inquiry[], publicRecords
   const totalCreditLimit = revLimits
 
   return {
-    totalAccounts,
-    openAccounts,
-    closedAccounts,
-    derogatoryAccounts,
-    chargeOffs,
-    collections,
-    lateAccounts,
-    hardInquiries,
-    softInquiries,
-    publicRecords: publicRecords.length,
-    bankruptcies,
-    totalBalance,
-    totalCreditLimit,
-    creditUtilization,
+    totalAccounts, openAccounts, closedAccounts,
+    derogatoryAccounts, chargeOffs, collections,
+    lateAccounts, hardInquiries, softInquiries,
+    publicRecords: publicRecords.length, bankruptcies,
+    totalBalance, totalCreditLimit, creditUtilization,
   }
 }
 

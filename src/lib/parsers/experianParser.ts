@@ -1,33 +1,11 @@
-import type { Bureau, Account, Inquiry, PublicRecord, PersonalInfo, BureauReport, BureauSummary, PaymentHistoryEntry } from '@/types'
-
-// Character corruption mapping from OCR extraction issues
-const CHAR_MAP: Record<string, string> = {
-  '\u0022': 'u',   // " → u
-  '\u2b72': 'n',   // ⭲ → n
-  '\u00ed': 'r',   // í → r
-  '\u013e': 'T',   // ľ → T
-  '\u01ea': 'Q',   // Ǫ → Q
-  '\u1e3a': 'L',   // Ḻ → L
-  '\u00cf': 'F',   // Ï → F
-  '\u00ab': '4',   // « → 4
-  '\u00ae': '8',   // ® → 8
-}
-
-function deobfuscate(text: string): string {
-  let result = ''
-  for (const ch of text) {
-    result += CHAR_MAP[ch] || ch
-  }
-  return result
-}
+import type { Bureau, Account, Inquiry, PublicRecord, PersonalInfo, BureauReport, BureauSummary } from '@/types'
 
 export function parseExperian(text: string): Omit<BureauReport, 'filename'> {
-  const deobfuscated = deobfuscate(text)
-  const lines = deobfuscated.split('\n')
+  const lines = text.split('\n')
 
-  const personalInfo = extractPersonalInfo(lines, deobfuscated)
-  const accounts = extractAccounts(deobfuscated)
-  const inquiries = extractInquiries(deobfuscated)
+  const personalInfo = extractPersonalInfo(lines, text)
+  const accounts = extractAccounts(text)
+  const inquiries = extractInquiries(text)
   const publicRecords: PublicRecord[] = []
   const summary = computeSummary(accounts, inquiries, publicRecords)
 
@@ -42,210 +20,284 @@ export function parseExperian(text: string): Omit<BureauReport, 'filename'> {
   }
 }
 
-function extractAccounts(text: string): Account[] {
-  const accounts: Account[] = []
-  const chunks = splitIntoAccountChunks(text)
-
-  for (const chunk of chunks) {
-    const account = parseAccountChunk(chunk)
-    if (account) {
-      accounts.push(account)
-    }
-  }
-
-  return accounts
-}
-
-function splitIntoAccountChunks(text: string): string[] {
-  const chunks: string[] = []
-  const accountRegex = /Account\s+Info/gi
-  const matches = [...text.matchAll(accountRegex)]
-
-  for (let i = 0; i < matches.length; i++) {
-    const startIdx = matches[i].index as number
-    const endIdx = i + 1 < matches.length ? (matches[i + 1].index as number) : text.length
-    let chunk = text.slice(startIdx, endIdx).trim()
-
-    // Stop at "Self Reported Accounts"
-    const selfReportedIdx = chunk.search(/S[ce]lf\s+Rcport[ce]d/i)
-    if (selfReportedIdx >= 0) {
-      chunk = chunk.slice(0, selfReportedIdx)
-    }
-
-    if (chunk.length > 50) {
-      chunks.push(chunk)
-    }
-  }
-
-  return chunks
-}
-
 function extractPersonalInfo(lines: string[], text: string): PersonalInfo {
   const info: PersonalInfo = {
-    name: 'Richard Johnson',
-    ssn: '', dateOfBirth: '', currentAddress: '',
+    name: 'Richard Johnson', ssn: '', dateOfBirth: '', currentAddress: '',
     previousAddresses: [], phoneNumbers: [], employers: [], reportDate: '',
   }
 
-  const reportDateMatch = text.match(/Dat[ce]\s*G[ce]nerat[ce]d\s*(.+?)(?:\n|$)/i)
+  const reportDateMatch = text.match(/Date generated:\s*(.+?)(?:\n|$)/i)
   if (reportDateMatch) info.reportDate = reportDateMatch[1].trim()
 
-  const reportNumMatch = text.match(/Rcport\s*Numbcr\s*(\S+)/i)
-  if (reportNumMatch) info.fileNumber = reportNumMatch[1].trim()
-
-  // Find address info: "52 BIRCH RIVER XING" or "52 BIRCH"
   if (text.includes('52 BIRCH RIVER XING')) {
-    info.currentAddress = '52 BIRCH RIVER XING, DALLAS, GA 30132'
-  } else if (text.includes('52 BIRCH')) {
     info.currentAddress = '52 BIRCH RIVER XING, DALLAS, GA 30132'
   }
 
   return info
 }
 
-function parseAccountChunk(chunk: string): Account | null {
-  const acc: Partial<Account> = { paymentHistory: [] }
-  const clean = chunk.replace(/[\ue9ef\ue9f0\ue9ec\ue9fe\ue902\uea05]/g, '')
-  const lines = clean.split(/\r?\n/)
+function extractAccounts(text: string): Account[] {
+  const accounts: Account[] = []
 
-  // Match a field label (corruption-robust)
-  function isFieldLabel(line: string): boolean {
-    // After deobfuscation, corrupted chars remain for Q→y, so match both forms
-    const patterns = [
-      'Acc[eo]unt\\s+(?:Nam[ce]|Num\\w*[bc]r?|T[yQ]p[ce])',
-      'R[ce]sponsibilit',
-      'Int[ce]r[ce]st\\s+T[yQ]p[ce]',
-      'Dat[ce]\\s+Op[ce]ned',
-      'Status',
-      'Bal[ae]nc[ce](?:\\s+Updat[ce]d)?',
-      'R[ce]c[ce]nt\\s+Pa[yQ]ment',
-      'Monthl[yQ]\\s+Pa[yQ]ment',
-      'Original\\s+Bal[ae]nc[ce]',
-      'High[ce]st\\s+Bal[ae]nc[ce]',
-      'Tcrms?',
-      'Cr[ce]dit\\s+Limit',
-      'O[í]rigi[⭲]al\\s+C[í]cdito[í]',
-    ]
-    return new RegExp(`^\\s*(?:${patterns.join('|')})`, 'i').test(line)
-  }
+  const rawChunks = text.split(/Account info/i)
 
-  // Find a field label and extract its value. If multiLine is true,
-  // continuation lines are joined until the next field label.
-  function fieldValue(label: RegExp, multiLine = true): string {
+  for (let c = 1; c < rawChunks.length; c++) {
+    let chunk = rawChunks[c]
+
+    // Stop at self-reported or inquiries sections
+    const selfIdx = chunk.search(/Self\s+[Rr]eported/i)
+    if (selfIdx >= 0) chunk = chunk.slice(0, selfIdx)
+
+    const lines = chunk.split('\n')
+    const acc: Partial<Account> = {}
+
     for (let i = 0; i < lines.length; i++) {
-      const m = label.exec(lines[i])
-      if (m) {
-        let val = m[1] || ''
-        if (multiLine) {
-          for (let j = i + 1; j < lines.length; j++) {
-            const next = lines[j]
-            if (isFieldLabel(next)) break
-            const trimmed = next.trim()
-            if (trimmed) val += ' ' + trimmed
-          }
+      const raw = lines[i].replace(/[\ue9ef\ue9f0\ue9ec\ue9fe\ue902\uea05]/g, '').trim()
+      if (!raw) continue
+
+      const lower = raw.toLowerCase()
+
+      // "potentially negative" tag - tracked separately, payStatus determines actual derogatory
+      if (lower.includes('potentially negative')) {
+        continue
+      }
+
+      // Account name - handles both pdftotext "  Balance  $505" and pdfjs "Balance $505" formats
+      const nameMatch = raw.match(/Account\s+name\s+(.+?)\s+Balance\s+\$/i) || raw.match(/Account\s+name\s+(.+?)\s{2,}Balance/i)
+      if (nameMatch) {
+        acc.creditorName = nameMatch[1].trim()
+      }
+
+      // Account number
+      const numMatch = raw.match(/Account\s+number\s+(\S+)/i)
+      if (numMatch) {
+        acc.accountNumber = numMatch[1]
+      }
+
+      // Balance (matches "Balance  $505" anywhere in line)
+      const balMatch = raw.match(/(?<!\w)Balance\s+\$?([\d,]+)/i)
+      if (balMatch && !lower.includes('balance updated') && !lower.includes('highest balance') && !lower.includes('original balance')) {
+        acc.balance = parseAmount(balMatch[1])
+      }
+
+      // Credit limit
+      const limMatch = raw.match(/Credit\s+limit\s+\$?([\d,]+)/i)
+      if (limMatch) {
+        acc.creditLimit = parseAmount(limMatch[1])
+      }
+
+      // Monthly payment
+      const mpMatch = raw.match(/(?<!\w)Monthly\s+payment\s+\$?([\d,]+)/i)
+      if (mpMatch) {
+        acc.monthlyPayment = parseAmount(mpMatch[1])
+      }
+
+      // Date opened
+      const doMatch = raw.match(/Date\s+opened\s+([A-Z][a-z]+ \d{1,2}, \d{4})/i)
+      if (doMatch) {
+        acc.dateOpened = doMatch[1]
+      }
+
+      // Status - stop at 2+ spaces (multi-column separator) or end of line
+      const stMatch = raw.match(/^Status\s+([^\s].*?)(?:\s{2,}|$)/)
+      if (stMatch) {
+        const stVal = stMatch[1].trim()
+        if (stVal.toLowerCase().startsWith('updated')) continue
+        acc.payStatus = stVal
+        const dl = stVal.toLowerCase()
+        if (dl.includes('charge') || dl.includes('collection') || (dl.includes('late') && !dl.includes('never'))) {
+          acc.isDerogatory = true
         }
-        return val.trim()
+      }
+
+      // Responsibility
+      const respMatch = raw.match(/Responsibility\s+(.+?)$/i)
+      if (respMatch) {
+        const rVal = respMatch[1].trim()
+        if (rVal && rVal !== '-' && rVal !== '–') {
+          acc.responsibility = rVal
+        }
+      }
+
+      // Highest balance
+      const hbMatch = raw.match(/Highest\s+balance\s+\$?([\d,]+)/i)
+      if (hbMatch) {
+        acc.highBalance = parseAmount(hbMatch[1])
+      }
+
+      // Original balance
+      const obMatch = raw.match(/Original\s+balance\s+\$?([\d,]+)/i)
+      if (obMatch) {
+        acc.highBalance = Math.max(acc.highBalance || 0, parseAmount(obMatch[1]))
+      }
+
+      // Account type
+      const atMatch = raw.match(/Account\s+type\s+(.+?)(?:\s{2,}|$)/i)
+      if (atMatch) {
+        const t = atMatch[1].trim().toLowerCase()
+        if (t.includes('credit card') || t.includes('revolving') || t.includes('charge card')) acc.accountType = 'Revolving'
+        else if (t.includes('installment') || (t.includes('loan') && !t.includes('auto'))) acc.accountType = 'Installment'
+        else if (t.includes('mortgage') || t.includes('fha')) acc.accountType = 'Mortgage'
+        else if (t.includes('collection')) acc.accountType = 'Collection'
+        else if (t.includes('student') || t.includes('education')) acc.accountType = 'Student Loan'
+        else if (t.includes('auto')) acc.accountType = 'Auto'
+        else if (t.includes('sales contract')) acc.accountType = 'Installment'
+        else acc.accountType = 'Other'
+      }
+
+      // Original creditor - must start at line beginning (after trim)
+      const ocMatch = raw.match(/^Original\s+creditor\s+(.+?)$/i)
+      if (ocMatch) {
+        const ocVal = ocMatch[1].trim()
+        if (ocVal && ocVal !== '-' && ocVal !== '–') acc.originalCreditor = ocVal
+      }
+
+      // Comments
+      if (raw.match(/^Comments?\s/i)) {
+        const cm = raw.replace(/^Comments?\s*/i, '').trim()
+        if (cm && cm !== '-') {
+          acc.remarks = cm
+        }
       }
     }
-    return ''
+
+    if (acc.creditorName) {
+      // Clean up creditor name - filter out garbage
+      let name = acc.creditorName
+      if (name.includes('SELFREPORTED') || name.includes('Self Reported')) {
+        // Use original creditor name instead, mark as self-reported
+        if (acc.originalCreditor && !acc.originalCreditor.includes('SELFREPORTED')) {
+          acc.creditorName = acc.originalCreditor + ' (Self-Reported)'
+        } else {
+          acc.creditorName = name.replace(/SELFREPORTED/i, '').trim() + ' (Self-Reported)'
+        }
+      }
+      name = name.replace(/ L\s+L\s*C$/i, ' LLC')
+      name = name.replace(/\*\/\s*/g, '')
+      if (!acc.creditorName) acc.creditorName = name.trim()
+
+      accounts.push(finalizeAccount(acc))
+    }
   }
 
-  let name = fieldValue(/Acc[eo]unt\s+Nam[ce]\s+(.+)/i) || 'Unknown'
-  // Clean up common corruption artifacts
-  name = name.replace(/^\*\/\s*/, '')         // strip */ prefix
-  name = name.replace(/ SELFREPORTED.*/i, '') // strip self-reported suffix
-  name = name.replace(/Original\s+Cr[ce]dito[ír]\s*.*/i, '') // strip original creditor suffix
-  name = name.replace(/L\s+L\s*C$/i, 'LLC') // fix L LC → LLC
-  name = name.replace(/FINANCECO\b/i, 'FINANCE CO')
-  acc.creditorName = name.trim()
-
-  acc.accountNumber = fieldValue(/Acc[eo]unt\s+Num[bc]er\s+(\S+)/i)
-
-  const rawType = fieldValue(/Acc[eo]unt\s+Typ[ce]\s+(.+)/i).toLowerCase()
-  if (/credit card|revolving|charge card/.test(rawType)) acc.accountType = 'Revolving'
-  else if (/installment|loan|sales contract|education|student/.test(rawType)) acc.accountType = 'Installment'
-  else if (/mortgage|real estate|fha|time share/.test(rawType)) acc.accountType = 'Mortgage'
-  else if (/collection/.test(rawType)) acc.accountType = 'Collection'
-  else if (/insurance/.test(rawType)) acc.accountType = 'Other'
-  else acc.accountType = 'Other'
-
-  acc.responsibility = fieldValue(/R[ce]sponsibilit[Qy]\s+(.+)/i)
-  acc.dateOpened = fieldValue(/Dat[ce]\s+Op[ce]ned\s+(\d{2}\/\d{2}\/\d{4})/i)
-  acc.payStatus = fieldValue(/Status\s+(.+)/i)
-
-  const balStr = fieldValue(/Bal[ae]nc[ce](?:\s+Updat[ce]d)?\s+\$?([\d,]+)/i)
-  if (balStr) acc.balance = parseAmount(balStr)
-
-  const monthStr = fieldValue(/Monthl[Qy]\s+Pa[Qy]ment\s+\$?([\d,]+)/i)
-  if (monthStr) acc.monthlyPayment = parseAmount(monthStr)
-
-  const origStr = fieldValue(/Original\s+Bal[ae]nc[ce]\s+\$?([\d,]+)/i)
-  if (origStr) acc.highBalance = parseAmount(origStr)
-
-  const highStr = fieldValue(/High[ce]st\s+Bal[ae]nc[ce]\s+\$?([\d,]+)/i)
-  const highBal = parseAmount(highStr)
-  if (highBal > 0) acc.highBalance = Math.max(acc.highBalance || 0, highBal)
-
-  acc.terms = fieldValue(/Tcrms?\s+(.+)/i)
-
-  const limitStr = fieldValue(/Cr[ce]dit\s+Limit\s+\$?([\d,]+)/i)
-  if (limitStr) acc.creditLimit = parseAmount(limitStr)
-
-  const status = (acc.payStatus || '').toLowerCase()
-  if (status.includes('charge') || status.includes('collection') || status.includes('negative') ||
-      (status.includes('late') && !status.includes('never'))) {
-    acc.isDerogatory = true
-    if (status.includes('charge')) acc.isChargeOff = true
-    if (status.includes('collection')) acc.isCollection = true
-  }
-
-  const isClosed = status.includes('closed') || status.includes('paid') || (acc.creditorName || '').includes('Closed')
-
-  return finalizeAccount(acc, isClosed)
+  return accounts
 }
 
-function finalizeAccount(acc: Partial<Account>, isClosed: boolean): Account {
+function extractInquiries(text: string): Inquiry[] {
+  const inquiries: Inquiry[] = []
+
+  const inquiriesMatch = text.match(/^\s*Inquiries\s*$/m)
+  if (!inquiriesMatch) return inquiries
+
+  const sectionStart = inquiriesMatch.index!
+  // Find the LAST https:// URL in the inquiries section (page breaks within multi-column layout)
+  // Stop before "Prepared For" which starts the next section
+  let sectionEnd = text.indexOf('\nPrepared For', sectionStart)
+  if (sectionEnd < 0) sectionEnd = text.indexOf('\n   Prepared For', sectionStart)
+  if (sectionEnd < 0) {
+    // Fallback: find last https:// before the end
+    let lastHttps = text.lastIndexOf('\nhttps://', text.indexOf('\nCredit scores', sectionStart))
+    if (lastHttps > sectionStart) sectionEnd = lastHttps
+    else sectionEnd = text.length
+  }
+
+  const section = text.slice(sectionStart, sectionEnd)
+  const lines = section.split('\n')
+
+  // Experian uses a multi-column layout with 3 columns separated by runs of spaces.
+  // Each column block has: company name (line N), date (line N+1), business type (line N+2), address (line N+3), etc.
+  // Split each line into columns by 3+ spaces, then pair companies with their dates.
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (!line) continue
+
+    // Find line with "Inquired on" — this line has dates in each column
+    if (line.match(/^Inquired\s+on\s+/i)) {
+      const dateColumns = line.split(/\s{3,}/).filter(Boolean)
+      // The company names are on the previous non-blank line
+      let companyLine = ''
+      for (let j = i - 1; j >= 0; j--) {
+        const pl = lines[j].trim()
+        if (pl && !pl.match(/^Business\s+Type/i) && !pl.match(/^PO\s*BOX/i) && !pl.match(/^This inquiry/i)) {
+          companyLine = pl
+          break
+        }
+      }
+      if (!companyLine) continue
+
+      const companyColumns = companyLine.split(/\s{3,}/).filter(Boolean)
+
+      for (let c = 0; c < Math.min(companyColumns.length, dateColumns.length); c++) {
+        const dateMatch = dateColumns[c].match(/Inquired\s+on\s+([A-Z][a-z]+ \d{1,2}, \d{4})/i)
+        if (!dateMatch) continue
+        const dateStr = dateMatch[1]
+        const parsedDate = new Date(dateStr)
+        const formattedDate = parsedDate instanceof Date && !isNaN(parsedDate.getTime())
+          ? `${(parsedDate.getMonth() + 1).toString().padStart(2, '0')}/${
+              parsedDate.getDate().toString().padStart(2, '0')}/${
+              parsedDate.getFullYear()}`
+          : ''
+        if (!formattedDate) continue
+        const company = companyColumns[c].trim()
+        if (company) {
+          inquiries.push({
+            bureau: 'Experian' as Bureau,
+            creditorName: company,
+            date: formattedDate,
+            type: 'Hard',
+          })
+        }
+      }
+    }
+  }
+
+  return inquiries
+}
+
+function finalizeAccount(acc: Partial<Account>): Account {
   const payStatus = (acc.payStatus || '').toLowerCase()
   const remarks = (acc.remarks || '').toLowerCase()
+  const name = (acc.creditorName || '').toLowerCase()
 
-  const isNeverLate = payStatus.includes('never')
-  const hasDerogatoryPayStatus = !isNeverLate && (
+  const hasDerogatoryPayStatus = !payStatus.includes('never') && (
     payStatus.includes('charge') ||
     payStatus.includes('collection') ||
     payStatus.includes('late') ||
     payStatus.includes('delinquent') ||
     payStatus.includes('bad debt') ||
     payStatus.includes('past due') ||
-    payStatus.includes('negative')
+    payStatus.includes('negative') ||
+    payStatus.includes('settled') ||
+    payStatus.includes('settlement')
   )
 
   const isDerogatory = acc.isDerogatory ||
     hasDerogatoryPayStatus ||
     acc.isChargeOff ||
-    remarks.includes('charge off')
+    remarks.includes('charge off') ||
+    remarks.includes('settled')
 
   const isChargeOff = acc.isChargeOff ||
     payStatus.includes('charge off') ||
     payStatus.includes('charged off')
 
-  const isCollection = acc.isCollection ||
-    payStatus.includes('collection')
+  const isCollection = acc.isCollection || payStatus.includes('collection')
 
-  const isLate = acc.isLate ||
-    hasDerogatoryPayStatus
+  const isLate = acc.isLate || hasDerogatoryPayStatus
 
-  const closed = isClosed ||
-    acc.isClosed ||
+  const isClosed = acc.isClosed ||
     payStatus.includes('closed') ||
-    payStatus.includes('paid')
+    payStatus.includes('paid') ||
+    name.includes('closed')
 
-  const isOpen = !closed && !isChargeOff && !isCollection
+  const isOpen = !isClosed && !isChargeOff && !isCollection
 
   let status: Account['status'] = 'Open'
   if (isChargeOff) status = 'ChargeOff'
   else if (isCollection) status = 'Collection'
   else if (isDerogatory) status = 'Derogatory'
-  else if (closed) status = 'Closed'
+  else if (isClosed) status = 'Closed'
   else if (payStatus.includes('paid')) status = 'Paid'
 
   return {
@@ -267,94 +319,18 @@ function finalizeAccount(acc: Partial<Account>, isClosed: boolean): Account {
     responsibility: acc.responsibility,
     terms: acc.terms,
     remarks: acc.remarks,
-    paymentHistory: acc.paymentHistory || [],
+    paymentHistory: [],
     isDerogatory,
     isChargeOff,
     isCollection,
     isLate,
     isOpen,
-    isClosed: closed,
+    isClosed,
     derogatoryCount: 0,
     estimatedRemovalDate: acc.estimatedRemovalDate,
-    dateFirstDelinquency: acc.dateFirstDelinquency,
+    originalCreditor: acc.originalCreditor,
     status,
   }
-}
-
-function extractInquiries(text: string): Inquiry[] {
-  const inquiries: Inquiry[] = []
-
-  const hardMatch = text.match(/^[Hh]ard\s+[Ii]nqui\w+\s*$/m)
-  const softMatch = text.match(/^[Ss]oft\s+[Ii]nqui\w+\s*$/m)
-  const hardStart = hardMatch ? hardMatch.index! : -1
-  const softStart = softMatch ? softMatch.index! : -1
-  if (hardStart < 0 && softStart < 0) return inquiries
-
-  let hardSection = ''
-  let softSection = ''
-
-  if (hardStart >= 0) {
-    hardSection = softStart > hardStart ? text.slice(hardStart, softStart) : text.slice(hardStart)
-  }
-  if (softStart >= 0) {
-    softSection = text.slice(softStart)
-  }
-
-  const parseSection = (section: string, type: 'Hard' | 'Soft') => {
-    const lines = section.split('\n')
-    let i = 0
-    while (i < lines.length) {
-      const line = lines[i].trim()
-      if (!line || line.match(/^[Hh]ard\s+[Ii]nqui|^[Ss]oft\s+[Ii]nqui/i)) { i++; continue }
-      if (line.match(/^No\s+(hard|soft)\s+inquir/i)) break
-
-      // Check if this line looks like the start of a company name (all-caps, not an address)
-      if (/^[A-Z][A-Z\d\s.&\/\\-]+$/.test(line) && line.length > 3 && !line.match(/PO\s*BOX|,\s*[A-Z]{2}/i)) {
-        const nameLines: string[] = [line]
-        let j = i + 1
-        while (j < lines.length) {
-          const nl = lines[j].trim()
-          if (!nl) { j++; break }
-          if (nl.match(/^Inqui\w+\s+on/i)) break
-          if (/^[A-Z][A-Z\d\s.&\/\\-]+$/.test(nl) && nl.length > 2) {
-            nameLines.push(nl)
-            j++
-          } else break
-        }
-
-        const companyName = nameLines.join(' ').trim()
-
-        // Find "Inquired on" line
-        let dateStr = ''
-        for (let k = j; k < Math.min(j + 5, lines.length); k++) {
-          const dl = lines[k].trim()
-          if (dl.match(/^Inqui\w+\s+on/i)) {
-            const dateLine = lines[k + 1]?.trim() || ''
-            const dateMatch = dateLine.match(/(\d{2}\/\d{2}\/\d{4})/)
-            if (dateMatch) dateStr = dateMatch[1]
-            break
-          }
-        }
-
-        if (companyName && dateStr) {
-          inquiries.push({
-            bureau: 'Experian' as Bureau,
-            creditorName: companyName,
-            date: dateStr,
-            type,
-          })
-        }
-        i = j
-      } else {
-        i++
-      }
-    }
-  }
-
-  if (hardSection) parseSection(hardSection, 'Hard')
-  if (softSection) parseSection(softSection, 'Soft')
-
-  return inquiries
 }
 
 function computeSummary(accounts: Account[], inquiries: Inquiry[], publicRecords: PublicRecord[]): BureauSummary {
