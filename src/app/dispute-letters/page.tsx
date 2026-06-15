@@ -50,26 +50,36 @@ export default function DisputeLettersPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleDownload = () => {
-    const blob = new Blob([letterContent], { type: 'text/plain' })
+  const defaultName = `Dispute_Letter_${new Date().toISOString().split('T')[0]}`
+
+  const downloadBlob = async (blob: Blob, ext: string, mime: string) => {
+    if ('showSaveFilePicker' in window) {
+      try {
+        const handle = await (window as any).showSaveFilePicker({
+          suggestedName: `${defaultName}.${ext}`,
+          types: [{ description: ext.toUpperCase(), accept: { [mime]: [`.${ext}`] } }],
+        })
+        const writable = await (handle as any).createWritable()
+        await (writable as any).write(blob)
+        await (writable as any).close()
+        return
+      } catch { /* user cancelled or API unavailable — fall through */ }
+    }
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `dispute-letter-${Date.now()}.txt`
+    a.download = `${defaultName}.${ext}`
     a.click()
     URL.revokeObjectURL(url)
   }
+
+  const handleDownload = () => downloadBlob(new Blob([letterContent], { type: 'text/plain' }), 'txt', 'text/plain')
 
   const handleDownloadDocx = async () => {
     setDownloadingDocx(true)
     try {
       const blob = await letterTextToDocx(letterContent)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `dispute-letter-${Date.now()}.docx`
-      a.click()
-      URL.revokeObjectURL(url)
+      await downloadBlob(blob, 'docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     } finally {
       setDownloadingDocx(false)
     }
