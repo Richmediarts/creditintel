@@ -304,8 +304,13 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
 
       if (user) {
         await saveReportToServer(data)
+        // Merge server reports with local state to preserve fileData if save failed
         const serverReports = await fetchServerReports()
-        dispatch({ type: 'REPLACE_STATE', payload: { reports: serverReports, creditData: null } })
+        const merged = serverReports.map(sr => {
+          const local = state.reports.find(r => r.bureau === sr.bureau)
+          return local?.fileData ? { ...sr, fileData: local.fileData } : sr
+        })
+        dispatch({ type: 'REPLACE_STATE', payload: { reports: merged, creditData: null } })
       }
     } catch (e: unknown) {
       dispatch({ type: 'SET_ERROR', payload: e instanceof Error ? e.message : 'Upload failed' })
