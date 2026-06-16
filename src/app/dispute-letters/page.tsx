@@ -6,14 +6,16 @@ import Link from 'next/link'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useAuth } from '@/lib/auth-context'
 import { useCredit } from '@/lib/store/creditStore'
 import { generateRevocationLetter, generateValidationRequest, generateCombinedDisputeLetter, letterTextToDocx } from '@/lib/utils/disputeLetters'
 
 export default function DisputeLettersPage() {
+  const { user } = useAuth()
   const { state } = useCredit()
   const { creditData } = state
   const [selectedBureau, setSelectedBureau] = useState<string>('all')
-  const [consumerName, setConsumerName] = useState('Richard Johnson')
+  const [consumerName, setConsumerName] = useState(user?.name || 'Consumer')
   const [consumerAddress, setConsumerAddress] = useState('52 BIRCH RIVER XING, DALLAS, GA 30132')
   const [copied, setCopied] = useState(false)
   const [downloadingDocx, setDownloadingDocx] = useState(false)

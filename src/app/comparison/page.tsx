@@ -5,6 +5,7 @@ import { ArrowLeft, GitCompare } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { useAuth } from '@/lib/auth-context'
 import { useCredit } from '@/lib/store/creditStore'
 import type { BureauReport, Account, Inquiry } from '@/types'
 
@@ -155,6 +156,7 @@ function BureauColumn({ report }: { report: BureauReport }) {
 }
 
 export default function ComparisonPage() {
+  const { user } = useAuth()
   const { state } = useCredit()
   const { creditData } = state
 
@@ -202,7 +204,7 @@ export default function ComparisonPage() {
         </Link>
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Credit Report Comparison</h1>
-          <p className="text-sm text-gray-500">Richard L. Johnson &bull; Reports as of June 2026</p>
+          <p className="text-sm text-gray-500">{user?.name || 'Consumer'} &bull; Reports as of June 2026</p>
         </div>
       </div>
 
