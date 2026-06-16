@@ -231,11 +231,10 @@ async function fetchServerReports(): Promise<BureauReport[]> {
 
 async function saveReportToServer(report: BureauReport): Promise<void> {
   try {
-    const { fileData, ...stripped } = report
     await fetch('/api/reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bureau: report.bureau, data: stripped }),
+      body: JSON.stringify({ bureau: report.bureau, data: report }),
     })
   } catch { /* ignore */ }
 }
