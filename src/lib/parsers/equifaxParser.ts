@@ -8,12 +8,17 @@ export function parseEquifax(text: string): Omit<BureauReport, 'filename'> {
   const personalInfo = isMyFICO
     ? extractMyFICOPersonalInfo(trimmed)
     : extractPersonalInfo(trimmed)
-  const accounts = isMyFICO
+  let accounts = isMyFICO
     ? extractMyFICOAccounts(trimmed)
     : extractAccounts(trimmed).accounts
-  const inquiries = isMyFICO
+  if (accounts.length === 0) accounts = extractAccountsRegex(text)
+  let inquiries = isMyFICO
     ? extractMyFICOInquiries(trimmed)
     : extractInquiries(trimmed)
+  if (inquiries.length === 0 && accounts.length > 0) {
+    const regexInq = extractInquiriesRegex(text)
+    if (regexInq.length > 0) inquiries = regexInq
+  }
   const publicRecords: PublicRecord[] = []
   const summary = computeSummary(accounts, inquiries, publicRecords)
 
@@ -548,6 +553,148 @@ function extractInquiries(lines: string[]): Inquiry[] {
         line.includes('You may seek damages')) break
     i++
   }
+  return inquiries
+}
+
+function extractAccountsRegex(text: string): Account[] {
+  const accounts: Account[] = []
+
+  // Split on "Credit Accounts" or "Account Information" or "Account info" section starts
+  const sections = text.split(/(?=Credit\s+Accounts)/i)
+  const targetSection = sections.length > 1 ? sections.slice(1).join('\n') : text
+
+  // Split into individual account chunks by looking for creditor name patterns
+  // followed by "Last Updated" or "Date Reported:" or "Balance"
+  const rawChunks = targetSection.split(/(?=(?:[A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+)+\s+(?:Last\s+Updated|Date\s+Reported)))/)
+
+  for (const chunk of rawChunks) {
+    const t = chunk.trim()
+    if (!t || t.length < 30) continue
+
+    const acc: Partial<Account> = {}
+
+    // Extract creditor name: first line that looks like a company name
+    const lines = t.split('\n').map(l => l.trim()).filter(Boolean)
+    let creditorName = ''
+    for (const line of lines) {
+      if (/^(?:Last\s+Updated|Date\s+Reported|Account\s+Number|Balance|Credit\s+Limi|High\s+Balance|Loan\s+Type|Responsibility|Comments|Open\s+Date|Closed\s+Date|Term|Scheduled\s+Payment)/i.test(line)) continue
+      if (/^(?:Equifax|TransUnion|Experian|OK|NR|NO|CO|FC|PP|UN|–|-)$/i.test(line)) continue
+      if (line.match(/^\d{1,2}\/\d{1,2}\/\d{4}/) || line.match(/^[A-Z][a-z]+ \d{4}/)) continue
+      if (line.includes('myFICO') || line.includes('TABLE OF') || line.includes('NEGATIVE ITEMS')) continue
+      if (line.length > 3 && line.length < 50 && line.match(/^[A-Z]/)) {
+        creditorName = line.replace(/\s+CLOSED$/i, '').trim()
+        break
+      }
+    }
+
+    if (!creditorName) continue
+    acc.creditorName = creditorName
+
+    // Extract account number
+    const anMatch = t.match(/Account\s+Number\s*[:\s]+(\S+)/i)
+    if (anMatch) acc.accountNumber = anMatch[1]
+
+    // Extract fields via regex on the full chunk
+    const balMatch = t.match(/(?<!\w)Balance\s+\$?([\d,]+)/i)
+    if (balMatch) acc.balance = parseAmount(balMatch[1])
+
+    const clMatch = t.match(/Credit\s+Limit\s+\$?([\d,]+)/i)
+    if (clMatch) acc.creditLimit = parseAmount(clMatch[1])
+
+    const mpMatch = t.match(/Scheduled\s+Payment\s+\$?([\d,]+)/i)
+    if (mpMatch) acc.monthlyPayment = parseAmount(mpMatch[1])
+
+    const hbMatch = t.match(/High\s+Balance\s+\$?([\d,]+)/i)
+    if (hbMatch) acc.highBalance = parseAmount(hbMatch[1])
+
+    const doMatch = t.match(/Open\s+Date\s+(\d{1,2}\/\d{1,2}\/\d{4})/)
+    if (doMatch) acc.dateOpened = doMatch[1]
+
+    const dcMatch = t.match(/Closed\s+Date\s+(\d{1,2}\/\d{1,2}\/\d{4})/)
+    if (dcMatch) acc.dateClosed = dcMatch[1]
+
+    const luMatch = t.match(/Last\s+Updated\s+(\d{1,2}\/\d{1,2}\/\d{4})/)
+    if (luMatch) acc.dateUpdated = luMatch[1]
+
+    const psMatch = t.match(/Payment\s+Status\s+(.+?)(?:\n|$)/i)
+    if (psMatch) {
+      acc.payStatus = psMatch[1].trim()
+      const dl = acc.payStatus.toLowerCase()
+      if (dl.includes('charge') || dl.includes('collection') || dl.includes('bad debt')) {
+        acc.isDerogatory = true
+      }
+    }
+
+    const atMatch = t.match(/Loan\s+Type\s+(.+?)(?:\n|$)/i)
+    if (atMatch) {
+      const lt = atMatch[1].trim().toLowerCase()
+      if (lt.includes('vehicle') || lt.includes('auto')) acc.accountType = 'Auto'
+      else if (lt.includes('credit card') || lt.includes('charge account')) acc.accountType = 'Revolving'
+      else if (lt.includes('student')) acc.accountType = 'Student Loan'
+      else if (lt.includes('mortgage')) acc.accountType = 'Mortgage'
+      else if (lt.includes('installment') || lt.includes('personal')) acc.accountType = 'Installment'
+    }
+
+    const respMatch = t.match(/Responsibility\s+(Individual|Joint|Maker|Authorized\s+User)/i)
+    if (respMatch) acc.responsibility = respMatch[1]
+
+    const coMatch = t.match(/Charge\s+Off\s+Amount\s+\$?([\d,]+)/i)
+    if (coMatch && parseAmount(coMatch[1]) > 0) { acc.isChargeOff = true; acc.isDerogatory = true }
+
+    // Extract remarks
+    const remMatch = t.match(/Comments?\s+(.+?)(?:\n\s*(?:Open\s+Date|Closed\s+Date|Last\s+Updated|Loan\s+Type|Responsibility|Account\s+Number|Scheduled|High\s+Balance|Charge\s+Off|Date\s+of|Term|Next|Credit\s+Limi)|$)/i)
+    if (remMatch) {
+      acc.remarks = remMatch[1].trim()
+      const dl = acc.remarks.toLowerCase()
+      if (dl.includes('charge off') || dl.includes('settled') || dl.includes('less than full')) {
+        acc.isDerogatory = true
+      }
+    }
+
+    // Date of first delinquency
+    const dfdMatch = t.match(/Date\s+of\s+1st\s+Delinquency\s+(\d{1,2}\/\d{1,2}\/\d{4})/i)
+    if (dfdMatch) acc.dateFirstDelinquency = dfdMatch[1]
+
+    // Estimated removal date
+    const erdMatch = t.match(/Estimated\s+Removal\s+Date\s+(\d{1,2}\/\d{1,2}\/\d{4})/i)
+    if (erdMatch) acc.estimatedRemovalDate = erdMatch[1]
+
+    accounts.push(finalizeAccount(acc))
+  }
+
+  return accounts
+}
+
+function extractInquiriesRegex(text: string): Inquiry[] {
+  const inquiries: Inquiry[] = []
+  const inqSection = text.match(/Credit\s+Inquiries[\s\S]*?(?=PERSONAL\s+INFO|Personal\s+Info|CONSUMERS\s+HAVE)/i)
+  if (!inqSection) return inquiries
+
+  // Find company names followed by dates like "05/15/2026"
+  const inqText = inqSection[0]
+  const lines = inqText.split('\n').map(l => l.trim()).filter(Boolean)
+
+  let currentMonth = ''
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i]
+    if (t.match(/^[A-Z][a-z]+ \d{4}$/)) { currentMonth = t; continue }
+    if (t.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+      // Look backward for company name
+      let name = ''
+      for (let j = i - 1; j >= Math.max(0, i - 5); j--) {
+        const pt = lines[j]
+        if (pt.match(/^[A-Z][a-z]+ \d{4}$/)) break
+        if (pt.match(/^\d{2}\/\d{2}\/\d{4}$/)) break
+        if (pt === 'Equifax' || pt === 'TransUnion' || pt === 'Experian' || pt === '–' || pt === '-') continue
+        name = pt
+        break
+      }
+      if (name && !inquiries.some(inq => inq.creditorName === name && inq.date === t)) {
+        inquiries.push({ bureau: 'Equifax' as Bureau, creditorName: name, date: t, type: 'Hard' })
+      }
+    }
+  }
+
   return inquiries
 }
 

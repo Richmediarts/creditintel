@@ -4,7 +4,8 @@ export function parseTransUnion(text: string): Omit<BureauReport, 'filename'> {
   const lines = text.split('\n')
 
   const personalInfo = extractPersonalInfo(lines)
-  const accounts = extractAccounts(lines)
+  let accounts = extractAccounts(lines)
+  if (accounts.length === 0) accounts = extractAccountsRegex(text)
   const inquiries = extractInquiries(lines, text)
   const publicRecords: PublicRecord[] = []
   const summary = computeSummary(accounts, inquiries, publicRecords)
@@ -336,6 +337,101 @@ function parseInquiries(block: string, inquiries: Inquiry[]) {
       }
     }
   }
+}
+
+function extractAccountsRegex(text: string): Account[] {
+  const accounts: Account[] = []
+
+  // Split on "Account Information" or "Account Info" (case-insensitive)
+  const chunks = text.split(/(?=[A-Z][a-z].*?Account\s+(?:Information|Info))/i)
+
+  for (const chunk of chunks) {
+    const trimmed = chunk.trim()
+    if (!trimmed || trimmed.length < 20) continue
+    if (!/account\s+(?:information|info)/i.test(trimmed)) continue
+
+    const acc: Partial<Account> = {}
+
+    // Extract creditor name: look for a capitalized line before "Account Information"
+    const lines = trimmed.split('\n').map(l => l.trim()).filter(Boolean)
+    let accInfoIdx = -1
+    for (let i = 0; i < lines.length; i++) {
+      if (/account\s+(?:information|info)/i.test(lines[i]) && !lines[i].match(/^\s/)) {
+        accInfoIdx = i
+        break
+      }
+    }
+
+    if (accInfoIdx < 0) continue
+
+    // Scan backward from "Account Information" for the creditor name
+    for (let j = accInfoIdx - 1; j >= 0; j--) {
+      const t = lines[j]
+      if (!t || t.startsWith('https://') || t.match(/^\d+\/\d+$/) || t.match(/^\d{1,2}\/\d{1,2}\/\d{4}/)) continue
+      if (/^(?:Address|Phone|Date|Responsibility|Account|Loan|Balance|Pay\s|Terms|Monthly|High|Credit|Estimated|Remarks)/i.test(t)) continue
+      acc.creditorName = t.replace(/\s+\d+\/\d+\/\d+.*$/, '').replace(/[<>]/g, '').trim()
+      break
+    }
+
+    if (!acc.creditorName) continue
+    if (acc.creditorName.length < 2 || acc.creditorName.includes('Personal') && acc.creditorName.includes('Credit')) continue
+
+    // Extract account number
+    const anMatch = trimmed.match(/Account\s+Number[:\s]+([A-Za-z0-9]+\*{3,}|[A-Za-z0-9]{4,})/i)
+    if (anMatch) acc.accountNumber = anMatch[1].trim()
+
+    // Extract fields using regex on the chunk text
+    const mpMatch = trimmed.match(/Monthly\s+Payment\s+\$?([\d,]+)/i)
+    if (mpMatch) acc.monthlyPayment = parseAmount(mpMatch[1])
+
+    const doMatch = trimmed.match(/Date\s+Opened\s+(\d{1,2}\/\d{1,2}\/\d{4})/)
+    if (doMatch) acc.dateOpened = doMatch[1]
+
+    const respMatch = trimmed.match(/Responsibility\s+(Individual|Joint|Maker|Authorized\s+User|Co-signer)/i)
+    if (respMatch) acc.responsibility = respMatch[1]
+
+    const atMatch = trimmed.match(/Account\s+Type\s+(.+?)(?:\n|$)/i)
+    if (atMatch) {
+      const val = atMatch[1].trim().toLowerCase()
+      if (val.includes('revolving')) acc.accountType = 'Revolving'
+      else if (val.includes('installment')) acc.accountType = 'Installment'
+      else if (val.includes('mortgage')) acc.accountType = 'Mortgage'
+      else if (val.includes('collection')) acc.accountType = 'Collection'
+      else if (val.includes('student')) acc.accountType = 'Student Loan'
+      else if (val.includes('auto')) acc.accountType = 'Auto'
+      else acc.accountType = 'Other'
+    }
+
+    const balMatch = trimmed.match(/(?<!\w)Balance\s+\$?([\d,]+)(?!\s*\(hist)/i)
+    if (balMatch) acc.balance = parseAmount(balMatch[1])
+
+    const duMatch = trimmed.match(/Date\s+Updated\s+(\d{1,2}\/\d{1,2}\/\d{4})/)
+    if (duMatch) acc.dateUpdated = duMatch[1]
+
+    const hbMatch = trimmed.match(/High\s+Balance\s+\$?([\d,]+)/i)
+    if (hbMatch) acc.highBalance = parseAmount(hbMatch[1])
+
+    const psMatch = trimmed.match(/Pay\s+Status\s+(.+?)(?:\n|$)/i)
+    if (psMatch) {
+      acc.payStatus = psMatch[1].replace(/[<>]/g, '').trim()
+    }
+
+    const termsMatch = trimmed.match(/Terms\s+(.+?)(?:\n|$)/i)
+    if (termsMatch) acc.terms = termsMatch[1].trim()
+
+    const dcMatch = trimmed.match(/Date\s+Closed\s+(\d{1,2}\/\d{1,2}\/\d{4})/)
+    if (dcMatch) acc.dateClosed = dcMatch[1]
+
+    const clMatch = trimmed.match(/Credit\s+Limit\s+\$?([\d,]+)/i)
+    if (clMatch) acc.creditLimit = parseAmount(clMatch[1])
+
+    const remarksMatch = trimmed.match(/Remarks\s+(.+?)(?:\n\s*(?:Account|Date|Monthly|Pay\s|Terms|High|Credit|Estimated)|$)/i)
+    if (remarksMatch) acc.remarks = remarksMatch[1].trim()
+
+    accounts.push(finalizeAccount(acc))
+  }
+
+  return accounts
 }
 
 function finalizeAccount(acc: Partial<Account>): Account {
