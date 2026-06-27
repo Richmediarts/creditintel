@@ -215,82 +215,82 @@ export default function ComparisonPage() {
         ))}
       </div>
 
-      {/* Cross-Bureau Summary */}
-      <Card>
-        <CardContent className="p-5">
-          <CardTitle className="mb-3">Cross-Bureau Summary</CardTitle>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="border-b-2 border-gray-200 dark:border-gray-700">
-                  <th className="text-left py-2 px-1">Item</th>
-                  {reports.map(r => {
-                    const c = bureauColors[r.bureau]
-                    return <th key={r.bureau} className={`text-center py-2 px-1 ${c.text}`}>{r.bureau}</th>
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-gray-100">
-                  <td className="py-2 px-1 font-medium">Total Accounts</td>
-                  {reports.map(r => <td key={r.bureau} className="text-center py-2 px-1">{r.summary.totalAccounts}</td>)}
-                </tr>
-                <tr className="border-b border-gray-100">
-                  <td className="py-2 px-1 font-medium">Derogatory Items</td>
-                  {reports.map(r => <td key={r.bureau} className="text-center py-2 px-1 font-bold text-[#d93025]">{r.summary.derogatoryAccounts}</td>)}
-                </tr>
-                <tr className="border-b border-gray-100">
-                  <td className="py-2 px-1 font-medium">Charge-offs</td>
-                  {reports.map(r => {
-                    const cos = r.accounts.filter(a => a.isChargeOff)
-                    return (
-                      <td key={r.bureau} className="text-center py-2 px-1 text-xs">
-                        {cos.length === 0 ? <span className="text-gray-400">None</span> : cos.map(co => (
-                          <div key={co.id}>{co.creditorName}{co.balance > 0 ? ` (${formatBalance(co.balance)})` : ''}</div>
-                        ))}
-                      </td>
-                    )
-                  })}
-                </tr>
-                <tr className="border-b border-gray-100">
-                  <td className="py-2 px-1 font-medium">Settled Accounts</td>
-                  {reports.map(r => {
-                    const settled = r.accounts.filter(a => (a.remarks || '').toLowerCase().includes('less than full') || (a.remarks || '').toLowerCase().includes('settled'))
-                    return (
-                      <td key={r.bureau} className="text-center py-2 px-1">
-                        {settled.length === 0 ? <span className="text-gray-400">-</span> : settled.map(s => s.creditorName).join(', ')}
-                      </td>
-                    )
-                  })}
-                </tr>
-                <tr className="border-b border-gray-100">
-                  <td className="py-2 px-1 font-medium">Late Payments</td>
-                  {reports.map(r => {
-                    const lates = r.accounts.filter(a => a.isLate && !a.isChargeOff && !a.isCollection)
-                    return (
-                      <td key={r.bureau} className="text-center py-2 px-1">
-                        {lates.length === 0 ? <span className="text-gray-400">-</span> : lates.map(l => l.creditorName).join(', ')}
-                      </td>
-                    )
-                  })}
-                </tr>
-                <tr className="border-b border-gray-100">
-                  <td className="py-2 px-1 font-medium">Hard Inquiries</td>
-                  {reports.map(r => <td key={r.bureau} className="text-center py-2 px-1 font-bold">{r.summary.hardInquiries}</td>)}
-                </tr>
-                <tr>
-                  <td className="py-2 px-1 font-medium">Total Debt (approx)</td>
-                  {reports.map(r => <td key={r.bureau} className="text-center py-2 px-1 font-bold">~{formatBalance(Math.round(r.summary.totalBalance / 1000) * 1000)}</td>)}
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          {/* Cross-Bureau Summary */}
+          <Card>
+            <CardContent className="p-5">
+              <CardTitle className="mb-3 text-gray-900 dark:text-white">Cross-Bureau Summary</CardTitle>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="border-b-2 border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-2 px-1 text-gray-700 dark:text-gray-300">Item</th>
+                      {reports.map(r => {
+                        const c = bureauColors[r.bureau]
+                        return <th key={r.bureau} className={`text-center py-2 px-1 ${c.text}`}>{r.bureau}</th>
+                      })}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <td className="py-2 px-1 font-medium text-gray-800 dark:text-gray-200">Total Accounts</td>
+                      {reports.map(r => <td key={r.bureau} className="text-center py-2 px-1 text-gray-800 dark:text-gray-200">{r.summary.totalAccounts}</td>)}
+                    </tr>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <td className="py-2 px-1 font-medium text-gray-800 dark:text-gray-200">Derogatory Items</td>
+                      {reports.map(r => <td key={r.bureau} className="text-center py-2 px-1 font-bold text-red-600 dark:text-red-400">{r.summary.derogatoryAccounts}</td>)}
+                    </tr>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <td className="py-2 px-1 font-medium text-gray-800 dark:text-gray-200">Charge-offs</td>
+                      {reports.map(r => {
+                        const cos = r.accounts.filter(a => a.isChargeOff)
+                        return (
+                          <td key={r.bureau} className="text-center py-2 px-1 text-xs text-gray-800 dark:text-gray-200">
+                            {cos.length === 0 ? <span className="text-gray-400 dark:text-gray-500">None</span> : cos.map(co => (
+                              <div key={co.id}>{co.creditorName}{co.balance > 0 ? ` (${formatBalance(co.balance)})` : ''}</div>
+                            ))}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <td className="py-2 px-1 font-medium text-gray-800 dark:text-gray-200">Settled Accounts</td>
+                      {reports.map(r => {
+                        const settled = r.accounts.filter(a => (a.remarks || '').toLowerCase().includes('less than full') || (a.remarks || '').toLowerCase().includes('settled'))
+                        return (
+                          <td key={r.bureau} className="text-center py-2 px-1 text-gray-800 dark:text-gray-200">
+                            {settled.length === 0 ? <span className="text-gray-400 dark:text-gray-500">-</span> : settled.map(s => s.creditorName).join(', ')}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <td className="py-2 px-1 font-medium text-gray-800 dark:text-gray-200">Late Payments</td>
+                      {reports.map(r => {
+                        const lates = r.accounts.filter(a => a.isLate && !a.isChargeOff && !a.isCollection)
+                        return (
+                          <td key={r.bureau} className="text-center py-2 px-1 text-gray-800 dark:text-gray-200">
+                            {lates.length === 0 ? <span className="text-gray-400 dark:text-gray-500">-</span> : lates.map(l => l.creditorName).join(', ')}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <td className="py-2 px-1 font-medium text-gray-800 dark:text-gray-200">Hard Inquiries</td>
+                      {reports.map(r => <td key={r.bureau} className="text-center py-2 px-1 font-bold text-gray-800 dark:text-gray-200">{r.summary.hardInquiries}</td>)}
+                    </tr>
+                    <tr>
+                      <td className="py-2 px-1 font-medium text-gray-800 dark:text-gray-200">Total Debt (approx)</td>
+                      {reports.map(r => <td key={r.bureau} className="text-center py-2 px-1 font-bold text-gray-800 dark:text-gray-200">~{formatBalance(Math.round(r.summary.totalBalance / 1000) * 1000)}</td>)}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
-          {/* Key Findings */}
-          <div className="mt-5 p-4 bg-[#fef7e0] rounded-lg text-sm">
-            <strong className="text-[#b06000]">Key Findings:</strong>
-            <ul className="mt-1.5 text-gray-600 list-disc pl-5 space-y-0.5 text-sm">
-              {(() => {
+              {/* Key Findings */}
+              <div className="mt-5 p-4 bg-amber-50 dark:bg-amber-950/40 rounded-lg text-sm">
+                <strong className="text-amber-700 dark:text-amber-400">Key Findings:</strong>
+                <ul className="mt-1.5 text-gray-700 dark:text-gray-300 list-disc pl-5 space-y-0.5 text-sm">
+                  {(() => {
                 const findings: React.ReactNode[] = []
                 const allReports = reports
                 const coNames = [...new Set(allReports.flatMap(r => r.accounts.filter(a => a.isChargeOff).map(a => a.creditorName)))]
@@ -315,8 +315,8 @@ export default function ComparisonPage() {
                 if (studentLoan) findings.push(<span key="stu">{studentLoan.creditorName} is the second largest debt</span>)
                 return findings.map((f, i) => <li key={i}>{f}</li>)
               })()}
-            </ul>
-          </div>
+                </ul>
+              </div>
         </CardContent>
       </Card>
 
