@@ -301,15 +301,16 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
       }
 
       dispatch({ type: 'ADD_REPORT', payload: data })
+      const uploadedFileData = data.fileData
 
       if (user) {
         await saveReportToServer(data)
-        // Merge server reports with local state to preserve fileData if save failed
         const serverReports = await fetchServerReports()
-        const merged = serverReports.map(sr => {
-          const local = state.reports.find(r => r.bureau === sr.bureau)
-          return local?.fileData ? { ...sr, fileData: local.fileData } : sr
-        })
+        const merged = serverReports.map(sr =>
+          sr.bureau === data.bureau && uploadedFileData && !sr.fileData
+            ? { ...sr, fileData: uploadedFileData }
+            : sr
+        )
         dispatch({ type: 'REPLACE_STATE', payload: { reports: merged, creditData: null } })
       }
     } catch (e: unknown) {
