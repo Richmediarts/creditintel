@@ -107,7 +107,9 @@ export default function SummaryPage() {
         {reports.map(report => (
           <Card key={report.bureau}>
             <CardContent className="p-4">
-              <CardTitle className={`mb-3 ${bureauColors[report.bureau]}`}>{report.bureau}</CardTitle>
+              <Link href={`/report-viewer?bureau=${report.bureau}`} className="block hover:opacity-80 transition-opacity">
+                <CardTitle className={`mb-3 ${bureauColors[report.bureau]}`}>{report.bureau}</CardTitle>
+              </Link>
               <div className="space-y-2 text-sm">
                 <Row label="Total Accounts" value={report.summary.totalAccounts} />
                 <Row label="Open" value={report.summary.openAccounts} />

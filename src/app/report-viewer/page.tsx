@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { Suspense, useState, useEffect } from 'react'
 import { ArrowLeft, Search, FileText } from 'lucide-react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useCredit } from '@/lib/store/creditStore'
@@ -16,12 +17,18 @@ const bureauColors: Record<string, string> = {
   TransUnion: 'border-l-purple-500',
 }
 
-export default function ReportViewerPage() {
+function ReportViewerContent() {
+  const searchParams = useSearchParams()
   const { state } = useCredit()
   const { creditData } = state
-  const [selectedBureau, setSelectedBureau] = useState<string>('all')
+  const [selectedBureau, setSelectedBureau] = useState<string>(searchParams.get('bureau') || 'all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
+
+  useEffect(() => {
+    const bureauParam = searchParams.get('bureau')
+    if (bureauParam) setSelectedBureau(bureauParam)
+  }, [searchParams])
 
   if (!creditData) {
     return (
@@ -149,5 +156,13 @@ export default function ReportViewerPage() {
         ))}
       </div>
     </div>
+  )
+}
+
+export default function ReportViewerPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-20 text-gray-500"><p>Loading...</p></div>}>
+      <ReportViewerContent />
+    </Suspense>
   )
 }
