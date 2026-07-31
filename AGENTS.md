@@ -15,8 +15,11 @@ Maintain credit-dashboard Next.js app with accurate report parsing, multi-bureau
 - DB auto-seeds from `seed/seed.json` on every Vercel cold start.
 - Admin user: `richljohnson50@gmail.com` / password `ella`.
 - Local dev server on `http://10.0.0.94:3000`; HMR requires `allowedDevOrigins` in `next.config.ts`.
+- **Backup policy**: Before every code change, run `node scripts/backup-db.cjs` to snapshot the local SQLite DB to `data/backups/` (keeps last 30). Then commit changes. Backups live in gitignored `data/`, never committed.
 
 ### Done
+- Created `scripts/backup-db.cjs` — snapshots SQLite DB to `data/backups/` (keeps last 30); run before every change.
+- Increased base font size to 18px and body font-weight to 500 for visibility.
 - Created `scripts/seed-real-data.cjs` — authoritative BureauReport JSON for all three bureaus.
 - Ran seed — DB has correct data for user_id=1 across `reports` and `fico_scores` tables.
 - Fixed TransUnion TXT parser: rewrote `extractInquiries` to find exactly 10 hard inquiries from "Regular Inquiries" section.
