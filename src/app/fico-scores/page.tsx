@@ -278,7 +278,7 @@ export default function FicoScoresPage() {
                     <td className="py-2 pr-3 font-medium text-gray-900 dark:text-white">Experian</td>
                     <td className="py-2 pr-3"><Badge variant="success">Yes</Badge></td>
                     <td className="py-2">
-                      <a href="https://www.google.com/aclk?sa=L&ai=DChsSEwihpv6Og_aUAxX7NwgFHRfzGcgYACICCAEQAhoCbWQ&co=1&ase=2&gclid=Cj0KCQjwrZTRBhDSARIsAHidYfcUZ0ZWiCI_XfkndKvaQOLeZOUeFIqfl6hhs848Yh2Ot49AkpJs-M8aAsjoEALw_wcB&cid=CAASuwHkaJCML9wffFlfiQfY_uZSfq074MPZaLxriV85c4Yx6SXVAeEcRMVflbptIzGjE02hIFYg_lccmrKz6EvRAhWLGV1M8J_7il-Kb_DKxNZJCU74Tlhrss4VbRmNOo-Ln2evkpBixZYhVuhvXZsppLJ8VaJiSdBLJQS0SMbV68MHw53Y4XmOwfl0dCiFdITLfe7A47fdMQ6yjN59zdZejXCT3-BXkAKKdxIm2XanYqZBVdQK_xW-SScdikWc&cce=2&category=acrcp_v1_32&sig=AOD64_244ZkkPILm4zkdlmigxJYsy5ErWA&q&nis=4&adurl&ved=2ahUKEwio-veOg_aUAxVjrIkEHeEEMBYQ0Qx6BAgPEAE" target="_blank" rel="noopener noreferrer"
+                      <a href="https://usa.experian.com/login/index" target="_blank" rel="noopener noreferrer"
                         className="text-blue-600 hover:underline inline-flex items-center gap-1">
                         Experian Free Account <ExternalLink className="w-3 h-3" />
                       </a>
