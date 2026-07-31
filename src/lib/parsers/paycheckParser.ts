@@ -89,36 +89,50 @@ function extractMoney(s: string): number | null {
 
 function parseDate(s: string): string | null {
   const trimmed = s.trim()
-  const formats = [/^(\d{2})\/(\d{2})\/(\d{4})$/, /^(\d{4})-(\d{2})-(\d{2})$/, /^(\d{2})-(\d{2})-(\d{4})$/]
-  for (const fmt of formats) {
-    const m = trimmed.match(fmt)
-    if (m) {
-      if (fmt === formats[0]) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`
-      if (fmt === formats[1]) return `${m[1]}-${m[2]}-${m[3]}`
-      if (fmt === formats[2]) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`
+  // MM/DD/YYYY
+  let m = trimmed.match(/^(\d{2})\/(\d{2})\/(\d{4})$/)
+  if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`
+  // YYYY-MM-DD
+  m = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`
+  // MM-DD-YYYY
+  m = trimmed.match(/^(\d{2})-(\d{2})-(\d{4})$/)
+  if (m) return `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`
+  // Month DD, YYYY
+  m = trimmed.match(/^([A-Za-z]+)\s+(\d{1,2}),?\s+(\d{4})$/)
+  if (m) {
+    const monthNames: Record<string, string> = {
+      january: '01', february: '02', march: '03', april: '04', may: '05', june: '06',
+      july: '07', august: '08', september: '09', october: '10', november: '11', december: '12',
     }
+    const monthNum = monthNames[m[1].toLowerCase()]
+    if (monthNum) return `${m[3]}-${monthNum}-${m[2].padStart(2, '0')}`
   }
   return null
 }
 
 function getValueAfterLabel(line: string, label: string, ytd = false): number | null {
-  const idx = line.toLowerCase().indexOf(label)
+  const lineLower = line.toLowerCase()
+  const labelLower = label.toLowerCase()
+  const idx = lineLower.indexOf(labelLower)
   if (idx === -1) return null
   const afterLabel = line.slice(idx + label.length)
   const matches = afterLabel.match(/([\d,]+\.\d{2})/g)
   if (!matches || matches.length === 0) return null
   const ytdIdx = ytd ? 1 : 0
-  return ytdIdx < matches.length ? extractMoney(matches[ytdIdx]) : extractMoney(matches[0])
+  if (ytdIdx < matches.length) return extractMoney(matches[ytdIdx])
+  return extractMoney(matches[0])
 }
 
 export function parsePaycheckText(rawText: string): ParsedPaycheck {
   const result: ParsedPaycheck = {}
   const lines = rawText.split('\n')
 
+  // Pass 1: Company, employee ID, dates
   for (const line of lines) {
-    const lower = line.toLowerCase()
+    const lineLower = line.toLowerCase()
 
-    if (lower.includes('voyix')) result.company = 'NCR Voyix Corporation'
+    if (lineLower.includes('voyix')) result.company = 'NCR Voyix Corporation'
 
     const empId = line.match(/\b(\d{10,11})\b/)
     if (empId && !result.employee_id) result.employee_id = empId[1]
@@ -136,16 +150,20 @@ export function parsePaycheckText(rawText: string): ParsedPaycheck {
     }
   }
 
+  // Pass 2: Employee name
   for (const line of lines) {
-    const lower = line.toLowerCase()
+    const lineLower = line.toLowerCase()
     const words = line.split(/\s+/)
-    if (lower.includes('richard') || lower.includes('johnson')) {
+
+    if (lineLower.includes('richard') || lineLower.includes('johnson')) {
       const nameWords: string[] = []
       for (const word of words) {
-        if (word[0] && word[0].toUpperCase() === word[0] && word.length > 2 && !/\d/.test(word)) {
-          const wl = word.toLowerCase()
-          if (wl !== 'voyix' && wl !== 'corporation' && !['Name', 'Company', 'Employee', 'Description', 'Amount', 'Current', 'YTD', 'Hours', 'Gross', 'Tax', 'Net'].includes(word)) {
-            nameWords.push(word)
+        const cleanWord = word.replace(/[:;,.]/g, '')
+        if (cleanWord[0] && cleanWord[0].toUpperCase() === cleanWord[0] && cleanWord.length > 2 && !/\d/.test(cleanWord)) {
+          const wl = cleanWord.toLowerCase()
+          if (wl !== 'voyix' && wl !== 'corporation' &&
+              !['name', 'company', 'employee', 'description', 'amount', 'current', 'ytd', 'hours', 'gross', 'tax', 'net'].includes(wl)) {
+            nameWords.push(cleanWord)
             if (nameWords.length >= 2) break
           }
         }
@@ -154,10 +172,12 @@ export function parsePaycheckText(rawText: string): ParsedPaycheck {
     }
   }
 
+  // Pass 3: Summary line (Current period)
+  // Try single-line format first (all values on one line)
   let summaryLine: string | null = null
   for (const line of lines) {
-    const lower = line.toLowerCase()
-    if (lower.includes('current') && /\b\d{2}\.\d{2}\b/.test(line) && !lower.trim().startsWith('hours worked')) {
+    const lineLower = line.toLowerCase()
+    if (lineLower.includes('current') && /\b\d{2}\.\d{2}\b/.test(line) && !lineLower.trim().startsWith('hours worked')) {
       const moneyMatches = line.match(/([\d,]+\.\d{2})/g)
       if (moneyMatches && moneyMatches.length >= 5) {
         summaryLine = line
@@ -176,11 +196,30 @@ export function parsePaycheckText(rawText: string): ParsedPaycheck {
       result.post_tax_deductions = extractMoney(moneyMatches[4]) ?? 0
       result.net_pay = extractMoney(moneyMatches[5]) ?? 0
     }
+  } else {
+    // Fallback: extract from individual lines (separate-line format)
+    for (const line of lines) {
+      const lineLower = line.toLowerCase()
+      const val = getValueAfterLabel(line, 'hours worked')
+      if (val !== null && result.hours_worked === undefined) result.hours_worked = val
+      const gv = getValueAfterLabel(line, 'gross pay')
+      if (gv !== null && result.gross_pay === undefined) result.gross_pay = gv
+      const pt = getValueAfterLabel(line, 'pre-tax deductions')
+      if (pt !== null && result.pre_tax_deductions === undefined) result.pre_tax_deductions = pt
+      const et = getValueAfterLabel(line, 'employee taxes')
+      if (et !== null && result.employee_taxes === undefined) result.employee_taxes = et
+      const pot = getValueAfterLabel(line, 'post-tax deductions')
+      if (pot !== null && result.post_tax_deductions === undefined) result.post_tax_deductions = pot
+      const np = getValueAfterLabel(line, 'net pay')
+      if (np !== null && result.net_pay === undefined) result.net_pay = np
+    }
   }
 
+  // Pass 4: YTD line
   let ytdLine: string | null = null
   for (const line of lines) {
-    if (/^\s*YTD/i.test(line) && line.toLowerCase().includes('ytd')) {
+    const lineLower = line.toLowerCase()
+    if (lineLower.includes('ytd') && /^\s*YTD/i.test(line)) {
       const moneyMatches = line.match(/([\d,]+\.\d{2})/g)
       if (moneyMatches && moneyMatches.length >= 5) {
         ytdLine = line
@@ -199,59 +238,203 @@ export function parsePaycheckText(rawText: string): ParsedPaycheck {
       result.post_tax_deductions_ytd = extractMoney(moneyMatches[4]) ?? 0
       result.net_pay_ytd = extractMoney(moneyMatches[5]) ?? 0
     }
+  } else {
+    // Fallback: extract from individual lines (separate-line YTD format)
+    for (const line of lines) {
+      const lineLower = line.toLowerCase()
+      if (!lineLower.includes('ytd')) continue
+      const hw = getValueAfterLabel(line, 'hours worked', true)
+      if (hw !== null && result.hours_worked_ytd === undefined) result.hours_worked_ytd = hw
+      const gp = getValueAfterLabel(line, 'gross pay', true)
+      if (gp !== null && result.gross_pay_ytd === undefined) result.gross_pay_ytd = gp
+      const pt = getValueAfterLabel(line, 'pre-tax deductions', true)
+      if (pt !== null && result.pre_tax_deductions_ytd === undefined) result.pre_tax_deductions_ytd = pt
+      const et = getValueAfterLabel(line, 'employee taxes', true)
+      if (et !== null && result.employee_taxes_ytd === undefined) result.employee_taxes_ytd = et
+      const pot = getValueAfterLabel(line, 'post-tax deductions', true)
+      if (pot !== null && result.post_tax_deductions_ytd === undefined) result.post_tax_deductions_ytd = pot
+      const np = getValueAfterLabel(line, 'net pay', true)
+      if (np !== null && result.net_pay_ytd === undefined) result.net_pay_ytd = np
+    }
   }
 
-  const lineChecks: [RegExp, Record<string, string | boolean>][] = [
-    [/401k savings plan/i, { retirement_401k: '401k', retirement_401k_ytd: '401k' }],
-    [/medical.*(?:plan|ins)/i, { health_insurance: 'medical', health_insurance_ytd: 'medical' }],
-    [/dental plan/i, { dental_plan: 'dental', dental_plan_ytd: 'dental' }],
-    [/eye plan/i, { eye_plan: 'eye', eye_plan_ytd: 'eye' }],
-    [/health care fsa/i, { health_care_fsa: 'fsa', health_care_fsa_ytd: 'fsa' }],
-    [/optional life/i, { optional_life: 'optional life', optional_life_ytd: 'optional life' }],
-    [/add insurance/i, { add_insurance: 'add', add_insurance_ytd: 'add' }],
-    [/federal withholding/i, { federal_tax: 'federal withholding', federal_tax_ytd: 'federal withholding' }],
-    [/(?:state tax|ga withholding|withholding|ga)/i, { state_tax: 'withholding', state_tax_ytd: 'withholding' }],
-    [/oasdi/i, { oasdi: 'oasdi', oasdi_ytd: 'oasdi' }],
-    [/medicare/i, { medicare: 'medicare', medicare_ytd: 'medicare' }],
-    [/401k.*employer.*match/i, { employer_match: 'match', employer_match_ytd: 'match' }],
-    [/hsa.*employee/i, { hsa: 'hsa', hsa_ytd: 'hsa' }],
-    [/hsa.*employer/i, { employer_hsa: 'hsa', employer_hsa_ytd: 'hsa' }],
-    [/(?:loan repayment|401k loan)/i, { loan_repayment: 'loan', loan_repayment_ytd: 'loan' }],
-    [/dependent life/i, { dependent_life: 'dependent life', dependent_life_ytd: 'dependent life' }],
-    [/(?:stock purchase|employee stock)/i, { stock_purchase: 'stock', stock_purchase_ytd: 'stock' }],
-    [/spousal life/i, { spousal_life: 'spousal life', spousal_life_ytd: 'spousal life' }],
-    [/biometric credit/i, { biometric_credit: 'biometric', biometric_credit_ytd: 'biometric' }],
-    [/spousal biometric credit/i, { spousal_biometric: 'spousal biometric', spousal_biometric_ytd: 'spousal biometric' }],
-    [/group term life/i, { group_term_life: 'group term', group_term_life_ytd: 'group term' }],
-    [/floating holiday/i, { floating_holiday: 'floating holiday', floating_holiday_ytd: 'floating holiday' }],
-    [/^holiday\b/i, { holiday_pay: 'holiday', holiday_pay_ytd: 'holiday' }],
-    [/^vacation\s/i, { vacation_pay: 'vacation', vacation_pay_ytd: 'vacation' }],
-    [/^salary\s/i, { salary: 'salary', salary_ytd: 'salary' }],
-  ]
-
+  // Pass 5: Line-by-line extraction (faithful to Python version)
   for (const line of lines) {
-    for (const [regex, fields] of lineChecks) {
-      if (regex.test(line)) {
-        for (const [field, label] of Object.entries(fields)) {
-          if (typeof label === 'string') {
-            const isYtd = field.endsWith('_ytd')
-            const val = getValueAfterLabel(line, label, isYtd)
-            if (val !== null) (result as Record<string, unknown>)[field] = val
-          }
-        }
+    const lineLower = line.toLowerCase()
+
+    // 401k savings plan (both "401k" and "401(k)" variants)
+    if (lineLower.includes('401k savings plan') || lineLower.includes('401(k) savings plan')) {
+      // Try both label variants for extraction
+      const val = getValueAfterLabel(line, '401(k)') ?? getValueAfterLabel(line, '401k')
+      const valYtd = getValueAfterLabel(line, '401(k)', true) ?? getValueAfterLabel(line, '401k', true)
+      if (val !== null) result.retirement_401k = val
+      if (valYtd !== null) result.retirement_401k_ytd = valYtd
+    }
+
+    // Medical plan/insurance
+    if (lineLower.includes('medical') && (lineLower.includes('plan') || lineLower.includes('ins'))) {
+      result.health_insurance = getValueAfterLabel(line, 'medical') ?? undefined
+      result.health_insurance_ytd = getValueAfterLabel(line, 'medical', true) ?? undefined
+    }
+
+    // Dental plan
+    if (lineLower.includes('dental plan')) {
+      result.dental_plan = getValueAfterLabel(line, 'dental') ?? undefined
+      result.dental_plan_ytd = getValueAfterLabel(line, 'dental', true) ?? undefined
+    }
+
+    // Eye plan
+    if (lineLower.includes('eye plan')) {
+      result.eye_plan = getValueAfterLabel(line, 'eye') ?? undefined
+      result.eye_plan_ytd = getValueAfterLabel(line, 'eye', true) ?? undefined
+    }
+
+    // Health care FSA
+    if (lineLower.includes('health care fsa')) {
+      result.health_care_fsa = getValueAfterLabel(line, 'fsa') ?? undefined
+      result.health_care_fsa_ytd = getValueAfterLabel(line, 'fsa', true) ?? undefined
+    }
+
+    // Optional life
+    if (lineLower.includes('optional life')) {
+      result.optional_life = getValueAfterLabel(line, 'optional life') ?? undefined
+      result.optional_life_ytd = getValueAfterLabel(line, 'optional life', true) ?? undefined
+    }
+
+    // ADD insurance
+    if (lineLower.includes('add insurance')) {
+      result.add_insurance = getValueAfterLabel(line, 'add') ?? undefined
+      result.add_insurance_ytd = getValueAfterLabel(line, 'add', true) ?? undefined
+    }
+
+    // Federal withholding (exclude taxable lines)
+    if (lineLower.includes('federal withholding') && !lineLower.includes('taxable')) {
+      result.federal_tax = getValueAfterLabel(line, 'federal withholding') ?? undefined
+      result.federal_tax_ytd = getValueAfterLabel(line, 'federal withholding', true) ?? undefined
+    }
+
+    // State tax / GA withholding (exclude federal and taxable lines)
+    if ((lineLower.includes('state tax') || lineLower.includes('ga withholding') || lineLower.includes('withholding') || lineLower.includes('ga')) &&
+        !lineLower.includes('federal') && !lineLower.includes('taxable')) {
+      const taxVal = getValueAfterLabel(line, 'withholding') || getValueAfterLabel(line, 'state')
+      if (taxVal) {
+        result.state_tax = taxVal
+        result.state_name = 'GA'
+        result.state_tax_ytd = getValueAfterLabel(line, 'state', true) || getValueAfterLabel(line, 'withholding', true) || undefined
       }
     }
 
-    if (/pnc/i.test(line)) {
+    // OASDI (exclude taxable and social security lines)
+    if (lineLower.includes('oasdi') && !lineLower.includes('taxable') && !lineLower.includes('social security')) {
+      result.oasdi = getValueAfterLabel(line, 'oasdi') ?? undefined
+      result.oasdi_ytd = getValueAfterLabel(line, 'oasdi', true) ?? undefined
+    }
+
+    // Medicare (exclude taxable lines)
+    if (/medicare/.test(lineLower) && !lineLower.includes('taxable')) {
+      result.medicare = getValueAfterLabel(line, 'medicare') ?? undefined
+      result.medicare_ytd = getValueAfterLabel(line, 'medicare', true) ?? undefined
+    }
+
+    // 401k employer match
+    if ((lineLower.includes('401k') || lineLower.includes('401(k)')) && lineLower.includes('employer') && lineLower.includes('match')) {
+      result.employer_match = getValueAfterLabel(line, 'match') ?? undefined
+      result.employer_match_ytd = getValueAfterLabel(line, 'match', true) ?? undefined
+    }
+
+    // HSA employee
+    if (lineLower.includes('hsa') && lineLower.includes('employee')) {
+      result.hsa = getValueAfterLabel(line, 'hsa') ?? undefined
+      result.hsa_ytd = getValueAfterLabel(line, 'hsa', true) ?? undefined
+    }
+
+    // HSA employer
+    if (lineLower.includes('hsa') && lineLower.includes('employer')) {
+      result.employer_hsa = getValueAfterLabel(line, 'hsa') ?? undefined
+      result.employer_hsa_ytd = getValueAfterLabel(line, 'hsa', true) ?? undefined
+    }
+
+    // Loan repayment / 401k loan
+    if (lineLower.includes('loan repayment') || lineLower.includes('401k loan') || lineLower.includes('401(k) loan')) {
+      result.loan_repayment = getValueAfterLabel(line, 'loan') ?? undefined
+      result.loan_repayment_ytd = getValueAfterLabel(line, 'loan', true) ?? undefined
+    }
+
+    // Dependent life
+    if (lineLower.includes('dependent life')) {
+      result.dependent_life = getValueAfterLabel(line, 'dependent life') ?? undefined
+      result.dependent_life_ytd = getValueAfterLabel(line, 'dependent life', true) ?? undefined
+    }
+
+    // Stock purchase / employee stock
+    if (lineLower.includes('stock purchase') || lineLower.includes('employee stock')) {
+      result.stock_purchase = getValueAfterLabel(line, 'stock') ?? undefined
+      result.stock_purchase_ytd = getValueAfterLabel(line, 'stock', true) ?? undefined
+    }
+
+    // Spousal life
+    if (lineLower.includes('spousal life')) {
+      result.spousal_life = getValueAfterLabel(line, 'spousal life') ?? undefined
+      result.spousal_life_ytd = getValueAfterLabel(line, 'spousal life', true) ?? undefined
+    }
+
+    // Biometric credit (not spousal)
+    if (lineLower.includes('biometric credit') && !lineLower.includes('spousal')) {
+      result.biometric_credit = getValueAfterLabel(line, 'biometric') ?? undefined
+      result.biometric_credit_ytd = getValueAfterLabel(line, 'biometric', true) ?? undefined
+    }
+
+    // Spousal biometric credit
+    if (lineLower.includes('spousal biometric credit')) {
+      result.spousal_biometric = getValueAfterLabel(line, 'spousal biometric') ?? undefined
+      result.spousal_biometric_ytd = getValueAfterLabel(line, 'spousal biometric', true) ?? undefined
+    }
+
+    // Group term life
+    if (lineLower.includes('group term life')) {
+      result.group_term_life = getValueAfterLabel(line, 'group term') ?? undefined
+      result.group_term_life_ytd = getValueAfterLabel(line, 'group term', true) ?? undefined
+    }
+
+    // Floating holiday
+    if (lineLower.includes('floating holiday')) {
+      result.floating_holiday = getValueAfterLabel(line, 'floating holiday') ?? undefined
+      result.floating_holiday_ytd = getValueAfterLabel(line, 'floating holiday', true) ?? undefined
+    }
+
+    // Holiday pay (exclude "holiday pay" label and "floating")
+    if (/\bholiday\b/.test(lineLower) && !lineLower.includes('holiday pay') && !lineLower.includes('floating')) {
+      result.holiday_pay = getValueAfterLabel(line, 'holiday') ?? undefined
+      result.holiday_pay_ytd = getValueAfterLabel(line, 'holiday', true) ?? undefined
+    }
+
+    // Vacation pay (starts with "vacation")
+    if (/^vacation\s/.test(lineLower)) {
+      result.vacation_pay = getValueAfterLabel(line, 'vacation') ?? undefined
+      result.vacation_pay_ytd = getValueAfterLabel(line, 'vacation', true) ?? undefined
+    }
+
+    // Salary (starts with "salary")
+    if (/^salary\s/.test(lineLower)) {
+      result.salary = getValueAfterLabel(line, 'salary') ?? undefined
+      result.salary_ytd = getValueAfterLabel(line, 'salary', true) ?? undefined
+    }
+
+    // PNC bank
+    if (lineLower.includes('pnc')) {
       result.bank_name = 'PNC Bank'
       const depositVal = getValueAfterLabel(line, 'pnc')
       if (depositVal) result.deposit_amount = depositVal
     }
-    if (/first tech|firsttech/i.test(line)) {
+
+    // First Tech bank
+    if (lineLower.includes('first tech') || lineLower.includes('firsttech')) {
       result.bank2_name = 'First Tech Federal Credit Union'
       const depositVal = getValueAfterLabel(line, 'first') || getValueAfterLabel(line, 'tech')
       if (depositVal) result.deposit2_amount = depositVal
     }
+
+    // Account numbers (******1234)
     const accMatch = line.match(/\*{6}(\d{4})/)
     if (accMatch) {
       if (result.bank_name === 'PNC Bank' && !result.account_number) {
@@ -262,6 +445,7 @@ export function parsePaycheckText(rawText: string): ParsedPaycheck {
     }
   }
 
+  // Fallback: find any account number if not yet found
   if (!result.account_number) {
     for (const line of lines) {
       const accMatch = line.match(/\*+(\d{4})/)
