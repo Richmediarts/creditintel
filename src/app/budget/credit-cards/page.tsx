@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Wallet, CreditCard, TrendingUp, PlusCircle, ArrowRight,
-  Edit, Trash2, DollarSign, Percent,
+  Edit, Trash2, DollarSign, Percent, RefreshCw, Plug, Loader2,
 } from 'lucide-react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
+import { PlaidLinkButton } from '@/components/PlaidLinkButton'
 
 interface CreditCardType {
   id: number
@@ -19,6 +20,8 @@ interface CreditCardType {
   current_balance: number
   interest_rate: number
   due_date: string
+  plaid_account_id?: string
+  plaid_item_id?: number
 }
 
 const fmt = (n: number): string =>
@@ -43,6 +46,8 @@ export default function CreditCardsPage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [syncing, setSyncing] = useState(false)
+  const [syncMessage, setSyncMessage] = useState('')
 
   const fetchCards = useCallback(async () => {
     const res = await fetch('/api/budget/credit-cards')
@@ -123,8 +128,30 @@ export default function CreditCardsPage() {
     await fetchCards()
   }
 
+  const handleSync = async () => {
+    setSyncing(true)
+    setSyncMessage('')
+    setError('')
+    try {
+      const res = await fetch('/api/budget/plaid/sync-balances', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        const ok = data.results?.filter((r: { status: string }) => r.status === 'ok').length || 0
+        const fail = data.results?.filter((r: { status: string }) => r.status !== 'ok').length || 0
+        setSyncMessage(`Synced ${ok} institution${ok !== 1 ? 's' : ''}${fail ? ` (${fail} failed)` : ''}`)
+        await fetchCards()
+      } else {
+        setError(data.error || 'Sync failed')
+      }
+    } catch {
+      setError('Sync failed')
+    }
+    setSyncing(false)
+  }
+
   const totalDebt = cards.reduce((s, c) => s + (Number(c.current_balance) || 0), 0)
   const totalLimit = cards.reduce((s, c) => s + (Number(c.credit_limit) || 0), 0)
+  const totalAvailable = totalLimit - totalDebt
   const avgUtil = totalLimit > 0 ? (totalDebt / totalLimit) * 100 : 0
 
   if (loading) {
@@ -142,14 +169,26 @@ export default function CreditCardsPage() {
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Credit Cards</h1>
           <p className="text-sm text-gray-500">Track balances, limits, and utilization across all your cards.</p>
         </div>
-        {!editing && (
-          <Button onClick={startAdd}><PlusCircle className="w-4 h-4 mr-2" /> Add Card</Button>
-        )}
+        <div className="flex items-center gap-2">
+          <PlaidLinkButton onConnected={fetchCards} />
+          <Button onClick={handleSync} disabled={syncing} variant="secondary" size="sm">
+            {syncing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+            {syncing ? 'Syncing...' : 'Sync Balances'}
+          </Button>
+          {!editing && (
+            <Button onClick={startAdd}><PlusCircle className="w-4 h-4 mr-2" /> Add Card</Button>
+          )}
+        </div>
       </div>
 
       {message && (
         <div className="rounded-lg bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 px-4 py-3 text-sm text-green-700 dark:text-green-300">
           {message}
+        </div>
+      )}
+      {syncMessage && (
+        <div className="rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
+          {syncMessage}
         </div>
       )}
       {error && (
@@ -159,7 +198,7 @@ export default function CreditCardsPage() {
       )}
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-5 flex items-start justify-between gap-3">
             <div>
@@ -174,11 +213,22 @@ export default function CreditCardsPage() {
         <Card>
           <CardContent className="p-5 flex items-start justify-between gap-3">
             <div>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Available Credit</p>
+              <p className={`text-2xl font-bold mt-1 ${totalAvailable > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-white'}`}>{fmt(totalAvailable)}</p>
+            </div>
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400">
+              <TrendingUp className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5 flex items-start justify-between gap-3">
+            <div>
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Credit Limit</p>
               <p className="text-2xl font-bold mt-1 text-gray-900 dark:text-white">{fmt(totalLimit)}</p>
             </div>
             <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
-              <TrendingUp className="w-5 h-5" />
+              <Wallet className="w-5 h-5" />
             </div>
           </CardContent>
         </Card>
@@ -310,6 +360,7 @@ export default function CreditCardsPage() {
               {cards.map((card) => {
                 const limit = Number(card.credit_limit) || 0
                 const balance = Number(card.current_balance) || 0
+                const available = limit - balance
                 const util = limit > 0 ? (balance / limit) * 100 : 0
                 const utilColor = util > 30 ? 'text-red-500' : util > 10 ? 'text-amber-500' : 'text-green-500'
                 const utilBg = util > 30 ? 'bg-red-500' : util > 10 ? 'bg-amber-500' : 'bg-green-500'
@@ -324,12 +375,17 @@ export default function CreditCardsPage() {
                         <CreditCard className="w-5 h-5" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{card.name}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{card.name}</p>
+                          {card.plaid_account_id && (
+                            <span title="Plaid connected"><Plug className="w-3 h-3 text-green-500 shrink-0" /></span>
+                          )}
+                        </div>
                         <p className="text-xs text-gray-400">**** {card.last_four || '????'}{card.due_date ? ` · Due ${card.due_date}` : ''}</p>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:w-2/3">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:w-2/3">
                       <div>
                         <p className="text-xs text-gray-400">Balance</p>
                         <p className="text-sm font-semibold text-gray-900 dark:text-white">{fmt(balance)}</p>
@@ -337,6 +393,10 @@ export default function CreditCardsPage() {
                       <div>
                         <p className="text-xs text-gray-400">Limit</p>
                         <p className="text-sm font-semibold text-gray-900 dark:text-white">{fmt(limit)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400">Available</p>
+                        <p className={`text-sm font-semibold ${available > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>{fmt(available)}</p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-400">APR</p>
@@ -375,7 +435,10 @@ export default function CreditCardsPage() {
             <div className="text-center py-8">
               <CreditCard className="w-8 h-8 mx-auto text-gray-300 mb-2" />
               <p className="text-sm text-gray-400">No credit cards yet.</p>
-              <Button onClick={startAdd} className="mt-3"><PlusCircle className="w-4 h-4 mr-2" /> Add your first card</Button>
+              <div className="flex items-center justify-center gap-2 mt-3">
+                <PlaidLinkButton onConnected={fetchCards} />
+                <Button onClick={startAdd}><PlusCircle className="w-4 h-4 mr-2" /> Add Manually</Button>
+              </div>
             </div>
           )}
         </CardContent>
