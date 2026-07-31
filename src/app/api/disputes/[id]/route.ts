@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
-import { getDb, calculateExpectedResponseDate } from '@/lib/db'
+import { getDb, calculateExpectedResponseDateFrom } from '@/lib/db'
 
 function getAuthUser(request: NextRequest) {
   const token = request.cookies.get('credit-dashboard-token')?.value
@@ -30,12 +30,37 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       fields.push('status = ?')
       values.push(updates.status)
     }
+    if (updates.letterType !== undefined) {
+      fields.push('letter_type = ?')
+      values.push(updates.letterType)
+    }
+    if (updates.printedAt !== undefined) {
+      fields.push('printed_at = ?')
+      values.push(updates.printedAt)
+    }
+    if (updates.sentAt !== undefined) {
+      fields.push('sent_at = ?')
+      values.push(updates.sentAt)
+      const lt = updates.letterType || dispute.letter_type || 'validation'
+      const expectedDate = calculateExpectedResponseDateFrom(lt, updates.sentAt.split('T')[0])
+      fields.push('expected_response_date = ?')
+      values.push(expectedDate)
+    }
+    if (updates.pendingAt !== undefined) {
+      fields.push('pending_at = ?')
+      values.push(updates.pendingAt)
+    }
+    if (updates.resendAt !== undefined) {
+      fields.push('resend_at = ?')
+      values.push(updates.resendAt)
+    }
+    if (updates.completedAt !== undefined) {
+      fields.push('completed_at = ?')
+      values.push(updates.completedAt)
+    }
     if (updates.filedDate !== undefined) {
       fields.push('filed_date = ?')
       values.push(updates.filedDate)
-      const expectedDate = calculateExpectedResponseDate(dispute.bureau, updates.filedDate)
-      fields.push('expected_response_date = ?')
-      values.push(expectedDate)
     }
     if (updates.resolvedDate !== undefined) {
       fields.push('resolved_date = ?')

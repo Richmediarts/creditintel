@@ -1,7 +1,9 @@
-const LINE_THRESHOLD = 5
-const SPACE_THRESHOLD = 2
+export interface ExtractedText {
+  positionGrouped: string
+  rawConcat: string
+}
 
-export async function extractTextFromPDF(file: File): Promise<string> {
+export async function extractTextFromPDF(file: File): Promise<ExtractedText> {
   const arrayBuffer = await file.arrayBuffer()
   const pdfjsLib = await import('pdfjs-dist')
 
@@ -14,7 +16,26 @@ export async function extractTextFromPDF(file: File): Promise<string> {
   const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
   const pdf = await loadingTask.promise
 
-  // ── Step 1: Try native text extraction ──
+  // Try native text extraction first (fast path)
+  try {
+    const nativeText = await extractNative(pdf)
+    const cleaned = nativeText.replace(/\s+/g, ' ').trim()
+
+    // Only use native if it has clear credit report content
+    if (cleaned.length > 100 && hasGoodContent(cleaned)) {
+      return { positionGrouped: nativeText, rawConcat: nativeText }
+    }
+  } catch {
+    // Native failed, fall through to OCR
+  }
+
+  // OCR fallback: render each page at 3x and run tesseract
+  return extractWithOCR(pdf)
+}
+
+async function extractNative(pdf: any): Promise<string> {
+  const LINE_THRESHOLD = 8
+  const SPACE_THRESHOLD = 2
   const textPages: string[] = []
 
   for (let i = 1; i <= pdf.numPages; i++) {
@@ -28,7 +49,6 @@ export async function extractTextFromPDF(file: File): Promise<string> {
         items.push({ str: obj.str, x: obj.transform[4] as number, y: obj.transform[5] as number, width: obj.width })
       }
     }
-
     if (items.length === 0) continue
 
     items.sort((a, b) => b.y - a.y)
@@ -56,28 +76,44 @@ export async function extractTextFromPDF(file: File): Promise<string> {
           const prev = line[k - 1]
           const curr = line[k]
           const gap = curr.x - (prev.x + prev.width)
-          parts.push(gap > SPACE_THRESHOLD ? curr.str : parts.pop()! + curr.str)
+          if (gap > SPACE_THRESHOLD) {
+            const spaceCount = Math.round(gap / 5)
+            parts.push(' '.repeat(Math.min(spaceCount, 3)) + curr.str)
+          } else {
+            parts.push(curr.str)
+          }
         }
-        return parts.join(' ')
+        return parts.join('')
       })
       .join('\n')
 
     textPages.push(pageText)
   }
 
-  const fullText = textPages.join('\n')
+  return textPages.join('\n')
+}
 
-  if (fullText.replace(/\s+/g, '').length > 50) {
-    return fullText
-  }
+function hasGoodContent(text: string): boolean {
+  const hasDollar = /\$\s*[\d,]+\.?\d{0,2}/.test(text)
+  const hasDate = /\b\d{1,2}\/\d{1,2}\/\d{4}\b/.test(text)
+  const hasCreditTerms = /\b(?:account|balance|credit|payment|status|inquiry)\b/i.test(text)
+  const hasBureau = /\b(?:equifax|transunion|experian)\b/i.test(text)
 
-  // ── Step 2: OCR fallback for scanned/image PDFs ──
+  const words = text.split(/\s+/).filter(Boolean)
+  const good = words.filter(w => /^[A-Za-z]{2,}$/.test(w) || /^\d+$/.test(w) || /^\$[\d,]+/.test(w))
+  const ratio = words.length > 0 ? good.length / words.length : 0
+
+  // Require BOTH credit indicators AND high word quality
+  return (hasDollar || hasDate || hasCreditTerms || hasBureau) && ratio > 0.5
+}
+
+async function extractWithOCR(pdf: any): Promise<ExtractedText> {
   const Tesseract = await import('tesseract.js')
-  const ocrPages: string[] = []
+  const pages: string[] = []
 
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i)
-    const viewport = page.getViewport({ scale: 2 })
+    const viewport = page.getViewport({ scale: 3 })
     const canvas = document.createElement('canvas')
     canvas.width = viewport.width
     canvas.height = viewport.height
@@ -88,8 +124,9 @@ export async function extractTextFromPDF(file: File): Promise<string> {
     const { data } = await Tesseract.recognize(canvas, 'eng', {
       logger: () => {},
     })
-    ocrPages.push(data.text)
+    pages.push(data.text)
   }
 
-  return ocrPages.join('\n')
+  const text = pages.join('\n')
+  return { positionGrouped: text, rawConcat: text }
 }

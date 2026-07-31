@@ -98,6 +98,20 @@ const sections = [
     usage: 'Click "Export as JSON" to download a file containing all your credit report data. Future export formats may include spreadsheet and PDF.',
   },
   {
+    title: 'Budget Dashboard',
+    icon: 'Wallet',
+    path: '/budget',
+    description: 'Personal budget overview: total bank balance, credit card debt, net position, last paycheck net, and biweekly/monthly income vs. expense summaries.',
+    usage: 'Stat cards give you a quick financial snapshot. Bills due before your next estimated paycheck are listed with countdown badges. The Last Paycheck card shows gross, deductions, and net, with a link to the full paystub.',
+  },
+  {
+    title: 'Paychecks',
+    icon: 'Banknote',
+    path: '/budget/paychecks',
+    description: 'Track biweekly paychecks with paystub-style details. Add or edit a paycheck with fields for pay period, earnings, pre/post-tax deductions, taxes, and direct deposit.',
+    usage: 'Click "Add Paycheck" to log a new check, use the pencil icon to edit, the eye icon to view a full paystub rendering, or the trash icon to delete. A paystub view page mirrors the original NCR Voyix payslip layout.',
+  },
+  {
     title: 'Settings',
     icon: 'User',
     path: '/settings',

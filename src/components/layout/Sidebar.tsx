@@ -8,6 +8,7 @@ import {
   AlertTriangle, Search, Brain, Mail, TrendingUp, Download,
   Sun, Moon, Menu, X, ChevronLeft, ChevronRight,
   Gavel, Shield, LogIn, LogOut, User, Activity, HelpCircle,
+  Wallet, Banknote,
 } from 'lucide-react'
 import { useCredit } from '@/lib/store/creditStore'
 import { useAuth } from '@/lib/auth-context'
@@ -37,6 +38,11 @@ const navItems = [
   { href: '/score-simulator', label: 'Score Simulator', icon: TrendingUp },
   { href: '/export', label: 'Export Center', icon: Download },
   { href: '/help', label: 'Help Guide', icon: HelpCircle },
+]
+
+const budgetItems = [
+  { href: '/budget', label: 'Budget Dashboard', icon: Wallet },
+  { href: '/budget/paychecks', label: 'Paychecks', icon: Banknote },
 ]
 
 export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mobileOpen, setMobileOpen }: SidebarProps) {
@@ -98,6 +104,29 @@ export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mob
                 {!collapsed && item.href === '/' && reportCount > 0 && (
                   <Badge variant="info" className="ml-auto">{reportCount}</Badge>
                 )}
+              </Link>
+            )
+          })}
+
+          {/* Budget section */}
+          <div className="pt-3 pb-1 px-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Budget</p>
+          </div>
+          {budgetItems.map(item => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+            const Icon = item.icon
+            return (
+              <Link key={item.href} href={item.href}
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm
+                  ${isActive
+                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-medium'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  }
+                `}
+              >
+                <Icon className="w-5 h-5 flex-shrink-0" />
+                {!collapsed && <span>{item.label}</span>}
               </Link>
             )
           })}

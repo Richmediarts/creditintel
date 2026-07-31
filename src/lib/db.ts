@@ -26,9 +26,6 @@ function seedFromFile(): void {
     const insertReport = db!.prepare(
       'INSERT OR IGNORE INTO reports (user_id, bureau, data, updated_at) VALUES (?, ?, ?, ?)'
     )
-    const insertFico = db!.prepare(
-      'INSERT OR IGNORE INTO fico_scores (user_id, bureau, score, date_updated) VALUES (?, ?, ?, ?)'
-    )
     const insertDispute = db!.prepare(
       'INSERT OR IGNORE INTO disputes (id, user_id, creditor_name, bureau, inaccuracies, status, filed_date, expected_response_date, resolved_date, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
     )
@@ -40,9 +37,7 @@ function seedFromFile(): void {
       for (const r of seed.reports) {
         insertReport.run(r.user_id, r.bureau, r.data, r.updated_at)
       }
-      for (const f of seed.fico_scores) {
-        insertFico.run(f.user_id, f.bureau, f.score, f.date_updated)
-      }
+      // Don't seed fico_scores — each user enters their own scores via the FICO page
       for (const d of seed.disputes) {
         insertDispute.run(d.id, d.user_id, d.creditor_name, d.bureau, d.inaccuracies, d.status, d.filed_date, d.expected_response_date, d.resolved_date, d.notes, d.created_at, d.updated_at)
       }
@@ -73,6 +68,7 @@ function initSchema(): void {
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'member',
+      address TEXT DEFAULT '',
       created_at TEXT DEFAULT (datetime('now'))
     );
 
@@ -105,6 +101,28 @@ function migrateSchema(): void {
   }
   if (!userColNames.includes('reset_token_expiry')) {
     db!.exec("ALTER TABLE users ADD COLUMN reset_token_expiry TEXT")
+  }
+
+  const disputeColumns = db!.prepare("PRAGMA table_info('disputes')").all() as { name: string }[]
+  const disputeColNames = disputeColumns.map(c => c.name)
+
+  if (!disputeColNames.includes('letter_type')) {
+    db!.exec("ALTER TABLE disputes ADD COLUMN letter_type TEXT NOT NULL DEFAULT 'validation'")
+  }
+  if (!disputeColNames.includes('printed_at')) {
+    db!.exec("ALTER TABLE disputes ADD COLUMN printed_at TEXT")
+  }
+  if (!disputeColNames.includes('sent_at')) {
+    db!.exec("ALTER TABLE disputes ADD COLUMN sent_at TEXT")
+  }
+  if (!disputeColNames.includes('pending_at')) {
+    db!.exec("ALTER TABLE disputes ADD COLUMN pending_at TEXT")
+  }
+  if (!disputeColNames.includes('resend_at')) {
+    db!.exec("ALTER TABLE disputes ADD COLUMN resend_at TEXT")
+  }
+  if (!disputeColNames.includes('completed_at')) {
+    db!.exec("ALTER TABLE disputes ADD COLUMN completed_at TEXT")
   }
 
   for (const table of ['reports', 'fico_scores']) {
@@ -152,4 +170,21 @@ export function calculateExpectedResponseDate(bureau: string, filedDate: string)
 
 export function getBureauResponseDays(bureau: string): number {
   return BUREAU_RESPONSE_DAYS[bureau] || 30
+}
+
+const LETTER_TYPE_WAITING_DAYS: Record<string, number> = {
+  validation: 30,
+  dispute: 30,
+  revocation: 15,
+}
+
+export function getLetterTypeWaitingDays(letterType: string): number {
+  return LETTER_TYPE_WAITING_DAYS[letterType] || 30
+}
+
+export function calculateExpectedResponseDateFrom(letterType: string, fromDate: string): string {
+  const days = getLetterTypeWaitingDays(letterType)
+  const date = new Date(fromDate)
+  date.setDate(date.getDate() + days)
+  return date.toISOString().split('T')[0]
 }

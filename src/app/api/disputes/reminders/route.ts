@@ -19,13 +19,13 @@ export async function GET(request: NextRequest) {
 
   const overdue = db.prepare(`
     SELECT * FROM disputes
-    WHERE user_id = ? AND status NOT IN ('resolved', 'closed') AND expected_response_date IS NOT NULL AND expected_response_date < ?
+    WHERE user_id = ? AND status NOT IN ('complete') AND expected_response_date IS NOT NULL AND expected_response_date < ?
     ORDER BY expected_response_date ASC
   `).all(auth.userId, now) as any[]
 
   const dueSoon = db.prepare(`
     SELECT * FROM disputes
-    WHERE user_id = ? AND status NOT IN ('resolved', 'closed')
+    WHERE user_id = ? AND status NOT IN ('complete')
       AND expected_response_date IS NOT NULL AND expected_response_date >= ? AND expected_response_date <= date(?, '+7 days')
     ORDER BY expected_response_date ASC
   `).all(auth.userId, now, now) as any[]

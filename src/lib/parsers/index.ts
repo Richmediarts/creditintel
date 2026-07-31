@@ -1,6 +1,7 @@
 import { parseTransUnion } from './transunionParser'
 import { parseExperian } from './experianParser'
 import { parseEquifax } from './equifaxParser'
+import { parseGeneric } from './genericParser'
 import type { Bureau, BureauReport } from '@/types'
 
 export interface ParseResult {
@@ -24,17 +25,37 @@ export function detectBureau(filename: string, text?: string): Bureau | null {
 }
 
 export function parseReport(text: string, bureau: Bureau): BureauReport {
+  const tryParsers = (parsers: Array<(text: string, bureau: Bureau) => Omit<BureauReport, 'filename'>>):
+    Omit<BureauReport, 'filename'> => {
+    for (const parseFn of parsers) {
+      const result = parseFn(text, bureau)
+      if ((result.accounts?.length ?? 0) > 0) {
+        return result
+      }
+    }
+    return parsers[parsers.length - 1](text, bureau)
+  }
+
   switch (bureau) {
     case 'TransUnion': {
-      const result = parseTransUnion(text)
+      const result = tryParsers([
+        (t) => parseTransUnion(t),
+        (t, b) => parseGeneric(t, b),
+      ])
       return { ...result, filename: undefined } as BureauReport
     }
     case 'Experian': {
-      const result = parseExperian(text)
+      const result = tryParsers([
+        (t) => parseExperian(t),
+        (t, b) => parseGeneric(t, b),
+      ])
       return { ...result, filename: undefined } as BureauReport
     }
     case 'Equifax': {
-      const result = parseEquifax(text)
+      const result = tryParsers([
+        (t) => parseEquifax(t),
+        (t, b) => parseGeneric(t, b),
+      ])
       return { ...result, filename: undefined } as BureauReport
     }
     default:
@@ -60,16 +81,20 @@ export async function parseFile(file: File): Promise<ParseResult> {
     const isPDF = file.type === 'application/pdf' || file.name.endsWith('.pdf')
     const fileData = await readFileAsBase64(file)
     let text: string
+    let rawText: string
 
     if (isPDF) {
       try {
         const { extractTextFromPDF } = await import('@/lib/pdfExtractor')
-        text = await extractTextFromPDF(file)
+        const extracted = await extractTextFromPDF(file)
+        text = extracted.positionGrouped
+        rawText = extracted.rawConcat
       } catch (e) {
         return { success: false, bureau: null, error: `Failed to parse PDF: ${e}` }
       }
     } else {
       text = await file.text()
+      rawText = text
     }
 
     const bureau = detectBureau(file.name, text)
@@ -77,7 +102,11 @@ export async function parseFile(file: File): Promise<ParseResult> {
       return { success: false, bureau: null, error: 'Could not detect credit bureau from filename or content' }
     }
 
-    const data = parseReport(text, bureau)
+    let data = parseReport(text, bureau)
+    if (data.accounts.length === 0 && rawText !== text) {
+      data = parseReport(rawText, bureau)
+    }
+
     data.fileData = fileData
     data.fileType = isPDF ? 'pdf' : 'txt'
     return { success: true, bureau, data }

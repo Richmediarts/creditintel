@@ -14,14 +14,14 @@ export async function GET(request: NextRequest) {
   }
 
   const db = getDb()
-  const user = db.prepare('SELECT id, name, email, role, created_at FROM users WHERE id = ?').get(payload.userId) as any
+  const user = db.prepare('SELECT id, name, email, role, address, created_at FROM users WHERE id = ?').get(payload.userId) as any
 
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 401 })
   }
 
   return NextResponse.json({
-    user: { id: user.id, name: user.name, email: user.email, role: user.role, createdAt: user.created_at },
+    user: { id: user.id, name: user.name, email: user.email, role: user.role, address: user.address || '', createdAt: user.created_at },
   })
 }
 
@@ -43,7 +43,15 @@ export async function PATCH(request: NextRequest) {
   }
 
   try {
-    const { email, currentPassword, newPassword } = await request.json()
+    const { email, name, address, currentPassword, newPassword } = await request.json()
+
+    if (name !== undefined) {
+      db.prepare('UPDATE users SET name = ? WHERE id = ?').run(name.trim(), user.id)
+    }
+
+    if (address !== undefined) {
+      db.prepare('UPDATE users SET address = ? WHERE id = ?').run(address.trim(), user.id)
+    }
 
     if (email) {
       const existing = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(email.toLowerCase().trim(), user.id)

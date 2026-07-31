@@ -297,7 +297,7 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
       const data = { ...result.data, filename: fileName }
 
       if (data.accounts.length === 0) {
-        dispatch({ type: 'SET_ERROR', payload: `Parsed ${result.bureau} report but found 0 accounts. The PDF may need text extraction improvements. Data imported with available information.` })
+        dispatch({ type: 'SET_ERROR', payload: `Parsed ${result.bureau} report but found 0 accounts. View raw extracted text in Report Viewer → Original Document section. Data imported with available information.` })
       }
 
       dispatch({ type: 'ADD_REPORT', payload: data })

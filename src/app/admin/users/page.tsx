@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { UserPlus, Trash2, ShieldOff, KeyRound } from 'lucide-react'
+import { UserPlus, Trash2, ShieldOff, Edit2, X, Check } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -19,10 +19,14 @@ export default function AdminUsersPage() {
   const [role, setRole] = useState<'member' | 'admin'>('member')
   const [error, setError] = useState('')
   const [adding, setAdding] = useState(false)
-  const [changingPw, setChangingPw] = useState<number | null>(null)
-  const [newPassword, setNewPassword] = useState('')
-  const [pwError, setPwError] = useState('')
-  const [pwUpdating, setPwUpdating] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editRole, setEditRole] = useState<'member' | 'admin'>('member')
+  const [editAddress, setEditAddress] = useState('')
+  const [editPassword, setEditPassword] = useState('')
+  const [editError, setEditError] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
 
   const fetchUsers = async () => {
     const res = await fetch('/api/users')
@@ -64,26 +68,42 @@ export default function AdminUsersPage() {
     if (res.ok) fetchUsers()
   }
 
-  const handleChangePassword = async (userId: number) => {
-    setPwError('')
-    if (!newPassword || newPassword.length < 6) {
-      setPwError('Password must be at least 6 characters')
-      return
-    }
-    setPwUpdating(true)
+  const startEdit = (u: User) => {
+    setEditingId(u.id)
+    setEditName(u.name)
+    setEditEmail(u.email)
+    setEditRole(u.role)
+    setEditAddress(u.address || '')
+    setEditPassword('')
+    setEditError('')
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEditPassword('')
+    setEditError('')
+  }
+
+  const handleSaveEdit = async (userId: number) => {
+    setEditError('')
+    if (!editName.trim()) { setEditError('Name is required'); return }
+    if (!editEmail.trim()) { setEditError('Email is required'); return }
+    setEditSaving(true)
+    const body: Record<string, string> = { name: editName.trim(), email: editEmail.trim(), role: editRole, address: editAddress.trim() }
+    if (editPassword) body.password = editPassword
     const res = await fetch(`/api/users/${userId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: newPassword }),
+      body: JSON.stringify(body),
     })
     const data = await res.json()
     if (!res.ok) {
-      setPwError(data.error || 'Failed to update password')
+      setEditError(data.error || 'Failed to update user')
     } else {
-      setChangingPw(null)
-      setNewPassword('')
+      setEditingId(null)
+      fetchUsers()
     }
-    setPwUpdating(false)
+    setEditSaving(false)
   }
 
   if (!currentUser || currentUser.role !== 'admin') {
@@ -154,58 +174,103 @@ export default function AdminUsersPage() {
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {users.map(u => (
                 <div key={u.id} className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{u.name[0]}</span>
+                  {editingId === u.id ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Editing: {u.name}</p>
+                        <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      {editError && <p className="text-xs text-red-500">{editError}</p>}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Name</label>
+                          <input
+                            value={editName} onChange={e => setEditName(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Email</label>
+                          <input
+                            value={editEmail} onChange={e => setEditEmail(e.target.value)}
+                            type="email"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Role</label>
+                          <select
+                            value={editRole} onChange={e => setEditRole(e.target.value as 'member' | 'admin')}
+                            disabled={u.id === currentUser.id}
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white disabled:opacity-50"
+                          >
+                            <option value="member">Member</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                          {u.id === currentUser.id && <p className="text-[10px] text-gray-400 mt-0.5">Cannot change own role</p>}
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">New Password (leave blank to keep)</label>
+                          <input
+                            value={editPassword} onChange={e => setEditPassword(e.target.value)}
+                            type="password" placeholder="Leave blank to keep current"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+                          />
+                        </div>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">{u.name}</p>
-                        <p className="text-xs text-gray-500">{u.email}</p>
+                        <label className="block text-xs text-gray-500 mb-1">Address</label>
+                        <textarea
+                          value={editAddress} onChange={e => setEditAddress(e.target.value)}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
+                        />
                       </div>
-                      <Badge variant={u.role === 'admin' ? 'info' : 'default'}>{u.role}</Badge>
+                      <div className="flex justify-end gap-2">
+                        <Button type="button" variant="secondary" size="sm" onClick={cancelEdit}>Cancel</Button>
+                        <Button type="button" size="sm" onClick={() => handleSaveEdit(u.id)} disabled={editSaving}>
+                          <Check className="w-3 h-3 mr-1" /> {editSaving ? 'Saving...' : 'Save'}
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          setChangingPw(changingPw === u.id ? null : u.id)
-                          setNewPassword('')
-                          setPwError('')
-                        }}
-                        className="text-gray-400 hover:text-blue-500 transition-colors"
-                        title="Change password"
-                      >
-                        <KeyRound className="w-4 h-4" />
-                      </button>
-                      {u.id !== currentUser.id && (
-                        <button
-                          onClick={() => handleDelete(u.id)}
-                          className="text-gray-400 hover:text-red-500 transition-colors"
-                          title="Remove user"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {changingPw === u.id && (
-                    <div className="mt-3 flex items-center gap-2">
-                      <input
-                        type="password"
-                        value={newPassword}
-                        onChange={e => setNewPassword(e.target.value)}
-                        placeholder="New password"
-                        className="flex-1 px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                      />
-                      <button
-                        onClick={() => handleChangePassword(u.id)}
-                        disabled={pwUpdating}
-                        className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400"
-                      >
-                        {pwUpdating ? 'Saving...' : 'Save'}
-                      </button>
-                      {pwError && <p className="text-xs text-red-500">{pwError}</p>}
-                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                            <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{u.name[0]}</span>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900 dark:text-white">{u.name}</p>
+                            <p className="text-xs text-gray-500">{u.email}</p>
+                            {u.address && <p className="text-[10px] text-gray-400 mt-0.5">{u.address}</p>}
+                          </div>
+                          <Badge variant={u.role === 'admin' ? 'info' : 'default'}>{u.role}</Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => startEdit(u)}
+                            className="text-gray-400 hover:text-blue-500 transition-colors"
+                            title="Edit user"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          {u.id !== currentUser.id && (
+                            <button
+                              onClick={() => handleDelete(u.id)}
+                              className="text-gray-400 hover:text-red-500 transition-colors"
+                              title="Remove user"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               ))}

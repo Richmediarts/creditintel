@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { ArrowLeft, TrendingUp, CreditCard, AlertTriangle, Shield, XCircle, Search, RotateCcw, Clock, ChevronRight } from 'lucide-react'
+import { ArrowLeft, TrendingUp, CreditCard, AlertTriangle, Shield, XCircle, Search, RotateCcw, Clock, ChevronRight, Check } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -67,7 +67,7 @@ interface BureauImpact {
   affected: number
 }
 
-function simulateAction(actionId: string, reports: BureauReport[], baseScores: FicoScores): BureauImpact[] {
+function simulateAction(actionIds: string[], reports: BureauReport[], baseScores: FicoScores): BureauImpact[] {
   return BUREAUS.map(bureau => {
     const currentScore = baseScores[bureau]?.score || 650
     const report = reports.find(r => r.bureau === bureau)
@@ -75,57 +75,60 @@ function simulateAction(actionId: string, reports: BureauReport[], baseScores: F
     if (!report) return { bureau, currentScore, newScore: currentScore, impact: 0, affected: 0 }
 
     const s = report.summary
-    let impact = 0
-    let affected = 0
+    let totalImpact = 0
+    let totalAffected = 0
 
-    switch (actionId) {
-      case 'pay_down': {
-        if (s.creditUtilization > 10) {
-          const reduction = s.creditUtilization - 10
-          impact = Math.min(Math.floor(reduction / 5) * 8, 45)
-          affected = report.accounts.filter(a => a.creditLimit && (a.balance / a.creditLimit) > 0.3).length
+    for (const actionId of actionIds) {
+      switch (actionId) {
+        case 'pay_down': {
+          if (s.creditUtilization > 10) {
+            const reduction = s.creditUtilization - 10
+            totalImpact += Math.min(Math.floor(reduction / 5) * 8, 45)
+            totalAffected += report.accounts.filter(a => a.creditLimit && (a.balance / a.creditLimit) > 0.3).length
+          }
+          break
         }
-        break
-      }
-      case 'remove_late': {
-        if (s.lateAccounts > 0) {
-          impact = Math.min(s.lateAccounts * 12, 50)
-          affected = s.lateAccounts
+        case 'remove_late': {
+          if (s.lateAccounts > 0) {
+            totalImpact += Math.min(s.lateAccounts * 12, 50)
+            totalAffected += s.lateAccounts
+          }
+          break
         }
-        break
-      }
-      case 'remove_collection': {
-        if (s.collections > 0) {
-          impact = Math.min(s.collections * 20, 40)
-          affected = s.collections
+        case 'remove_collection': {
+          if (s.collections > 0) {
+            totalImpact += Math.min(s.collections * 20, 40)
+            totalAffected += s.collections
+          }
+          break
         }
-        break
-      }
-      case 'remove_chargeoff': {
-        if (s.chargeOffs > 0) {
-          impact = Math.min(s.chargeOffs * 15, 45)
-          affected = s.chargeOffs
+        case 'remove_chargeoff': {
+          if (s.chargeOffs > 0) {
+            totalImpact += Math.min(s.chargeOffs * 15, 45)
+            totalAffected += s.chargeOffs
+          }
+          break
         }
-        break
-      }
-      case 'remove_inquiries': {
-        if (s.hardInquiries > 3) {
-          const excess = s.hardInquiries - 3
-          impact = Math.min(excess * 5, 20)
-          affected = excess
+        case 'remove_inquiries': {
+          if (s.hardInquiries > 3) {
+            const excess = s.hardInquiries - 3
+            totalImpact += Math.min(excess * 5, 20)
+            totalAffected += excess
+          }
+          break
         }
-        break
-      }
-      case 'open_card': {
-        const mixBonus = s.totalAccounts > 0 && report.accounts.every(a => a.accountType === 'Revolving') ? 10 : 0
-        impact = -5 + mixBonus
-        affected = 1
-        break
+        case 'open_card': {
+          const mixBonus = s.totalAccounts > 0 && report.accounts.every(a => a.accountType === 'Revolving') ? 10 : 0
+          totalImpact += -5 + mixBonus
+          totalAffected += 1
+          break
+        }
       }
     }
 
+    const impact = Math.min(totalImpact, 100)
     const newScore = Math.max(300, Math.min(850, currentScore + impact))
-    return { bureau, currentScore, newScore, impact, affected }
+    return { bureau, currentScore, newScore, impact, affected: totalAffected }
   })
 }
 
@@ -135,7 +138,7 @@ export default function ScoreSimulatorPage() {
   const { creditData } = state
   const [scores, setScores] = useState<FicoScores>({})
   const [scoresLoading, setScoresLoading] = useState(true)
-  const [selectedAction, setSelectedAction] = useState<string | null>(null)
+  const [selectedActions, setSelectedActions] = useState<string[]>([])
 
   useEffect(() => {
     fetch('/api/fico-scores').then(res => res.ok && res.json()).then(data => {
@@ -154,8 +157,22 @@ export default function ScoreSimulatorPage() {
   }
 
   const { reports } = creditData
-  const results = selectedAction ? simulateAction(selectedAction, reports, scores) : null
+  const results = selectedActions.length > 0 ? simulateAction(selectedActions, reports, scores) : null
   const hasScores = Object.values(scores).some(s => s?.score != null)
+
+  const toggleAction = (id: string) => {
+    setSelectedActions(prev =>
+      prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
+    )
+  }
+
+  const longestTimeline = selectedActions.length > 0
+    ? Math.max(...selectedActions.map(id => {
+        const a = ACTIONS.find(a => a.id === id)
+        const match = a?.timeline.match(/(\d+)/)
+        return match ? parseInt(match[1]) : 0
+      }))
+    : 0
 
   return (
     <div className="space-y-6">
@@ -201,23 +218,25 @@ export default function ScoreSimulatorPage() {
         })}
       </div>
 
-      {/* Move Simulate an Action below scores, but only show if there are scores */}
+      {/* Simulate Actions */}
       {hasScores && (
         <Card>
           <CardContent className="p-5">
             <CardTitle className="mb-4">Simulate an Action</CardTitle>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 -mt-2">Select an action to see how your credit score would change across each bureau.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 -mt-2">
+              Select one or more actions to see how your credit score would change across each bureau.
+            </p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {ACTIONS.map(action => {
-                const isSelected = selectedAction === action.id
+                const isSelected = selectedActions.includes(action.id)
                 return (
                   <button
                     key={action.id}
-                    onClick={() => setSelectedAction(isSelected ? null : action.id)}
+                    onClick={() => toggleAction(action.id)}
                     className={`p-3 rounded-xl border text-left transition-all ${isSelected ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-950/30 ring-2 ring-blue-500/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-900'}`}
                   >
                     <div className={`w-9 h-9 rounded-lg flex items-center justify-center mb-2 ${isSelected ? 'bg-blue-500 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}`}>
-                      {action.icon}
+                      {isSelected ? <Check className="w-5 h-5" /> : action.icon}
                     </div>
                     <p className="text-sm font-medium text-gray-900 dark:text-white">{action.label}</p>
                     <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{action.description}</p>
@@ -229,6 +248,16 @@ export default function ScoreSimulatorPage() {
                 )
               })}
             </div>
+            {selectedActions.length > 1 && (
+              <div className="mt-3 p-2.5 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                  {selectedActions.length} actions selected
+                </p>
+                <p className="text-[10px] text-blue-600/70 dark:text-blue-400/70 mt-0.5">
+                  Combined timeline: up to {longestTimeline} days. Impacts are additive (capped at +100 pts max).
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -253,12 +282,12 @@ export default function ScoreSimulatorPage() {
                 <TrendingUp className="w-5 h-5 text-emerald-500" />
                 <CardTitle>Projected Scores</CardTitle>
               </div>
-              <Button onClick={() => setSelectedAction(null)} variant="ghost" size="sm" className="text-xs">
+              <Button onClick={() => setSelectedActions([])} variant="ghost" size="sm" className="text-xs">
                 <RotateCcw className="w-3 h-3 mr-1" /> Reset
               </Button>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 -mt-2">
-              After: {ACTIONS.find(a => a.id === selectedAction)?.label.toLowerCase()} &bull; Timeline: {ACTIONS.find(a => a.id === selectedAction)?.timeline}
+              After: {selectedActions.map(id => ACTIONS.find(a => a.id === id)?.label.toLowerCase()).join(', ')} &bull; Timeline: up to {longestTimeline} days
             </p>
             <div className="space-y-4">
               {results.map((r, i) => (

@@ -19,7 +19,7 @@ export default function DisputeLettersPage() {
   const [consumerAddress, setConsumerAddress] = useState('52 BIRCH RIVER XING, DALLAS, GA 30132')
   const [copied, setCopied] = useState(false)
   const [downloadingDocx, setDownloadingDocx] = useState(false)
-  const [letterType, setLetterType] = useState<'dispute' | 'revocation' | 'validation'>('dispute')
+  const [letterType, setLetterType] = useState<'dispute' | 'revocation' | 'validation'>('validation')
 
   if (!creditData) {
     return (
@@ -52,7 +52,13 @@ export default function DisputeLettersPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const defaultName = `Dispute_Letter_${new Date().toISOString().split('T')[0]}`
+  const letterTypeLabels: Record<string, string> = {
+    dispute: 'CRA_Dispute_and_Deletion_Demand',
+    revocation: 'Revocation_of_Authorization',
+    validation: 'Validation_Request',
+  }
+  const bureauPrefix = selectedBureau !== 'all' ? `${selectedBureau}_` : ''
+  const defaultName = `${letterTypeLabels[letterType]}_${bureauPrefix}${new Date().toISOString().split('T')[0]}`
 
   const downloadBlob = async (blob: Blob, ext: string, mime: string) => {
     if ('showSaveFilePicker' in window) {
@@ -131,6 +137,57 @@ export default function DisputeLettersPage() {
                     <option value="revocation">Revocation of Authorization</option>
                     <option value="validation">Validation Request</option>
                   </select>
+                  {letterType === 'dispute' && (
+                    <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                      <p className="text-[11px] font-medium text-blue-700 dark:text-blue-300">CRA Dispute &amp; Deletion Demand</p>
+                      <p className="text-[10px] text-blue-600/70 dark:text-blue-400/70 mt-1 leading-relaxed">
+                        <strong>Order:</strong> Send <strong>second</strong> — after sending Validation Request (if applicable) or directly if the error is clear.
+                      </p>
+                      <p className="text-[10px] text-blue-600/70 dark:text-blue-400/70 mt-1 leading-relaxed">
+                        <strong>When to use:</strong> You found inaccurate, incomplete, or unverifiable items on your credit report — wrong balances, late payments that were on time, accounts that aren&apos;t yours, obsolete items, or duplicate entries.
+                      </p>
+                      <p className="text-[10px] text-blue-600/70 dark:text-blue-400/70 mt-1 leading-relaxed">
+                        <strong>Why:</strong> FCRA §611(a) requires bureaus to investigate and remove inaccurate or unverifiable information within 30 days. This letter formally demands deletion.
+                      </p>
+                      <p className="text-[10px] text-blue-600/70 dark:text-blue-400/70 mt-1 leading-relaxed">
+                        <strong>How:</strong> Select the items you want to dispute, pick the target bureau, and mail via Certified Mail. Keep the green receipt as proof.
+                      </p>
+                    </div>
+                  )}
+                  {letterType === 'revocation' && (
+                    <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                      <p className="text-[11px] font-medium text-amber-700 dark:text-amber-300">Revocation of Authorization</p>
+                      <p className="text-[10px] text-amber-600/70 dark:text-amber-400/70 mt-1 leading-relaxed">
+                        <strong>Order:</strong> Send <strong>anytime</strong> — standalone action, not part of the dispute sequence.
+                      </p>
+                      <p className="text-[10px] text-amber-600/70 dark:text-amber-400/70 mt-1 leading-relaxed">
+                        <strong>When to use:</strong> A creditor previously had your permission to pull your credit (e.g., for a pre-approved offer or existing account), and you want to revoke that permission going forward. Also used to revoke prior authorization for a specific account.
+                      </p>
+                      <p className="text-[10px] text-amber-600/70 dark:text-amber-400/70 mt-1 leading-relaxed">
+                        <strong>Why:</strong> FCRA §604 requires permissible purpose for any credit pull. Revoking authorization removes that permissible purpose. Future pulls without authorization can be pursued as FCRA violations.
+                      </p>
+                      <p className="text-[10px] text-amber-600/70 dark:text-amber-400/70 mt-1 leading-relaxed">
+                        <strong>How:</strong> Select the specific account/creditor, choose the bureau showing the inquiry or authorization, send Certified Mail.
+                      </p>
+                    </div>
+                  )}
+                  {letterType === 'validation' && (
+                    <div className="mt-2 p-2 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-800">
+                      <p className="text-[11px] font-medium text-purple-700 dark:text-purple-300">Validation Request</p>
+                      <p className="text-[10px] text-purple-600/70 dark:text-purple-400/70 mt-1 leading-relaxed">
+                        <strong>Order:</strong> Send <strong>first</strong> — before any dispute letter. Always validate a debt before disputing it.
+                      </p>
+                      <p className="text-[10px] text-purple-600/70 dark:text-purple-400/70 mt-1 leading-relaxed">
+                        <strong>When to use:</strong> A debt collector or collection agency is reporting a debt on your credit report. Send this within 30 days of first contact to force them to prove the debt is yours, accurate, and collectible.
+                      </p>
+                      <p className="text-[10px] text-purple-600/70 dark:text-purple-400/70 mt-1 leading-relaxed">
+                        <strong>Why:</strong> FDCPA §809 and FCRA §623 give you the right to request validation. The collector must provide proof or cease collection and request deletion from credit reports.
+                      </p>
+                      <p className="text-[10px] text-purple-600/70 dark:text-purple-400/70 mt-1 leading-relaxed">
+                        <strong>How:</strong> Select the collection account, choose the bureau, send Certified Mail within 30 days of first notice. If they can&apos;t validate, they must delete.
+                      </p>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Target Bureau</label>

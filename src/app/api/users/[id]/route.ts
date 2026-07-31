@@ -35,8 +35,20 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, Number(id))
     }
 
-    if (body.name) {
+    if (body.name !== undefined) {
       db.prepare('UPDATE users SET name = ? WHERE id = ?').run(body.name.trim(), Number(id))
+    }
+
+    if (body.email !== undefined) {
+      const existing = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(body.email.toLowerCase().trim(), Number(id))
+      if (existing) {
+        return NextResponse.json({ error: 'Email already in use' }, { status: 409 })
+      }
+      db.prepare('UPDATE users SET email = ? WHERE id = ?').run(body.email.toLowerCase().trim(), Number(id))
+    }
+
+    if (body.address !== undefined) {
+      db.prepare('UPDATE users SET address = ? WHERE id = ?').run(body.address.trim(), Number(id))
     }
 
     if (body.role) {

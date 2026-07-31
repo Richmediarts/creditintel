@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
-import { getDb, calculateExpectedResponseDate } from '@/lib/db'
+import { getDb, calculateExpectedResponseDateFrom } from '@/lib/db'
 
 function getAuthUser(request: NextRequest) {
   const token = request.cookies.get('credit-dashboard-token')?.value
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     if (d.expected_response_date) {
       const expected = new Date(d.expected_response_date)
       daysUntilResponse = Math.ceil((expected.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-      isOverdue = daysUntilResponse < 0 && d.status !== 'resolved' && d.status !== 'closed'
+      isOverdue = daysUntilResponse < 0 && d.status !== 'complete'
     }
 
     return {
@@ -36,7 +36,13 @@ export async function GET(request: NextRequest) {
       creditorName: d.creditor_name,
       bureau: d.bureau,
       inaccuracies: d.inaccuracies ? JSON.parse(d.inaccuracies) : [],
+      letterType: d.letter_type || 'validation',
       status: d.status,
+      printedAt: d.printed_at || null,
+      sentAt: d.sent_at || null,
+      pendingAt: d.pending_at || null,
+      resendAt: d.resend_at || null,
+      completedAt: d.completed_at || null,
       filedDate: d.filed_date,
       expectedResponseDate: d.expected_response_date,
       resolvedDate: d.resolved_date,
@@ -58,7 +64,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { creditorName, bureau, inaccuracies, filedDate, notes, status } = await request.json()
+    const { creditorName, bureau, inaccuracies, filedDate, notes, status, letterType } = await request.json()
 
     if (!creditorName || !bureau) {
       return NextResponse.json({ error: 'Creditor name and bureau required' }, { status: 400 })
@@ -66,21 +72,24 @@ export async function POST(request: NextRequest) {
 
     const db = getDb()
     const now = new Date().toISOString().split('T')[0]
+    const lt = letterType || 'validation'
     const effectiveFiledDate = filedDate || now
-    const expectedDate = calculateExpectedResponseDate(bureau, effectiveFiledDate)
+    const expectedDate = calculateExpectedResponseDateFrom(lt, effectiveFiledDate)
 
     const result = db.prepare(`
-      INSERT INTO disputes (user_id, creditor_name, bureau, inaccuracies, status, filed_date, expected_response_date, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO disputes (user_id, creditor_name, bureau, inaccuracies, status, letter_type, filed_date, expected_response_date, notes, printed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       auth.userId,
       creditorName.trim(),
       bureau,
       JSON.stringify(inaccuracies || []),
-      status || 'filed',
+      status || 'printed',
+      lt,
       effectiveFiledDate,
       expectedDate,
       notes || '',
+      now,
     )
 
     return NextResponse.json({ id: result.lastInsertRowid }, { status: 201 })

@@ -172,7 +172,9 @@ export interface DisputeItem {
   estimatedScoreGain?: number
 }
 
-export type DisputeStatus = 'not_filed' | 'filed' | 'in_dispute' | 'resolved' | 'closed'
+export type DisputeStatus = 'printed' | 'sent' | 'pending' | 'resend' | 'complete'
+
+export type LetterType = 'validation' | 'dispute' | 'revocation'
 
 export interface DisputeTracking {
   id: number
@@ -180,10 +182,14 @@ export interface DisputeTracking {
   creditorName: string
   bureau: Bureau
   inaccuracies: string[]
+  letterType: LetterType
   status: DisputeStatus
-  filedDate: string | null
+  printedAt: string | null
+  sentAt: string | null
+  pendingAt: string | null
+  resendAt: string | null
+  completedAt: string | null
   expectedResponseDate: string | null
-  resolvedDate: string | null
   notes: string
   createdAt: string
   updatedAt: string
@@ -196,6 +202,7 @@ export interface User {
   name: string
   email: string
   role: 'admin' | 'member'
+  address?: string
   createdAt: string
 }
 

@@ -41,6 +41,40 @@ export default function UploadPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Card className="border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20">
+        <CardContent className="p-4">
+          <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-2">
+            Important Note: Get Your Free Credit Reports
+          </h3>
+          <div className="text-xs text-amber-700 dark:text-amber-300 space-y-2 leading-relaxed">
+            <p>
+              <strong>AnnualCreditReport.com</strong> is the only federally authorized website
+              for free credit reports. Since April 2023, you can visit once per week and get
+              reports from all three bureaus (Equifax, Experian, and TransUnion) for free —
+              no subscription or credit card needed.
+            </p>
+            <ol className="list-decimal pl-4 space-y-1">
+              <li>Go to <a href="https://www.annualcreditreport.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">annualcreditreport.com</a></li>
+              <li>Verify your identity (name, SSN, address, and security questions)</li>
+              <li>Select all three bureaus: Equifax, Experian, and TransUnion</li>
+              <li>Choose &quot;View PDF&quot; or &quot;Download PDF&quot; for each report</li>
+              <li>Upload each PDF here on retteewealth.me</li>
+            </ol>
+            <p className="mt-2">
+              Reports from AnnualCreditReport.com work best with our parsers because they use
+              a consistent PDF format designed for automated processing. Other sources
+              (Credit Karma, third-party apps, lender portals) often produce non-standard
+              layouts that may not parse correctly.
+            </p>
+            <p className="mt-1">
+              This is a <strong>free, government-authorized</strong> service — your data stays
+              between you and the credit bureaus. We only process the information you upload
+              and never share it.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
