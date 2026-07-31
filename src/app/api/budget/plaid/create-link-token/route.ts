@@ -5,6 +5,7 @@ import { Configuration, PlaidApi, PlaidEnvironments, LinkTokenCreateRequest, Lin
 
 function getPlaidConfig() {
   const db = getDb()
+  db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
   const row = db.prepare("SELECT value FROM settings WHERE key = 'plaid_config'").get() as { value: string } | undefined
   if (row) {
     try { return JSON.parse(row.value) } catch { /* ignore */ }
