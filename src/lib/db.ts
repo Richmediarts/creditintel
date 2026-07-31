@@ -76,6 +76,9 @@ function seedFromFile(): void {
           }
         }
       }
+
+      // Seed plaid config into settings
+      db!.exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('plaid_config', '{\"client_id\":\"69fcf01d3eed7b000d326e0d\",\"secret\":\"3da55d975bf55a38a258e9dbb8cce1\",\"environment\":\"production\"}')")
     })
     transaction()
   } catch (e) {
@@ -278,6 +281,8 @@ function initSchema(): void {
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
   `)
+
+  db!.exec(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`)
 
   migrateSchema()
 }
