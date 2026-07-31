@@ -16,9 +16,11 @@
     "lucide-react": "^1.17.0",
     "next": "16.2.7",
     "pdfjs-dist": "^4.8.69",
+    "plaid": "^45.0.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-dropzone": "^15.0.0",
+    "react-plaid-link": "^5.0.0",
     "recharts": "^3.8.1",
     "tesseract.js": "^7.0.0"
   },

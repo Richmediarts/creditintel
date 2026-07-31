@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Wallet, CreditCard, TrendingUp, PlusCircle, ArrowRight,
-  Landmark, WalletCards, Edit, Trash2, DollarSign,
+  Landmark, WalletCards, Edit, Trash2, DollarSign, Upload,
 } from 'lucide-react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
+import { PlaidLinkButton } from '@/components/PlaidLinkButton'
 
 interface BankAccount {
   id: number
@@ -131,10 +132,16 @@ export default function BankAccountsPage() {
           <Landmark className="h-7 w-7 text-blue-600 dark:text-blue-400" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Bank Accounts</h1>
         </div>
-        <Button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2">
-          <PlusCircle className="h-4 w-4" />
-          Add Account
-        </Button>
+        <div className="flex items-center gap-2">
+          <PlaidLinkButton onConnected={fetchAccounts} />
+          <Link href="/budget/import-statement">
+            <Button variant="secondary" size="sm"><Upload className="h-4 w-4 mr-1" /> Import</Button>
+          </Link>
+          <Button onClick={() => setShowForm(!showForm)}>
+            <PlusCircle className="h-4 w-4 mr-1" />
+            Add Account
+          </Button>
+        </div>
       </div>
 
       <Link

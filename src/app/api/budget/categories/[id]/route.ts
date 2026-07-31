@@ -38,6 +38,26 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
 }
 
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = getAuthUser(request)
+  if (!auth) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
+  }
+
+  try {
+    const { id } = await params
+    const data = await request.json()
+    const existing = getBudgetCategory(auth.userId, Number(id))
+    if (!existing) {
+      return NextResponse.json({ error: 'Category not found' }, { status: 404 })
+    }
+    updateBudgetCategory(auth.userId, Number(id), { ...existing, ...data })
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to update category' }, { status: 500 })
+  }
+}
+
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = getAuthUser(request)
   if (!auth) {

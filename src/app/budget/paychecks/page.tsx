@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Eye, Pencil, Trash2, Plus, ArrowLeft, Save, X, Info, Wallet,
+  Eye, Pencil, Trash2, Plus, ArrowLeft, Save, X, Info, Wallet, Upload, FileText,
 } from 'lucide-react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -124,6 +124,11 @@ export default function PaychecksPage() {
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [activeTab, setActiveTab] = useState<'history' | 'form' | 'import'>('history')
+  const [importText, setImportText] = useState('')
+  const [parsedData, setParsedData] = useState<Record<string, string> | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [importMessage, setImportMessage] = useState('')
 
   const fetchPaychecks = useCallback(async () => {
     const res = await fetch('/api/budget/paychecks')
@@ -146,7 +151,66 @@ export default function PaychecksPage() {
     setForm({ ...EMPTY_FORM })
     setError('')
     setMessage('')
+    setActiveTab('form')
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleImportText = async () => {
+    setImporting(true)
+    setImportMessage('')
+    setParsedData(null)
+    const formData = new FormData()
+    formData.set('raw_text', importText)
+    const res = await fetch('/api/budget/paycheck-import', { method: 'POST', body: formData })
+    const data = await res.json()
+    if (res.ok && data.parsed) {
+      setParsedData(data.parsed)
+      setImportMessage('Paystub parsed. Review the data below and click Save to import.')
+    } else {
+      setImportMessage(data.error || 'Failed to parse paystub text')
+    }
+    setImporting(false)
+  }
+
+  const handleImportPdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true)
+    setImportMessage('')
+    setParsedData(null)
+    const text = await file.text()
+    setImportText(text)
+    const formData = new FormData()
+    formData.set('raw_text', text)
+    const res = await fetch('/api/budget/paycheck-import', { method: 'POST', body: formData })
+    const data = await res.json()
+    if (res.ok && data.parsed) {
+      setParsedData(data.parsed)
+      setImportMessage('Paystub parsed from file. Review the data below and click Save to import.')
+    } else {
+      setImportMessage(data.error || 'Failed to parse paystub file')
+    }
+    setImporting(false)
+    e.target.value = ''
+  }
+
+  const handleSaveImported = async () => {
+    if (!parsedData) return
+    setImporting(true)
+    const formData = new FormData()
+    formData.set('parsed_json', JSON.stringify(parsedData))
+    const res = await fetch('/api/budget/paycheck-import', { method: 'POST', body: formData })
+    const data = await res.json()
+    if (res.ok) {
+      setImportMessage('Paycheck imported successfully!')
+      setParsedData(null)
+      setImportText('')
+      await fetchPaychecks()
+      setActiveTab('history')
+    } else {
+      setImportMessage(data.error || 'Failed to save paycheck')
+    }
+    setImporting(false)
   }
 
   const startEdit = (pc: Paycheck) => {
@@ -206,9 +270,17 @@ export default function PaychecksPage() {
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Paychecks & Paystubs</h1>
           <p className="text-sm text-gray-500">Track biweekly paychecks and view paystubs.</p>
         </div>
-        {!editing && (
-          <Button onClick={startAdd}><Plus className="w-4 h-4 mr-2" /> Add Paycheck</Button>
-        )}
+        <div className="flex gap-2">
+          <Button variant={activeTab === 'history' ? 'primary' : 'secondary'} size="sm" onClick={() => setActiveTab('history')}>
+            <Wallet className="w-4 h-4 mr-1" /> History
+          </Button>
+          <Button variant={activeTab === 'import' ? 'primary' : 'secondary'} size="sm" onClick={() => setActiveTab('import')}>
+            <Upload className="w-4 h-4 mr-1" /> Import
+          </Button>
+          {!editing && (
+            <Button onClick={startAdd}><Plus className="w-4 h-4 mr-2" /> Add Paycheck</Button>
+          )}
+        </div>
       </div>
 
       {message && (
@@ -222,7 +294,63 @@ export default function PaychecksPage() {
         </div>
       )}
 
-      {(editing || !paychecks.length) && (
+      {activeTab === 'import' && (
+        <Card>
+          <CardContent className="p-5">
+            <CardTitle className="text-sm mb-3">Import Paystub</CardTitle>
+            <p className="text-xs text-gray-500 mb-3">Upload a PDF or paste paystub text to auto-fill paycheck data.</p>
+            <div className="flex items-center gap-3 mb-4">
+              <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                <FileText className="w-4 h-4" />
+                <span>Upload PDF</span>
+                <input type="file" accept=".pdf" className="hidden" onChange={handleImportPdf} />
+              </label>
+            </div>
+            <div className="mb-3">
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Or paste paystub text:</label>
+              <textarea
+                value={importText}
+                onChange={(e) => setImportText(e.target.value)}
+                rows={8}
+                className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Paste your paystub text here..."
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <Button onClick={handleImportText} disabled={importing || !importText.trim()}>
+                <Upload className="w-4 h-4 mr-2" /> {importing ? 'Parsing...' : 'Parse Paystub'}
+              </Button>
+              {parsedData && (
+                <Button onClick={handleSaveImported} disabled={importing}>
+                  <Save className="w-4 h-4 mr-2" /> Save Paycheck
+                </Button>
+              )}
+            </div>
+            {importMessage && (
+              <div className={`mt-3 rounded-lg px-4 py-3 text-sm ${parsedData ? 'bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-300' : 'bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300'}`}>
+                {importMessage}
+              </div>
+            )}
+            {parsedData && (
+              <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                {Object.entries(parsedData).filter(([, v]) => {
+                const s = v !== undefined && v !== null && v !== ''
+                const n = typeof v === 'number' ? v !== 0 : true
+                const z = typeof v === 'string' ? v !== '0' : true
+                return s && n && z
+              }).map(([k, v]) => (
+                  <div key={k} className="rounded-lg bg-gray-50 dark:bg-gray-800 px-3 py-2">
+                    <span className="text-gray-400">{k.replace(/_/g, ' ')}</span>
+                    <div className="font-medium text-gray-900 dark:text-white">{typeof v === 'number' ? fmt(v) : String(v)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {(editing || (activeTab === 'form' && !paychecks.length)) && (
         <Card>
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-4">

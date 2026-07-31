@@ -112,6 +112,13 @@ const sections = [
     usage: 'Click "Add Paycheck" to log a new check, use the pencil icon to edit, the eye icon to view a full paystub rendering, or the trash icon to delete. A paystub view page mirrors the original NCR Voyix payslip layout.',
   },
   {
+    title: 'Goals & Net Worth',
+    icon: 'Target',
+    path: '/budget/goals',
+    description: 'Net worth tracker and debt payoff calculator. Shows total assets (bank accounts), total debt (loans + credit cards), and estimated monthly income vs. budget.',
+    usage: 'Review your net worth at a glance. The debt payoff tracker lists every debt account with balance, APR, estimated minimum payment (3% of balance), and months to payoff.',
+  },
+  {
     title: 'Settings',
     icon: 'User',
     path: '/settings',
