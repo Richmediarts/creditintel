@@ -43,8 +43,12 @@ export interface BudgetPaycheck {
   stock_purchase?: number
   spousal_life?: number
   employer_match?: number
+  employer_hsa?: number
   federal_filing_status?: string
   state_filing_status?: string
+  federal_allowances?: number
+  dependent_amount?: number
+  additional_withholding?: number
   bank_name?: string
   account_number?: string
   deposit_amount?: number
@@ -52,6 +56,36 @@ export interface BudgetPaycheck {
   account2_number?: string
   deposit2_amount?: number
   notes?: string
+  gross_pay_ytd?: number
+  pre_tax_deductions_ytd?: number
+  employee_taxes_ytd?: number
+  post_tax_deductions_ytd?: number
+  net_pay_ytd?: number
+  hours_worked_ytd?: number
+  retirement_401k_ytd?: number
+  health_insurance_ytd?: number
+  dental_plan_ytd?: number
+  eye_plan_ytd?: number
+  health_care_fsa_ytd?: number
+  optional_life_ytd?: number
+  add_insurance_ytd?: number
+  federal_tax_ytd?: number
+  state_tax_ytd?: number
+  oasdi_ytd?: number
+  medicare_ytd?: number
+  employer_match_ytd?: number
+  hsa_ytd?: number
+  loan_repayment_ytd?: number
+  dependent_life_ytd?: number
+  stock_purchase_ytd?: number
+  spousal_life_ytd?: number
+  biometric_credit_ytd?: number
+  spousal_biometric_ytd?: number
+  group_term_life_ytd?: number
+  floating_holiday_ytd?: number
+  holiday_pay_ytd?: number
+  vacation_pay_ytd?: number
+  salary_ytd?: number
 }
 
 const PAYCHECK_COLUMNS = [
@@ -63,9 +97,18 @@ const PAYCHECK_COLUMNS = [
   'federal_tax', 'state_tax', 'state_name', 'social_security', 'retirement_401k',
   'add_insurance', 'dental_plan', 'eye_plan', 'health_care_fsa', 'health_insurance',
   'optional_life', 'hsa', 'loan_repayment', 'dependent_life', 'stock_purchase',
-  'spousal_life', 'employer_match', 'federal_filing_status', 'state_filing_status',
+  'spousal_life', 'employer_match', 'employer_hsa', 'federal_filing_status', 'state_filing_status',
+  'federal_allowances', 'dependent_amount', 'additional_withholding',
   'bank_name', 'account_number', 'deposit_amount', 'bank2_name', 'account2_number',
   'deposit2_amount', 'notes',
+  'gross_pay_ytd', 'pre_tax_deductions_ytd', 'employee_taxes_ytd', 'post_tax_deductions_ytd',
+  'net_pay_ytd', 'hours_worked_ytd', 'retirement_401k_ytd', 'health_insurance_ytd',
+  'dental_plan_ytd', 'eye_plan_ytd', 'health_care_fsa_ytd', 'optional_life_ytd',
+  'add_insurance_ytd', 'federal_tax_ytd', 'state_tax_ytd', 'oasdi_ytd', 'medicare_ytd',
+  'employer_match_ytd', 'hsa_ytd', 'loan_repayment_ytd', 'dependent_life_ytd',
+  'stock_purchase_ytd', 'spousal_life_ytd', 'biometric_credit_ytd', 'spousal_biometric_ytd',
+  'group_term_life_ytd', 'floating_holiday_ytd', 'holiday_pay_ytd', 'vacation_pay_ytd',
+  'salary_ytd',
 ] as const
 
 export interface BudgetStats {
@@ -207,10 +250,28 @@ function ensureBudgetSchema(): void {
       optional_life REAL DEFAULT 0, hsa REAL DEFAULT 0,
       loan_repayment REAL DEFAULT 0, dependent_life REAL DEFAULT 0,
       stock_purchase REAL DEFAULT 0, spousal_life REAL DEFAULT 0,
-      employer_match REAL DEFAULT 0, federal_filing_status TEXT,
-      state_filing_status TEXT, bank_name TEXT, account_number TEXT,
+      employer_match REAL DEFAULT 0, employer_hsa REAL DEFAULT 0,
+      federal_filing_status TEXT, state_filing_status TEXT,
+      federal_allowances REAL DEFAULT 0, dependent_amount REAL DEFAULT 0,
+      additional_withholding REAL DEFAULT 0,
+      bank_name TEXT, account_number TEXT,
       deposit_amount REAL DEFAULT 0, bank2_name TEXT, account2_number TEXT,
       deposit2_amount REAL DEFAULT 0, notes TEXT,
+      gross_pay_ytd REAL DEFAULT 0, pre_tax_deductions_ytd REAL DEFAULT 0,
+      employee_taxes_ytd REAL DEFAULT 0, post_tax_deductions_ytd REAL DEFAULT 0,
+      net_pay_ytd REAL DEFAULT 0, hours_worked_ytd REAL DEFAULT 0,
+      retirement_401k_ytd REAL DEFAULT 0, health_insurance_ytd REAL DEFAULT 0,
+      dental_plan_ytd REAL DEFAULT 0, eye_plan_ytd REAL DEFAULT 0,
+      health_care_fsa_ytd REAL DEFAULT 0, optional_life_ytd REAL DEFAULT 0,
+      add_insurance_ytd REAL DEFAULT 0, federal_tax_ytd REAL DEFAULT 0,
+      state_tax_ytd REAL DEFAULT 0, oasdi_ytd REAL DEFAULT 0,
+      medicare_ytd REAL DEFAULT 0, employer_match_ytd REAL DEFAULT 0,
+      hsa_ytd REAL DEFAULT 0, loan_repayment_ytd REAL DEFAULT 0,
+      dependent_life_ytd REAL DEFAULT 0, stock_purchase_ytd REAL DEFAULT 0,
+      spousal_life_ytd REAL DEFAULT 0, biometric_credit_ytd REAL DEFAULT 0,
+      spousal_biometric_ytd REAL DEFAULT 0, group_term_life_ytd REAL DEFAULT 0,
+      floating_holiday_ytd REAL DEFAULT 0, holiday_pay_ytd REAL DEFAULT 0,
+      vacation_pay_ytd REAL DEFAULT 0, salary_ytd REAL DEFAULT 0,
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
 
@@ -340,6 +401,25 @@ function ensureBudgetSchema(): void {
   if (!ccCols.find(c => c.name === 'plaid_item_id')) {
     db.exec('ALTER TABLE budget_credit_cards ADD COLUMN plaid_item_id INTEGER')
   }
+
+  // Ensure paycheck table has all YTD and extra columns
+  const pcCols = db.prepare('PRAGMA table_info(budget_paychecks)').all() as { name: string }[]
+  const pcMissing = [
+    'employer_hsa', 'federal_allowances', 'dependent_amount', 'additional_withholding',
+    'gross_pay_ytd', 'pre_tax_deductions_ytd', 'employee_taxes_ytd', 'post_tax_deductions_ytd',
+    'net_pay_ytd', 'hours_worked_ytd', 'retirement_401k_ytd', 'health_insurance_ytd',
+    'dental_plan_ytd', 'eye_plan_ytd', 'health_care_fsa_ytd', 'optional_life_ytd',
+    'add_insurance_ytd', 'federal_tax_ytd', 'state_tax_ytd', 'oasdi_ytd', 'medicare_ytd',
+    'employer_match_ytd', 'hsa_ytd', 'loan_repayment_ytd', 'dependent_life_ytd',
+    'stock_purchase_ytd', 'spousal_life_ytd', 'biometric_credit_ytd', 'spousal_biometric_ytd',
+    'group_term_life_ytd', 'floating_holiday_ytd', 'holiday_pay_ytd', 'vacation_pay_ytd',
+    'salary_ytd',
+  ]
+  for (const col of pcMissing) {
+    if (!pcCols.find(c => c.name === col)) {
+      db.exec(`ALTER TABLE budget_paychecks ADD COLUMN ${col} REAL DEFAULT 0`)
+    }
+  }
 }
 
 function ensureSchemaOnce(): void {
@@ -405,7 +485,16 @@ const NUMERIC_COLUMNS = new Set<string>([
   'group_term_life', 'spousal_biometric', 'other_earnings', 'oasdi', 'medicare', 'federal_tax',
   'state_tax', 'social_security', 'retirement_401k', 'add_insurance', 'dental_plan', 'eye_plan',
   'health_care_fsa', 'health_insurance', 'optional_life', 'hsa', 'loan_repayment', 'dependent_life',
-  'stock_purchase', 'spousal_life', 'employer_match', 'deposit_amount', 'deposit2_amount',
+  'stock_purchase', 'spousal_life', 'employer_match', 'employer_hsa', 'deposit_amount', 'deposit2_amount',
+  'federal_allowances', 'dependent_amount', 'additional_withholding',
+  'gross_pay_ytd', 'pre_tax_deductions_ytd', 'employee_taxes_ytd', 'post_tax_deductions_ytd',
+  'net_pay_ytd', 'hours_worked_ytd', 'retirement_401k_ytd', 'health_insurance_ytd',
+  'dental_plan_ytd', 'eye_plan_ytd', 'health_care_fsa_ytd', 'optional_life_ytd',
+  'add_insurance_ytd', 'federal_tax_ytd', 'state_tax_ytd', 'oasdi_ytd', 'medicare_ytd',
+  'employer_match_ytd', 'hsa_ytd', 'loan_repayment_ytd', 'dependent_life_ytd',
+  'stock_purchase_ytd', 'spousal_life_ytd', 'biometric_credit_ytd', 'spousal_biometric_ytd',
+  'group_term_life_ytd', 'floating_holiday_ytd', 'holiday_pay_ytd', 'vacation_pay_ytd',
+  'salary_ytd',
 ])
 
 export function getNextPaycheckDate(userId: number): string | null {
