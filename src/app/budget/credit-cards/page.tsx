@@ -164,19 +164,20 @@ export default function CreditCardsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Credit Cards</h1>
           <p className="text-sm text-gray-500">Track balances, limits, and utilization across all your cards.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <PlaidLinkButton onConnected={fetchCards} />
           <Button onClick={handleSync} disabled={syncing} variant="secondary" size="sm">
             {syncing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
-            {syncing ? 'Syncing...' : 'Sync Balances'}
+            <span className="hidden sm:inline">{syncing ? 'Syncing...' : 'Sync Balances'}</span>
+            <span className="sm:hidden">{syncing ? '...' : 'Sync'}</span>
           </Button>
           {!editing && (
-            <Button onClick={startAdd}><PlusCircle className="w-4 h-4 mr-2" /> Add Card</Button>
+            <Button onClick={startAdd} size="sm"><PlusCircle className="w-4 h-4 mr-1" /> Add</Button>
           )}
         </div>
       </div>

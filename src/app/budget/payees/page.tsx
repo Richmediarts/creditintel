@@ -265,7 +265,7 @@ export default function PayeesPage() {
                   key={p.id}
                   className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                 >
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <Wallet className="w-4 h-4 text-gray-400 shrink-0" />
@@ -287,7 +287,7 @@ export default function PayeesPage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-3 sm:gap-2 shrink-0 ml-6 sm:ml-0">
                       {p.website && (
                         <a
                           href={p.website}

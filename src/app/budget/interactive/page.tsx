@@ -158,30 +158,32 @@ export default function InteractiveBudgetPage() {
   const filterRef = useRef<HTMLInputElement>(null)
 
   const fetchData = useCallback(async () => {
-    const [statsRes, billsRes, payeesRes] = await Promise.all([
-      fetch('/api/budget/stats'),
-      fetch('/api/budget/bills'),
-      fetch('/api/budget/payees'),
-    ])
-    if (statsRes.ok) {
-      const d = await statsRes.json()
-      setStats(d.stats)
-    }
-    if (billsRes.ok) {
-      const d = await billsRes.json()
-      setBills(d.bills)
-    }
-    if (payeesRes.ok) {
-      const d = await payeesRes.json()
-      setPayees(d.payees.map((p: Payee) => p.name))
-    }
+    let income = 2000
+    try {
+      const [statsRes, billsRes, payeesRes] = await Promise.all([
+        fetch('/api/budget/stats').catch(() => null),
+        fetch('/api/budget/bills').catch(() => null),
+        fetch('/api/budget/payees').catch(() => null),
+      ])
+      if (statsRes?.ok) {
+        const d = await statsRes.json()
+        setStats(d.stats)
+        income = d.stats?.biweekly_income || 2000
+      }
+      if (billsRes?.ok) {
+        const d = await billsRes.json()
+        setBills(d.bills)
+      }
+      if (payeesRes?.ok) {
+        const d = await payeesRes.json()
+        setPayees(d.payees.map((p: Payee) => p.name))
+      }
+    } catch { /* continue with defaults */ }
 
     const saved = loadState()
     if (saved && saved.length > 0) {
       setPeriods(saved)
     } else {
-      const s = statsRes.ok ? (await statsRes.json()).stats : null
-      const income = s?.biweekly_income || 2000
       setPeriods([buildDefaultState(income), { ...buildDefaultState(income), id: 2, name: 'Bi-Weekly #2' }])
     }
     setLoading(false)

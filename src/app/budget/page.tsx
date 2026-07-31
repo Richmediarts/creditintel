@@ -87,7 +87,7 @@ function StatCard({
       <CardContent className="p-5 flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400">{title}</p>
-          <p className={`text-2xl font-bold mt-1 ${negative ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>{amount}</p>
+          <p className={`text-xl sm:text-2xl font-bold mt-1 truncate ${negative ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>{amount}</p>
           {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
         </div>
         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${accent}`}>

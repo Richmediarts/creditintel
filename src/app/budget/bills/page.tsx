@@ -332,7 +332,7 @@ export default function BillsPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
+                    <div className="flex items-center gap-2 sm:gap-3 shrink-0">
                       <div className="text-right">
                         <p className={`text-sm font-semibold ${bill.is_paid ? 'text-gray-500 dark:text-gray-400 line-through' : 'text-gray-900 dark:text-white'}`}>
                           {fmt(bill.amount)}

@@ -269,7 +269,7 @@ export default function CategoriesPage() {
                         <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                           <DollarSign className="w-3.5 h-3.5 inline" />{cat.monthly_limit != null ? Number(cat.monthly_limit).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '—'}
                         </span>
-                        <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           <button onClick={() => startEdit(cat)} className="text-amber-600 dark:text-amber-400 hover:text-amber-700">
                             <Edit className="w-4 h-4" />
                           </button>
@@ -280,7 +280,7 @@ export default function CategoriesPage() {
                       </div>
                     </div>
                     {children.map((child) => (
-                      <div key={child.id} className="flex items-center justify-between py-2 pl-10 pr-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 group">
+                      <div key={child.id} className="flex items-center justify-between py-2 pl-4 sm:pl-10 pr-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 group">
                         <div className="flex items-center gap-3">
                           <div
                             className="w-3.5 h-3.5 rounded-full flex-shrink-0"
@@ -292,7 +292,7 @@ export default function CategoriesPage() {
                           <span className="text-sm text-gray-600 dark:text-gray-400">
                             <DollarSign className="w-3 h-3 inline" />{child.monthly_limit != null ? Number(child.monthly_limit).toLocaleString('en-US', { minimumFractionDigits: 2 }) : '—'}
                           </span>
-                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                             <button onClick={() => startEdit(child)} className="text-amber-600 dark:text-amber-400 hover:text-amber-700">
                               <Edit className="w-4 h-4" />
                             </button>

@@ -127,19 +127,19 @@ export default function BankAccountsPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
           <Landmark className="h-7 w-7 text-blue-600 dark:text-blue-400" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Bank Accounts</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <PlaidLinkButton onConnected={fetchAccounts} />
           <Link href="/budget/import-statement">
             <Button variant="secondary" size="sm"><Upload className="h-4 w-4 mr-1" /> Import</Button>
           </Link>
-          <Button onClick={() => setShowForm(!showForm)}>
+          <Button onClick={() => setShowForm(!showForm)} size="sm">
             <PlusCircle className="h-4 w-4 mr-1" />
-            Add Account
+            Add
           </Button>
         </div>
       </div>

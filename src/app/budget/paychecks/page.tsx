@@ -265,12 +265,12 @@ export default function PaychecksPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Paychecks & Paystubs</h1>
           <p className="text-sm text-gray-500">Track biweekly paychecks and view paystubs.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant={activeTab === 'history' ? 'primary' : 'secondary'} size="sm" onClick={() => setActiveTab('history')}>
             <Wallet className="w-4 h-4 mr-1" /> History
           </Button>
@@ -278,7 +278,7 @@ export default function PaychecksPage() {
             <Upload className="w-4 h-4 mr-1" /> Import
           </Button>
           {!editing && (
-            <Button onClick={startAdd}><Plus className="w-4 h-4 mr-2" /> Add Paycheck</Button>
+            <Button onClick={startAdd} size="sm"><Plus className="w-4 h-4 mr-1" /> Add</Button>
           )}
         </div>
       </div>
