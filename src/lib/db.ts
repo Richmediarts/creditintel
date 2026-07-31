@@ -58,12 +58,22 @@ function seedFromFile(): void {
       for (const [table, cols] of Object.entries(budgetTables)) {
         const rows = seed[table]
         if (!rows || rows.length === 0) continue
-        const placeholders = cols.map(() => '?').join(', ')
-        const sql = `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${placeholders})`
+        // Include 'id' column if rows have it (for FK references)
+        const hasId = rows[0] && rows[0].id !== undefined
+        const allCols = hasId ? ['id', ...cols] : cols
+        const placeholders = allCols.map(() => '?').join(', ')
+        const sql = `INSERT OR IGNORE INTO ${table} (${allCols.join(', ')}) VALUES (${placeholders})`
         const stmt = db!.prepare(sql)
         for (const row of rows) {
-          const values = cols.map(c => row[c] !== undefined ? row[c] : null)
+          const values = allCols.map(c => row[c] !== undefined ? row[c] : null)
           stmt.run(...values)
+        }
+        // Reset sqlite_sequence so new inserts don't clash with seeded IDs
+        if (hasId) {
+          const maxId = Math.max(...rows.map((r: Record<string, unknown>) => Number(r.id) || 0))
+          if (maxId > 0) {
+            db!.prepare("INSERT OR REPLACE INTO sqlite_sequence (name, seq) VALUES (?, ?)").run(table, maxId)
+          }
         }
       }
     })
