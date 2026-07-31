@@ -1,0 +1,385 @@
+'use client'
+
+import React, { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import {
+  Wallet, CreditCard, TrendingUp, PlusCircle, ArrowRight,
+  Edit, Trash2, DollarSign, Percent,
+} from 'lucide-react'
+import { Card, CardContent, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { useAuth } from '@/lib/auth-context'
+
+interface CreditCardType {
+  id: number
+  name: string
+  last_four: string
+  credit_limit: number
+  current_balance: number
+  interest_rate: number
+  due_date: string
+}
+
+const fmt = (n: number): string =>
+  '$' + (Number.isFinite(n) ? n : 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+const EMPTY_FORM = {
+  name: '',
+  last_four: '',
+  credit_limit: '',
+  current_balance: '',
+  interest_rate: '',
+  due_date: '',
+}
+
+export default function CreditCardsPage() {
+  const { user, loading: authLoading } = useAuth()
+  const router = useRouter()
+  const [cards, setCards] = useState<CreditCardType[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editing, setEditing] = useState<CreditCardType | null>(null)
+  const [form, setForm] = useState({ ...EMPTY_FORM })
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+
+  const fetchCards = useCallback(async () => {
+    const res = await fetch('/api/budget/credit-cards')
+    if (res.ok) {
+      const data = await res.json()
+      setCards(data.cards)
+    }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => {
+    if (!authLoading && !user) { router.push('/login'); return }
+    if (user) fetchCards()
+  }, [user, authLoading, fetchCards])
+
+  const setField = (name: string, v: string) => setForm((f) => ({ ...f, [name]: v }))
+
+  const startAdd = () => {
+    setEditing(null)
+    setForm({ ...EMPTY_FORM })
+    setError('')
+    setMessage('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const startEdit = (card: CreditCardType) => {
+    setEditing(card)
+    setForm({
+      name: card.name || '',
+      last_four: card.last_four || '',
+      credit_limit: String(card.credit_limit || ''),
+      current_balance: String(card.current_balance || ''),
+      interest_rate: String(card.interest_rate || ''),
+      due_date: card.due_date || '',
+    })
+    setError('')
+    setMessage('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setMessage('')
+    setSaving(true)
+
+    const payload = {
+      name: form.name,
+      last_four: form.last_four,
+      credit_limit: Number(form.credit_limit) || 0,
+      current_balance: Number(form.current_balance) || 0,
+      interest_rate: Number(form.interest_rate) || 0,
+      due_date: form.due_date,
+    }
+
+    const url = editing ? `/api/budget/credit-cards/${editing.id}` : '/api/budget/credit-cards'
+    const method = editing ? 'PUT' : 'POST'
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    const data = await res.json()
+    if (res.ok) {
+      setMessage(editing ? 'Card updated' : 'Card added')
+      setEditing(null)
+      setForm({ ...EMPTY_FORM })
+      await fetchCards()
+    } else {
+      setError(data.error || 'Failed to save card')
+    }
+    setSaving(false)
+  }
+
+  const handleDelete = async (card: CreditCardType) => {
+    if (!window.confirm(`Delete ${card.name}?`)) return
+    await fetch(`/api/budget/credit-cards/${card.id}`, { method: 'DELETE' })
+    await fetchCards()
+  }
+
+  const totalDebt = cards.reduce((s, c) => s + (Number(c.current_balance) || 0), 0)
+  const totalLimit = cards.reduce((s, c) => s + (Number(c.credit_limit) || 0), 0)
+  const avgUtil = totalLimit > 0 ? (totalDebt / totalLimit) * 100 : 0
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-16">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Credit Cards</h1>
+          <p className="text-sm text-gray-500">Track balances, limits, and utilization across all your cards.</p>
+        </div>
+        {!editing && (
+          <Button onClick={startAdd}><PlusCircle className="w-4 h-4 mr-2" /> Add Card</Button>
+        )}
+      </div>
+
+      {message && (
+        <div className="rounded-lg bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 px-4 py-3 text-sm text-green-700 dark:text-green-300">
+          {message}
+        </div>
+      )}
+      {error && (
+        <div className="rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {error}
+        </div>
+      )}
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardContent className="p-5 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Debt</p>
+              <p className={`text-2xl font-bold mt-1 ${totalDebt > 0 ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>{fmt(totalDebt)}</p>
+            </div>
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400">
+              <DollarSign className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Credit Limit</p>
+              <p className="text-2xl font-bold mt-1 text-gray-900 dark:text-white">{fmt(totalLimit)}</p>
+            </div>
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
+              <TrendingUp className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Avg Utilization</p>
+              <p className={`text-2xl font-bold mt-1 ${avgUtil > 30 ? 'text-red-500' : avgUtil > 0 ? 'text-amber-500' : 'text-gray-900 dark:text-white'}`}>
+                {avgUtil.toFixed(1)}%
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400">
+              <Percent className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Add / Edit form */}
+      {editing && (
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <CardTitle className="text-sm">
+                {editing ? `Edit ${editing.name}` : 'Add Credit Card'}
+              </CardTitle>
+              {editing && (
+                <Button variant="ghost" size="sm" onClick={() => { setEditing(null); setForm({ ...EMPTY_FORM }) }}>
+                  <Trash2 className="w-4 h-4 mr-1" /> Cancel
+                </Button>
+              )}
+            </div>
+
+            <form onSubmit={handleSubmit}>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Card Name</label>
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={(e) => setField('name', e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g. Visa Platinum"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Last 4 Digits</label>
+                  <input
+                    type="text"
+                    maxLength={4}
+                    value={form.last_four}
+                    onChange={(e) => setField('last_four', e.target.value.replace(/\D/g, ''))}
+                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="1234"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Due Date</label>
+                  <input
+                    type="text"
+                    value={form.due_date}
+                    onChange={(e) => setField('due_date', e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g. 15th"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Credit Limit</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={form.credit_limit}
+                    onChange={(e) => setField('credit_limit', e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Current Balance</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={form.current_balance}
+                    onChange={(e) => setField('current_balance', e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Interest Rate (APR %)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={form.interest_rate}
+                    onChange={(e) => setField('interest_rate', e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-5 flex items-center gap-3">
+                <Button type="submit" disabled={saving}>
+                  <Wallet className="w-4 h-4 mr-2" /> {saving ? 'Saving...' : editing ? 'Save Changes' : 'Add Card'}
+                </Button>
+                <Link href="/budget">
+                  <Button variant="secondary"><ArrowRight className="w-4 h-4 mr-2" /> Back to Dashboard</Button>
+                </Link>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Card list */}
+      <Card>
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between mb-3">
+            <CardTitle className="text-sm">Your Cards</CardTitle>
+            <span className="text-xs text-gray-400">{cards.length} card{cards.length !== 1 ? 's' : ''}</span>
+          </div>
+
+          {cards.length > 0 ? (
+            <div className="space-y-3">
+              {cards.map((card) => {
+                const limit = Number(card.credit_limit) || 0
+                const balance = Number(card.current_balance) || 0
+                const util = limit > 0 ? (balance / limit) * 100 : 0
+                const utilColor = util > 30 ? 'text-red-500' : util > 10 ? 'text-amber-500' : 'text-green-500'
+                const utilBg = util > 30 ? 'bg-red-500' : util > 10 ? 'bg-amber-500' : 'bg-green-500'
+
+                return (
+                  <div
+                    key={card.id}
+                    className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 flex flex-col md:flex-row md:items-center gap-4"
+                  >
+                    <div className="flex items-center gap-3 min-w-0 md:w-1/3">
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 shrink-0">
+                        <CreditCard className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{card.name}</p>
+                        <p className="text-xs text-gray-400">**** {card.last_four || '????'}{card.due_date ? ` · Due ${card.due_date}` : ''}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:w-2/3">
+                      <div>
+                        <p className="text-xs text-gray-400">Balance</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{fmt(balance)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400">Limit</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{fmt(limit)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400">APR</p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{card.interest_rate ? `${Number(card.interest_rate)}%` : '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400">Utilization</p>
+                        <div className="flex items-center gap-2">
+                          <p className={`text-sm font-bold ${utilColor}`}>{util.toFixed(1)}%</p>
+                          <div className="flex-1 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                            <div className={`h-full rounded-full ${utilBg}`} style={{ width: `${Math.min(util, 100)}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 md:ml-auto shrink-0">
+                      <button
+                        onClick={() => startEdit(card)}
+                        className="p-1.5 rounded-lg text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(card)}
+                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <CreditCard className="w-8 h-8 mx-auto text-gray-300 mb-2" />
+              <p className="text-sm text-gray-400">No credit cards yet.</p>
+              <Button onClick={startAdd} className="mt-3"><PlusCircle className="w-4 h-4 mr-2" /> Add your first card</Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

@@ -8,7 +8,7 @@ import {
   AlertTriangle, Search, Brain, Mail, TrendingUp, Download,
   Sun, Moon, Menu, X, ChevronLeft, ChevronRight,
   Gavel, Shield, LogIn, LogOut, User, Activity, HelpCircle,
-  Wallet, Banknote,
+  Wallet, Banknote, Receipt, Landmark, CreditCard, Users, Tag,
 } from 'lucide-react'
 import { useCredit } from '@/lib/store/creditStore'
 import { useAuth } from '@/lib/auth-context'
@@ -43,6 +43,11 @@ const navItems = [
 const budgetItems = [
   { href: '/budget', label: 'Budget Dashboard', icon: Wallet },
   { href: '/budget/paychecks', label: 'Paychecks', icon: Banknote },
+  { href: '/budget/bills', label: 'Bills', icon: Receipt },
+  { href: '/budget/bank-accounts', label: 'Bank Accounts', icon: Landmark },
+  { href: '/budget/credit-cards', label: 'Credit Cards', icon: CreditCard },
+  { href: '/budget/payees', label: 'Payees', icon: Users },
+  { href: '/budget/categories', label: 'Categories', icon: Tag },
 ]
 
 export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mobileOpen, setMobileOpen }: SidebarProps) {

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import {
   Wallet, CreditCard, TrendingUp, CalendarCheck, CalendarDays,
   Receipt, PiggyBank, PlusCircle, ArrowRight, Banknote,
+  Landmark, WalletCards, CircleDollarSign,
 } from 'lucide-react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -30,19 +31,24 @@ interface Stats {
   total_bank: number
   total_credit: number
   total_income: number
+  total_income_accounts: number
   last_paycheck_net: number
   total_expenses: number
+  total_expenses_paid: number
   bills_before_next_pay: Bill[]
   bills_before_next_pay_total: number
   next_paycheck_date: string | null
   upcoming_bills: Bill[]
   last_paycheck: LastPaycheck | null
   last_paycheck_date: string | null
+  current_period_income: LastPaycheck | null
   biweekly_income: number
   biweekly_expenses: number
   biweekly_remaining: number
   monthly_income: number
   monthly_expenses: number
+  monthly_expenses_paid: number
+  monthly_expenses_due: number
   monthly_remaining: number
 }
 
