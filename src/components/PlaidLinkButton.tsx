@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { usePlaidLink } from 'react-plaid-link'
 import { Plug, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,7 @@ interface PlaidLinkButtonProps {
 }
 
 export function PlaidLinkButton({ onConnected }: PlaidLinkButtonProps) {
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [linkToken, setLinkToken] = useState<string | null>(null)
@@ -18,19 +20,18 @@ export function PlaidLinkButton({ onConnected }: PlaidLinkButtonProps) {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('/api/budget/plaid/create-link-token')
+      const res = await fetch('/api/budget/plaid/create-link-token', { cache: 'no-store' })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error || 'Failed to create link token')
-        setLoading(false)
+        router.push('/budget/plaid-settings')
         return
       }
       setLinkToken(data.link_token)
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to initialize Plaid')
+    } catch {
+      router.push('/budget/plaid-settings')
     }
     setLoading(false)
-  }, [])
+  }, [router])
 
   const { open, ready } = usePlaidLink({
     token: linkToken || '',
@@ -68,7 +69,7 @@ export function PlaidLinkButton({ onConnected }: PlaidLinkButtonProps) {
     <div>
       <Button onClick={fetchLinkToken} disabled={loading} variant="secondary" size="sm">
         {loading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Plug className="h-4 w-4 mr-1" />}
-        {loading ? 'Connecting...' : 'Link Account (Plaid)'}
+        {loading ? 'Connecting...' : 'Link Accounts'}
       </Button>
       {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
     </div>

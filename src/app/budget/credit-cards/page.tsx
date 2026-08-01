@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Wallet, CreditCard, TrendingUp, PlusCircle, ArrowRight,
-  Edit, Trash2, DollarSign, Percent, RefreshCw, Plug, Loader2,
+  Edit, Trash2, RefreshCw, Plug, Loader2,
 } from 'lucide-react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -50,7 +50,7 @@ export default function CreditCardsPage() {
   const [syncMessage, setSyncMessage] = useState('')
 
   const fetchCards = useCallback(async () => {
-    const res = await fetch('/api/budget/credit-cards')
+    const res = await fetch('/api/budget/credit-cards', { cache: 'no-store' })
     if (res.ok) {
       const data = await res.json()
       setCards(data.cards)
@@ -124,8 +124,10 @@ export default function CreditCardsPage() {
 
   const handleDelete = async (card: CreditCardType) => {
     if (!window.confirm(`Delete ${card.name}?`)) return
-    await fetch(`/api/budget/credit-cards/${card.id}`, { method: 'DELETE' })
-    await fetchCards()
+    const res = await fetch(`/api/budget/credit-cards/${card.id}`, { method: 'DELETE', cache: 'no-store' })
+    if (res.ok) {
+      setCards((prev) => prev.filter((c) => c.id !== card.id))
+    }
   }
 
   const handleSync = async () => {
@@ -199,51 +201,31 @@ export default function CreditCardsPage() {
       )}
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <Card>
-          <CardContent className="p-5 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Debt</p>
-              <p className={`text-2xl font-bold mt-1 ${totalDebt > 0 ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>{fmt(totalDebt)}</p>
-            </div>
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400">
-              <DollarSign className="w-5 h-5" />
-            </div>
+          <CardContent className="p-3 sm:p-5">
+            <p className="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400">Total Debt</p>
+            <p className={`text-lg sm:text-2xl font-bold mt-1 truncate ${totalDebt > 0 ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>{fmt(totalDebt)}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-5 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Available Credit</p>
-              <p className={`text-2xl font-bold mt-1 ${totalAvailable > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-white'}`}>{fmt(totalAvailable)}</p>
-            </div>
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400">
-              <TrendingUp className="w-5 h-5" />
-            </div>
+          <CardContent className="p-3 sm:p-5">
+            <p className="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400">Available Credit</p>
+            <p className={`text-lg sm:text-2xl font-bold mt-1 truncate ${totalAvailable > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-900 dark:text-white'}`}>{fmt(totalAvailable)}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-5 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Credit Limit</p>
-              <p className="text-2xl font-bold mt-1 text-gray-900 dark:text-white">{fmt(totalLimit)}</p>
-            </div>
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
-              <Wallet className="w-5 h-5" />
-            </div>
+          <CardContent className="p-3 sm:p-5">
+            <p className="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400">Total Credit Limit</p>
+            <p className="text-lg sm:text-2xl font-bold mt-1 truncate text-gray-900 dark:text-white">{fmt(totalLimit)}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-5 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Avg Utilization</p>
-              <p className={`text-2xl font-bold mt-1 ${avgUtil > 30 ? 'text-red-500' : avgUtil > 0 ? 'text-amber-500' : 'text-gray-900 dark:text-white'}`}>
-                {avgUtil.toFixed(1)}%
-              </p>
-            </div>
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400">
-              <Percent className="w-5 h-5" />
-            </div>
+          <CardContent className="p-3 sm:p-5">
+            <p className="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400">Avg Utilization</p>
+            <p className={`text-lg sm:text-2xl font-bold mt-1 truncate ${avgUtil > 30 ? 'text-red-500' : avgUtil > 0 ? 'text-amber-500' : 'text-gray-900 dark:text-white'}`}>
+              {avgUtil.toFixed(1)}%
+            </p>
           </CardContent>
         </Card>
       </div>

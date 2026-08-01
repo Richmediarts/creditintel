@@ -2,14 +2,47 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { getDb } from '@/lib/db'
 import { Configuration, PlaidApi, PlaidEnvironments, LinkTokenCreateRequest, LinkTokenCreateRequestUser, CountryCode, Products } from 'plaid'
+import fs from 'fs'
+import path from 'path'
 
 function getPlaidConfig() {
-  const db = getDb()
-  db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
-  const row = db.prepare("SELECT value FROM settings WHERE key = 'plaid_config'").get() as { value: string } | undefined
-  if (row) {
-    try { return JSON.parse(row.value) } catch { /* ignore */ }
-  }
+  // 1. Check DB settings table
+  try {
+    const db = getDb()
+    db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'plaid_config'").get() as { value: string } | undefined
+    if (row) {
+      try {
+        const cfg = JSON.parse(row.value)
+        if (cfg.client_id && cfg.secret) return cfg
+      } catch { /* ignore */ }
+    }
+  } catch { /* ignore */ }
+
+  // 2. Check seed.json directly (survives Vercel cold starts)
+  try {
+    const seedPath = path.join(process.cwd(), 'seed', 'seed.json')
+    if (fs.existsSync(seedPath)) {
+      const seed = JSON.parse(fs.readFileSync(seedPath, 'utf-8'))
+      if (seed.settings) {
+        const entry = seed.settings.find((s: { key: string }) => s.key === 'plaid_config')
+        if (entry) {
+          const cfg = JSON.parse(entry.value)
+          if (cfg.client_id && cfg.secret) {
+            // Also hydrate DB for this instance
+            try {
+              const db = getDb()
+              db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
+              db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('plaid_config', ?)").run(entry.value)
+            } catch { /* ignore */ }
+            return cfg
+          }
+        }
+      }
+    }
+  } catch { /* ignore */ }
+
+  // 3. Fall back to env vars
   return {
     client_id: process.env.PLAID_CLIENT_ID || '',
     secret: process.env.PLAID_SECRET || '',

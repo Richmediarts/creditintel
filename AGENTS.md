@@ -58,6 +58,17 @@ Maintain credit-dashboard Next.js app with accurate report parsing, multi-bureau
 - Added sidebar links (Wallet/Banknote icons) and Budget help sections.
 - Fixed budget lint errors: `fetchStats`/`fetchPaycheck` moved to `useCallback` (declared before `useEffect`); removed unused `loading` in paychecks page; fixed `Stats` interface missing `last_paycheck_date`/`total_income`/`total_expenses`.
 - Verified `npm run build` passes and all budget endpoints work (stats, list, detail, create, delete) with Admin login.
+- Full data sync from Flask (584 transactions, 9 plaid items, 30 bank accounts, 24 credit cards, 4 paychecks with YTD fields).
+- Seed.json updated with all budget tables (787 rows) for Vercel cold start persistence.
+- Credit Cards page: Available Credit card, Plaid Link, Sync Balances, per-card Available column, duplicate cleanup (15 remain).
+- Interactive Budget complete rewrite matching Flask: periods, income/expense tables, bills dropdown, localStorage persistence.
+- Mobile responsive fixes: Categories edit/delete always visible, action row wrapping on all budget pages, header wrapping on mobile.
+- Paycheck parser refinement: 401(k) label matching, separate-line format, tax exclusion checks, holiday pay exclusion.
+- Plaid API: create-link-token, exchange-public-token, sync-balances, sync-transactions, settings GET/POST.
+- Plaid config NOT seeded — user configures via settings page; `getPlaidConfig()` creates settings table if missing.
+- Experian URL fixed on FICO scores page to `https://usa.experian.com/login/index`.
+- DB backup script (`scripts/backup-db.cjs`): WAL-safe, keeps last 30.
+- Goals page rewritten to match Flask: 6-Month Projection, Debt Breakdown, Savings Goals, Credit Utilization Simulator with per-card allocation table and slider.
 
 ### In Progress
 - (none)

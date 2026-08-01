@@ -9681,5 +9681,11 @@
       "created_at": "2026-07-31 16:30:21"
     }
   ],
-  "budget_modified_income": []
+  "budget_modified_income": [],
+  "settings": [
+    {
+      "key": "plaid_config",
+      "value": "{\"client_id\":\"69fcf01d3eed7b000d326e0d\",\"secret\":\"3da55d975bf55a38a258e9dbb8cce1\",\"environment\":\"production\"}"
+    }
+  ]
 }

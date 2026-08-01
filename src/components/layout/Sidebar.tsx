@@ -54,7 +54,7 @@ const budgetItems = [
   { href: '/budget/modified-income', label: 'Modified Income', icon: FileUp },
   { href: '/budget/goals', label: 'Goals & Net Worth', icon: Target },
   { href: '/budget/import-statement', label: 'Import Statement', icon: Upload },
-  { href: '/budget/plaid-settings', label: 'Plaid Settings', icon: Plug },
+  { href: '/budget/plaid-settings', label: 'Acct Link Settings', icon: Plug },
 ]
 
 export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mobileOpen, setMobileOpen }: SidebarProps) {

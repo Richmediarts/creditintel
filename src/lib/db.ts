@@ -13,62 +13,82 @@ function seedFromFile(): void {
   const seedPath = path.join(process.cwd(), 'seed', 'seed.json')
   if (!fs.existsSync(seedPath)) return
 
-  const userCount = (db!.prepare('SELECT COUNT(*) as c FROM users').get() as { c: number }).c
-  if (userCount > 0) return
-
   try {
     const raw = fs.readFileSync(seedPath, 'utf-8')
     const seed = JSON.parse(raw)
 
-    const insertUser = db!.prepare(
-      'INSERT OR IGNORE INTO users (id, name, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?, ?)'
-    )
-    const insertReport = db!.prepare(
-      'INSERT OR IGNORE INTO reports (user_id, bureau, data, updated_at) VALUES (?, ?, ?, ?)'
-    )
-    const insertDispute = db!.prepare(
-      'INSERT OR IGNORE INTO disputes (id, user_id, creditor_name, bureau, inaccuracies, status, filed_date, expected_response_date, resolved_date, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    )
-
-    const transaction = db!.transaction(() => {
+    // Always ensure users exist (needed for auth)
+    const userCount = (db!.prepare('SELECT COUNT(*) as c FROM users').get() as { c: number }).c
+    if (userCount === 0) {
+      const insertUser = db!.prepare(
+        'INSERT OR IGNORE INTO users (id, name, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+      )
       for (const u of seed.users) {
         insertUser.run(u.id, u.name, u.email, u.password_hash, u.role, u.created_at)
       }
+    }
+
+    // Seed reports/disputes only if empty
+    const reportCount = (db!.prepare('SELECT COUNT(*) as c FROM reports').get() as { c: number }).c
+    if (reportCount === 0 && seed.reports) {
+      const insertReport = db!.prepare(
+        'INSERT OR IGNORE INTO reports (user_id, bureau, data, updated_at) VALUES (?, ?, ?, ?)'
+      )
       for (const r of seed.reports) {
         insertReport.run(r.user_id, r.bureau, r.data, r.updated_at)
       }
-      // Don't seed fico_scores — each user enters their own scores via the FICO page
+    }
+
+    const disputeCount = (db!.prepare('SELECT COUNT(*) as c FROM disputes').get() as { c: number }).c
+    if (disputeCount === 0 && seed.disputes) {
+      const insertDispute = db!.prepare(
+        'INSERT OR IGNORE INTO disputes (id, user_id, creditor_name, bureau, inaccuracies, status, filed_date, expected_response_date, resolved_date, notes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      )
       for (const d of seed.disputes) {
         insertDispute.run(d.id, d.user_id, d.creditor_name, d.bureau, d.inaccuracies, d.status, d.filed_date, d.expected_response_date, d.resolved_date, d.notes, d.created_at, d.updated_at)
       }
+    }
 
-      // Seed budget tables
-      const budgetTables: Record<string, string[]> = {
-        budget_paychecks: ['user_id','pay_date','pay_period_begin','pay_period_end','check_date','check_number','employee_name','employee_id','company','hours_worked','gross_pay','pre_tax_deductions','employee_taxes','post_tax_deductions','net_pay','salary','biometric_credit','floating_holiday','holiday_pay','vacation_pay','group_term_life','spousal_biometric','other_earnings','oasdi','medicare','federal_tax','state_tax','state_name','social_security','retirement_401k','add_insurance','dental_plan','eye_plan','health_care_fsa','health_insurance','optional_life','hsa','loan_repayment','dependent_life','stock_purchase','spousal_life','employer_match','employer_hsa','federal_filing_status','state_filing_status','federal_allowances','dependent_amount','additional_withholding','bank_name','account_number','deposit_amount','bank2_name','account2_number','deposit2_amount','notes','gross_pay_ytd','pre_tax_deductions_ytd','employee_taxes_ytd','post_tax_deductions_ytd','net_pay_ytd','hours_worked_ytd','retirement_401k_ytd','health_insurance_ytd','dental_plan_ytd','eye_plan_ytd','health_care_fsa_ytd','optional_life_ytd','add_insurance_ytd','federal_tax_ytd','state_tax_ytd','oasdi_ytd','medicare_ytd','employer_match_ytd','hsa_ytd','loan_repayment_ytd','dependent_life_ytd','stock_purchase_ytd','spousal_life_ytd','biometric_credit_ytd','spousal_biometric_ytd','group_term_life_ytd','floating_holiday_ytd','holiday_pay_ytd','vacation_pay_ytd','salary_ytd'],
-        budget_bank_accounts: ['user_id','name','account_type','institution','account_number_last4','current_balance','website','is_active','is_income_account','interest_rate','plaid_account_id','plaid_item_id'],
-        budget_credit_cards: ['user_id','name','last_four','credit_limit','current_balance','interest_rate','is_active','website','due_date','plaid_account_id','plaid_item_id'],
-        budget_payees: ['user_id','name','category','account_number','notes','website','default_category_id'],
-        budget_bills: ['user_id','payee_id','payee_name','amount','due_date','is_paid','paid_date','is_recurring','recurrence_type','notes','category_id','account','credit_card_id'],
-        budget_categories: ['user_id','name','monthly_limit','color','parent_id','actual_spent'],
-        budget_transactions: ['user_id','account_id','date','description','amount','balance','plaid_transaction_id'],
-        budget_plaid_items: ['user_id','access_token','item_id','institution_name','plaid_cursor'],
-        budget_modified_income: ['user_id','amount','entry_date','period_type','notes'],
+    // Seed budget tables — only if the specific table is empty
+    const budgetTables: Record<string, string[]> = {
+      budget_paychecks: ['user_id','pay_date','pay_period_begin','pay_period_end','check_date','check_number','employee_name','employee_id','company','hours_worked','gross_pay','pre_tax_deductions','employee_taxes','post_tax_deductions','net_pay','salary','biometric_credit','floating_holiday','holiday_pay','vacation_pay','group_term_life','spousal_biometric','other_earnings','oasdi','medicare','federal_tax','state_tax','state_name','social_security','retirement_401k','add_insurance','dental_plan','eye_plan','health_care_fsa','health_insurance','optional_life','hsa','loan_repayment','dependent_life','stock_purchase','spousal_life','employer_match','employer_hsa','federal_filing_status','state_filing_status','federal_allowances','dependent_amount','additional_withholding','bank_name','account_number','deposit_amount','bank2_name','account2_number','deposit2_amount','notes','gross_pay_ytd','pre_tax_deductions_ytd','employee_taxes_ytd','post_tax_deductions_ytd','net_pay_ytd','hours_worked_ytd','retirement_401k_ytd','health_insurance_ytd','dental_plan_ytd','eye_plan_ytd','health_care_fsa_ytd','optional_life_ytd','add_insurance_ytd','federal_tax_ytd','state_tax_ytd','oasdi_ytd','medicare_ytd','employer_match_ytd','hsa_ytd','loan_repayment_ytd','dependent_life_ytd','stock_purchase_ytd','spousal_life_ytd','biometric_credit_ytd','spousal_biometric_ytd','group_term_life_ytd','floating_holiday_ytd','holiday_pay_ytd','vacation_pay_ytd','salary_ytd'],
+      budget_bank_accounts: ['user_id','name','account_type','institution','account_number_last4','current_balance','website','is_active','is_income_account','interest_rate','plaid_account_id','plaid_item_id'],
+      budget_credit_cards: ['user_id','name','last_four','credit_limit','current_balance','interest_rate','is_active','website','due_date','plaid_account_id','plaid_item_id'],
+      budget_payees: ['user_id','name','category','account_number','notes','website','default_category_id'],
+      budget_bills: ['user_id','payee_id','payee_name','amount','due_date','is_paid','paid_date','is_recurring','recurrence_type','notes','category_id','account','credit_card_id'],
+      budget_categories: ['user_id','name','monthly_limit','color','parent_id','actual_spent'],
+      budget_transactions: ['user_id','account_id','date','description','amount','balance','plaid_transaction_id'],
+      budget_plaid_items: ['user_id','access_token','item_id','institution_name','plaid_cursor'],
+      budget_modified_income: ['user_id','amount','entry_date','period_type','notes'],
+    }
+
+    const transaction = db!.transaction(() => {
+      // Seed settings table (plaid_config, etc.)
+      const settingsCount = (db!.prepare("SELECT COUNT(*) as c FROM settings").get() as { c: number }).c
+      if (settingsCount === 0 && seed.settings && seed.settings.length > 0) {
+        const insertSetting = db!.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)")
+        for (const s of seed.settings) {
+          insertSetting.run(s.key, s.value)
+        }
       }
 
       for (const [table, cols] of Object.entries(budgetTables)) {
         const rows = seed[table]
         if (!rows || rows.length === 0) continue
-        // Include 'id' column if rows have it (for FK references)
+
+        // Only seed if this specific table is empty
+        const count = (db!.prepare(`SELECT COUNT(*) as c FROM "${table}"`).get() as { c: number }).c
+        if (count > 0) continue
+
         const hasId = rows[0] && rows[0].id !== undefined
         const allCols = hasId ? ['id', ...cols] : cols
         const placeholders = allCols.map(() => '?').join(', ')
-        const sql = `INSERT OR IGNORE INTO ${table} (${allCols.join(', ')}) VALUES (${placeholders})`
+        const sql = `INSERT OR IGNORE INTO "${table}" (${allCols.join(', ')}) VALUES (${placeholders})`
         const stmt = db!.prepare(sql)
         for (const row of rows) {
           const values = allCols.map(c => row[c] !== undefined ? row[c] : null)
           stmt.run(...values)
         }
-        // Reset sqlite_sequence so new inserts don't clash with seeded IDs
         if (hasId) {
           const maxId = Math.max(...rows.map((r: Record<string, unknown>) => Number(r.id) || 0))
           if (maxId > 0) {
@@ -76,8 +96,6 @@ function seedFromFile(): void {
           }
         }
       }
-
-      // Don't seed plaid_config — user configures via /budget/plaid-settings
     })
     transaction()
   } catch (e) {
