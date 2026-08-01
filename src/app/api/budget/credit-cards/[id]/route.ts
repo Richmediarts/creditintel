@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { getCreditCard, updateCreditCard, deleteCreditCard, clearCreditCardPlaid, getBillsByCreditCard } from '@/lib/budget-db'
+import fs from 'fs'
+import path from 'path'
 
 function getAuthUser(request: NextRequest) {
   const token = request.cookies.get('credit-dashboard-token')?.value
@@ -46,7 +48,24 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   try {
     const { id } = await params
-    deleteCreditCard(auth.userId, Number(id))
+    const cardId = Number(id)
+    const card = getCreditCard(auth.userId, cardId)
+    deleteCreditCard(auth.userId, cardId)
+
+    // Persist deletion to seed.json so it survives Vercel cold starts (best-effort)
+    if (card) {
+      try {
+        const seedPath = path.join(process.cwd(), 'seed', 'seed.json')
+        if (fs.existsSync(seedPath)) {
+          const seed = JSON.parse(fs.readFileSync(seedPath, 'utf-8'))
+          if (seed.budget_credit_cards) {
+            seed.budget_credit_cards = seed.budget_credit_cards.filter((c: { id: number }) => c.id !== cardId)
+            fs.writeFileSync(seedPath, JSON.stringify(seed, null, 2))
+          }
+        }
+      } catch { /* best-effort: local dev persists, Vercel may not */ }
+    }
+
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to delete credit card' }, { status: 500 })

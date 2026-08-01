@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { getBankAccount, updateBankAccount, deleteBankAccount, updateBankAccountBalance, clearBankAccountPlaid } from '@/lib/budget-db'
+import fs from 'fs'
+import path from 'path'
 
 function getAuthUser(request: NextRequest) {
   const token = request.cookies.get('credit-dashboard-token')?.value
@@ -51,7 +53,24 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   try {
     const { id } = await params
-    deleteBankAccount(auth.userId, Number(id))
+    const accountId = Number(id)
+    const account = getBankAccount(auth.userId, accountId)
+    deleteBankAccount(auth.userId, accountId)
+
+    // Persist deletion to seed.json so it survives Vercel cold starts (best-effort)
+    if (account) {
+      try {
+        const seedPath = path.join(process.cwd(), 'seed', 'seed.json')
+        if (fs.existsSync(seedPath)) {
+          const seed = JSON.parse(fs.readFileSync(seedPath, 'utf-8'))
+          if (seed.budget_bank_accounts) {
+            seed.budget_bank_accounts = seed.budget_bank_accounts.filter((a: { id: number }) => a.id !== accountId)
+            fs.writeFileSync(seedPath, JSON.stringify(seed, null, 2))
+          }
+        }
+      } catch { /* best-effort */ }
+    }
+
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to delete bank account' }, { status: 500 })
