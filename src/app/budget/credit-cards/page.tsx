@@ -36,6 +36,148 @@ const EMPTY_FORM = {
   due_date: '',
 }
 
+// Institution logo mapping (domain for Clearbit logo API)
+const INSTITUTION_DOMAINS: Record<string, string> = {
+  'capital one': 'capitalone.com',
+  'mission lane': 'missionlane.com',
+  'creditone': 'creditonebank.com',
+  'credit one': 'creditonebank.com',
+  'pnc': 'pnc.com',
+  'navy federal': 'navyfederal.org',
+  'first tech': 'firsttechfed.com',
+  'american express': 'americanexpress.com',
+  'amex': 'americanexpress.com',
+  'chase': 'chase.com',
+  'bank of america': 'bankofamerica.com',
+  'wells fargo': 'wellsfargo.com',
+  'citi': 'citi.com',
+  'citibank': 'citi.com',
+  'discover': 'discover.com',
+  'usaa': 'usaa.com',
+  'goldman sachs': 'goldmansachs.com',
+  'apple card': 'apple.com',
+  'amazon': 'amazon.com',
+  'paypal': 'paypal.com',
+  'indigo': 'indigo.com',
+  'petal': 'petalcard.com',
+  'deserve': 'deserve.com',
+  'jasper': 'jasper.com',
+  'tomocredit': 'tomo.credit',
+  'brex': 'brex.com',
+  'ramp': 'ramp.com',
+  'stripe': 'stripe.com',
+  'mercury': 'mercury.com',
+  'silicon valley bank': 'svb.com',
+  'first republic': 'firstrepublic.com',
+  'charles schwab': 'schwab.com',
+  'fidelity': 'fidelity.com',
+  'vanguard': 'vanguard.com',
+  'ally': 'ally.com',
+  'sofi': 'sofi.com',
+  'marcus': 'marcus.com',
+  'barclays': 'barclays.com',
+  'hsbc': 'hsbc.com',
+  'td bank': 'tdbank.com',
+  'us bank': 'usbank.com',
+  'truist': 'truist.com',
+  'bb&t': 'truist.com',
+  'suntrust': 'truist.com',
+  'regions': 'regions.com',
+  'fifth third': '53.com',
+  'keybank': 'key.com',
+  'huntington': 'huntington.com',
+  'citizens': 'citizensbank.com',
+  'webster': 'websterbank.com',
+  'people\'s united': 'peoples.com',
+  'mtb': 'mtb.com',
+  'synovus': 'synovus.com',
+  'zions': 'zionsbank.com',
+  'comerica': 'comerica.com',
+  'east west bank': 'eastwestbank.com',
+  'cathay': 'cathaybank.com',
+  'first horizon': 'firsthorizon.com',
+  'prosperity': 'prosperitybankusa.com',
+  'cadence': 'cadencebank.com',
+  'southstate': 'southstatebank.com',
+  'valley': 'valley.com',
+  'western alliance': 'westernalliancebancorp.com',
+  'bank united': 'bankunited.com',
+  'live oak': 'liveoakbank.com',
+  'cross river': 'crossriverbank.com',
+  'column': 'column.com',
+  'piermont': 'piermontbank.com',
+  'lead bank': 'leadbk.com',
+  'community federal': 'communityfed.com',
+  'unity': 'unitybank.com',
+  'pathward': 'pathward.com',
+  'meta bank': 'metabank.com',
+  'republic bank': 'republicbank.com',
+  'customers bank': 'customersbank.com',
+  'axos': 'axosbank.com',
+  'nbkc': 'nbkcbank.com',
+  'green dot': 'greendot.com',
+  'netspend': 'netspend.com',
+  'rushcard': 'rushcard.com',
+  'walmart moneycard': 'walmartmoneycard.com',
+  'bluebird': 'bluebird.com',
+  'serve': 'serve.com',
+  'go2bank': 'go2bank.com',
+  'current': 'current.com',
+  'chime': 'chime.com',
+  'varomoney': 'varo.com',
+  'dave': 'dave.com',
+  'brigit': 'brigit.com',
+  'earnin': 'earnin.com',
+  'moneylion': 'moneylion.com',
+  'albert': 'albert.com',
+  'klover': 'klover.app',
+  'cleo': 'meetcleo.com',
+  'branch': 'branchapp.com',
+  'dailypay': 'dailypay.com',
+  'payactiv': 'payactiv.com',
+  'even': 'even.com',
+  'flexwage': 'flexwage.com',
+  'instant': 'instant.co',
+  'rain': 'rain.in',
+  'zayzoon': 'zayzoon.com',
+  'payfare': 'payfare.com',
+  'i2c': 'i2cinc.com',
+  'marqeta': 'marqeta.com',
+  'galileo': 'galileo-ft.com',
+  'unit': 'unit.co',
+  'treasury prime': 'treasuryprime.com',
+  'synapse': 'synapsefi.com',
+  'solid': 'solidfi.com',
+  'moov': 'moov.io',
+  'dwolla': 'dwolla.com',
+  'plaid': 'plaid.com',
+  'square': 'squareup.com',
+  'shopify': 'shopify.com',
+  'toast': 'toasttab.com',
+  'clover': 'clover.com',
+  'lightspeed': 'lightspeedhq.com',
+  'revel': 'revelsystems.com',
+  'touchbistro': 'touchbistro.com',
+  'upserve': 'upserve.com',
+  'cash app': 'cash.app',
+  'square cash': 'cash.app',
+  'zelle': 'zellepay.com',
+  'google pay': 'pay.google.com',
+  'apple pay': 'apple.com',
+  'samsung pay': 'samsung.com',
+}
+
+function getInstitutionLogoUrl(name: string): string {
+  const key = name.toLowerCase().trim()
+  const domain = INSTITUTION_DOMAINS[key]
+  if (domain) {
+    return `https://logo.clearbit.com/${domain}?size=64`
+  }
+  // Fallback: try to guess domain from name
+  const guessed = key.replace(/[^a-z0-9]/g, '').toLowerCase()
+  return `https://logo.clearbit.com/${guessed}.com?size=64`
+}
+
 export default function CreditCardsPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
@@ -377,8 +519,16 @@ export default function CreditCardsPage() {
                           className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 flex flex-col md:flex-row md:items-center gap-4"
                         >
                           <div className="flex items-center gap-3 min-w-0 md:w-1/3">
-                            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 shrink-0">
-                              <CreditCard className="w-5 h-5" />
+                            <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-1">
+                              <img
+                                src={getInstitutionLogoUrl(card.name)}
+                                alt={`${card.name} logo`}
+                                className="w-8 h-8 object-contain rounded"
+                                onError={(e) => {
+                                  e.currentTarget.onerror = null
+                                  e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="#3b82f6"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="system-ui" font-size="18" font-weight="bold" fill="white">${card.name.trim().charAt(0).toUpperCase()}</text></svg>`)}`
+                                }}
+                              />
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-2">
