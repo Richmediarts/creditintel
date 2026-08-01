@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
       if (acctType === 'depository' || acctType === 'investment') {
         addBankAccount(user.userId, {
-          name,
+          name: institutionName || name,
           account_type: acctSubtype || (acctType === 'investment' ? 'investment' : 'checking'),
           institution: institutionName,
           account_number_last4: mask,
@@ -82,10 +82,10 @@ export async function POST(request: NextRequest) {
           plaid_account_id: plaidAccountId,
           plaid_item_id: itemPk,
         })
-        created.push({ type: 'bank', name })
+        created.push({ type: 'bank', name: institutionName || name })
       } else if (acctType === 'credit') {
         const cardId = addCreditCard(user.userId, {
-          name,
+          name: institutionName || name,
           last_four: mask,
           credit_limit: limitVal,
           current_balance: balance,
@@ -94,26 +94,27 @@ export async function POST(request: NextRequest) {
           plaid_account_id: plaidAccountId,
           plaid_item_id: itemPk,
         })
-        if (name) {
-          const existingPayee = getPayeeByName(user.userId, name)
-          const payeeId = existingPayee ? existingPayee.id : addPayee(user.userId, { name })
+        if (institutionName || name) {
+          const payeeName = institutionName || name
+          const existingPayee = getPayeeByName(user.userId, payeeName)
+          const payeeId = existingPayee ? existingPayee.id : addPayee(user.userId, { name: payeeName })
           addBill(user.userId, {
             payee_id: payeeId,
-            payee_name: name,
+            payee_name: payeeName,
             amount: balance,
             due_date: '',
             is_paid: 0,
             is_recurring: 1,
             recurrence_type: 'monthly',
-            notes: `Credit Card Payment - ${name}`,
+            notes: `Credit Card Payment - ${payeeName}`,
             credit_card_id: cardId,
-            account: name,
+            account: payeeName,
           })
         }
-        created.push({ type: 'credit', name })
+        created.push({ type: 'credit', name: institutionName || name })
       } else if (acctType === 'loan') {
         addBankAccount(user.userId, {
-          name,
+          name: institutionName || name,
           account_type: 'loan',
           institution: institutionName,
           account_number_last4: mask,
@@ -122,7 +123,7 @@ export async function POST(request: NextRequest) {
           plaid_account_id: plaidAccountId,
           plaid_item_id: itemPk,
         })
-        created.push({ type: 'bank', name })
+        created.push({ type: 'bank', name: institutionName || name })
       }
     }
 
