@@ -339,76 +339,103 @@ export default function CreditCardsPage() {
           </div>
 
           {cards.length > 0 ? (
-            <div className="space-y-3">
-              {cards.map((card) => {
-                const limit = Number(card.credit_limit) || 0
-                const balance = Number(card.current_balance) || 0
-                const available = limit - balance
-                const util = limit > 0 ? (balance / limit) * 100 : 0
-                const utilColor = util > 30 ? 'text-red-500' : util > 10 ? 'text-amber-500' : 'text-green-500'
-                const utilBg = util > 30 ? 'bg-red-500' : util > 10 ? 'bg-amber-500' : 'bg-green-500'
+            <div className="space-y-4">
+              {Object.entries(
+                cards.reduce<Record<string, CreditCardType[]>>((groups, card) => {
+                  const group = card.name || 'Other'
+                  ;(groups[group] ||= []).push(card)
+                  return groups
+                }, {})
+              ).map(([groupName, groupCards]) => {
+                const groupBalance = groupCards.reduce((s, c) => s + (Number(c.current_balance) || 0), 0)
+                const groupLimit = groupCards.reduce((s, c) => s + (Number(c.credit_limit) || 0), 0)
+                const groupAvail = groupLimit - groupBalance
+                const groupUtil = groupLimit > 0 ? (groupBalance / groupLimit) * 100 : 0
 
                 return (
-                  <div
-                    key={card.id}
-                    className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 flex flex-col md:flex-row md:items-center gap-4"
-                  >
-                    <div className="flex items-center gap-3 min-w-0 md:w-1/3">
-                      <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 shrink-0">
-                        <CreditCard className="w-5 h-5" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{card.name}</p>
-                          {card.plaid_account_id && (
-                            <span title="Plaid connected"><Plug className="w-3 h-3 text-green-500 shrink-0" /></span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-400">**** {card.last_four || '????'}{card.due_date ? ` · Due ${card.due_date}` : ''}</p>
+                  <div key={groupName}>
+                    <div className="flex items-center justify-between mb-2 px-1">
+                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{groupName}</h3>
+                      <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                        <span>{groupCards.length} card{groupCards.length !== 1 ? 's' : ''}</span>
+                        <span>Bal: {fmt(groupBalance)}</span>
+                        {groupLimit > 0 && <span>Util: {groupUtil.toFixed(0)}%</span>}
                       </div>
                     </div>
+                    <div className="space-y-2">
+                    {groupCards.map((card) => {
+                      const limit = Number(card.credit_limit) || 0
+                      const balance = Number(card.current_balance) || 0
+                      const available = limit - balance
+                      const util = limit > 0 ? (balance / limit) * 100 : 0
+                      const utilColor = util > 30 ? 'text-red-500' : util > 10 ? 'text-amber-500' : 'text-green-500'
+                      const utilBg = util > 30 ? 'bg-red-500' : util > 10 ? 'bg-amber-500' : 'bg-green-500'
 
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:w-2/3">
-                      <div>
-                        <p className="text-xs text-gray-400">Balance</p>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{fmt(balance)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-400">Limit</p>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{fmt(limit)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-400">Available</p>
-                        <p className={`text-sm font-semibold ${available > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>{fmt(available)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-400">APR</p>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{card.interest_rate ? `${Number(card.interest_rate)}%` : '—'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-400">Utilization</p>
-                        <div className="flex items-center gap-2">
-                          <p className={`text-sm font-bold ${utilColor}`}>{util.toFixed(1)}%</p>
-                          <div className="flex-1 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                            <div className={`h-full rounded-full ${utilBg}`} style={{ width: `${Math.min(util, 100)}%` }} />
+                      return (
+                        <div
+                          key={card.id}
+                          className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 flex flex-col md:flex-row md:items-center gap-4"
+                        >
+                          <div className="flex items-center gap-3 min-w-0 md:w-1/3">
+                            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 shrink-0">
+                              <CreditCard className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{card.name}</p>
+                                {card.plaid_account_id && (
+                                  <span title="Plaid connected"><Plug className="w-3 h-3 text-green-500 shrink-0" /></span>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-400">**** {card.last_four || '????'}{card.due_date ? ` · Due ${card.due_date}` : ''}</p>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:w-2/3">
+                            <div>
+                              <p className="text-xs text-gray-400">Balance</p>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white">{fmt(balance)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400">Limit</p>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white">{fmt(limit)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400">Available</p>
+                              <p className={`text-sm font-semibold ${available > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>{fmt(available)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400">APR</p>
+                              <p className="text-sm font-semibold text-gray-900 dark:text-white">{card.interest_rate ? `${Number(card.interest_rate)}%` : '—'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-400">Utilization</p>
+                              <div className="flex items-center gap-2">
+                                <p className={`text-sm font-bold ${utilColor}`}>{util.toFixed(1)}%</p>
+                                <div className="flex-1 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                                  <div className={`h-full rounded-full ${utilBg}`} style={{ width: `${Math.min(util, 100)}%` }} />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 md:ml-auto shrink-0">
+                            <button
+                              onClick={() => startEdit(card)}
+                              className="p-1.5 rounded-lg text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(card)}
+                              className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 md:ml-auto shrink-0">
-                      <button
-                        onClick={() => startEdit(card)}
-                        className="p-1.5 rounded-lg text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(card)}
-                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      )
+                    })}
                     </div>
                   </div>
                 )
