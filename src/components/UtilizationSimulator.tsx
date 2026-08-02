@@ -1,8 +1,10 @@
 'use client'
 
 import React, { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
-import { Gauge, PiggyBank, Target, RotateCcw, RefreshCw, Wallet, ListOrdered, ChevronDown, ChevronUp, TrendingDown } from 'lucide-react'
+import { Gauge, PiggyBank, Target, RotateCcw, RefreshCw, Wallet, ListOrdered, ChevronDown, ChevronUp, TrendingDown, TrendingUp, ChevronRight } from 'lucide-react'
+import type { Bureau, FicoScores } from '@/types'
 
 const fmt = (n: number): string =>
   '$' + (Number.isFinite(n) ? n : 0).toLocaleString('en-US', { maximumFractionDigits: 0 })
@@ -47,6 +49,46 @@ function zoneFor(util: number): Zone {
 
 const TARGETS = [10, 20, 30, 50]
 
+const BUREAUS: Bureau[] = ['Experian', 'Equifax', 'TransUnion']
+
+const BUREAU_STYLES: Record<Bureau, { lightBg: string }> = {
+  Experian: { lightBg: 'bg-blue-50 dark:bg-blue-950/30' },
+  Equifax: { lightBg: 'bg-emerald-50 dark:bg-emerald-950/30' },
+  TransUnion: { lightBg: 'bg-purple-50 dark:bg-purple-950/30' },
+}
+
+function scoreLabel(score: number): string {
+  if (score < 580) return 'Poor'
+  if (score < 670) return 'Fair'
+  if (score < 740) return 'Good'
+  if (score < 800) return 'Very Good'
+  return 'Excellent'
+}
+
+function scoreColor(score: number): string {
+  if (score < 580) return 'text-red-500'
+  if (score < 670) return 'text-orange-500'
+  if (score < 740) return 'text-yellow-600 dark:text-yellow-400'
+  if (score < 800) return 'text-green-500'
+  return 'text-emerald-500'
+}
+
+function scoreBarColor(score: number): string {
+  if (score < 580) return 'bg-red-500'
+  if (score < 670) return 'bg-orange-500'
+  if (score < 740) return 'bg-yellow-500'
+  if (score < 800) return 'bg-green-500'
+  return 'bg-emerald-600'
+}
+
+function utilImpact(fromUtil: number, toUtil: number): number {
+  const target = Math.max(toUtil, 10)
+  if (fromUtil <= 10) return 0
+  const reduction = fromUtil - target
+  if (reduction <= 0) return 0
+  return Math.min(Math.floor(reduction / 5) * 8, 45)
+}
+
 function Field({ label, value, onChange, placeholder, hint }: {
   label: string
   value: string
@@ -83,6 +125,9 @@ export default function UtilizationSimulator() {
   const [cards, setCards] = useState<CardRow[]>([])
   const [showBreakdown, setShowBreakdown] = useState(false)
   const [payoffStr, setPayoffStr] = useState('')
+  const [manualPayments, setManualPayments] = useState<Record<number, string>>({})
+  const [ficoScores, setFicoScores] = useState<FicoScores>({})
+  const [scoresLoading, setScoresLoading] = useState(true)
 
   const limit = parseFloat(limitStr) || 0
   const balance = parseFloat(balanceStr) || 0
@@ -112,6 +157,16 @@ export default function UtilizationSimulator() {
   }, [fetchTotals])
 
   useEffect(() => {
+    fetch('/api/fico-scores')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.scores) setFicoScores(data.scores)
+      })
+      .catch(() => { /* ignore */ })
+      .finally(() => setScoresLoading(false))
+  }, [])
+
+  useEffect(() => {
     setPaydown((p) => Math.min(p, balance))
   }, [balance])
 
@@ -134,6 +189,7 @@ export default function UtilizationSimulator() {
     setPaydown(0)
     setTarget(null)
     setPayoffStr('')
+    setManualPayments({})
   }
 
   const targetPayment = (pct: number) => {
@@ -151,16 +207,36 @@ export default function UtilizationSimulator() {
     .sort((a, b) => b.util - a.util || b.balance - a.balance)
 
   const payoff = parseFloat(payoffStr) || 0
-  const alloc = new Map<number, number>()
-  let remaining = payoff
+
+  const manualPaid = new Map<number, number>()
+  let manualTotal = 0
   for (const r of ranked) {
+    const raw = manualPayments[r.id]
+    const v = raw === undefined || raw === '' ? 0 : parseFloat(raw)
+    if (Number.isFinite(v) && v > 0) {
+      manualPaid.set(r.id, v)
+      manualTotal += v
+    }
+  }
+
+  const autoTotal = Math.max(0, payoff - manualTotal)
+  const alloc = new Map<number, number>()
+  let remaining = autoTotal
+  for (const r of ranked) {
+    if (manualPaid.has(r.id)) continue
     const amt = Math.max(0, Math.min(r.balance, remaining))
     alloc.set(r.id, amt)
     remaining -= amt
     if (remaining <= 0) break
   }
-  const newTotalBalance = Math.max(0, balance - Math.min(payoff, balance))
+
+  const effPaid = (id: number): number => manualPaid.get(id) ?? alloc.get(id) ?? 0
+
+  const hasSim = payoff > 0 || manualTotal > 0
+  const effTotalPayment = ranked.reduce((s, r) => s + Math.min(effPaid(r.id), r.balance), 0)
+  const newTotalBalance = Math.max(0, balance - Math.min(effTotalPayment, balance))
   const newAggregate = limit > 0 ? (newTotalBalance / limit) * 100 : 0
+  const projectedUtil = hasSim ? newAggregate : simUtil
 
   return (
     <Card>
@@ -355,6 +431,72 @@ export default function UtilizationSimulator() {
           </div>
         </div>
 
+        {/* Projected FICO Scores */}
+        <div className="mt-6">
+          <div className="flex items-center gap-2 mb-1">
+            <TrendingUp className="w-5 h-5 text-emerald-500" />
+            <p className="text-lg font-semibold text-gray-700 dark:text-gray-300">Projected FICO Scores</p>
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-3 -mt-0.5">
+            Estimate based on lowering aggregate utilization from {util.toFixed(1)}% to {projectedUtil.toFixed(1)}%. Utilization makes up about 30% of your FICO score.
+          </p>
+          {scoresLoading ? (
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-600 border-t-transparent rounded-full animate-spin" />
+              Loading your FICO scores...
+            </div>
+          ) : Object.values(ficoScores).some((s) => s?.score != null) ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {BUREAUS.map((bureau) => {
+                const cur = ficoScores[bureau]?.score ?? null
+                const impact = utilImpact(util, projectedUtil)
+                const projected = cur != null ? Math.max(300, Math.min(850, cur + impact)) : null
+                return (
+                  <div key={bureau} className={`rounded-xl border border-gray-200 dark:border-gray-700 p-4 ${BUREAU_STYLES[bureau].lightBg}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">{bureau}</p>
+                      {cur != null && (
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${impact > 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300'}`}>
+                          {impact > 0 ? `+${impact}` : 'No change'} pts
+                        </span>
+                      )}
+                    </div>
+                    {cur != null ? (
+                      <>
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <span className="text-sm font-bold text-gray-900 dark:text-white">{cur}</span>
+                          {impact > 0 && (
+                            <>
+                              <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 self-center" />
+                              <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{projected}</span>
+                            </>
+                          )}
+                        </div>
+                        <p className={`text-xs font-medium mt-0.5 ${scoreColor(projected ?? cur)}`}>
+                          {impact > 0 ? `${scoreLabel(cur)} → ${scoreLabel(projected ?? cur)}` : scoreLabel(cur)}
+                        </p>
+                        <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full mt-3">
+                          <div className={`h-full rounded-full ${scoreBarColor(projected ?? cur)}`} style={{ width: `${(((projected ?? cur) - 300) / 550) * 100}%` }} />
+                        </div>
+                      </>
+                    ) : (
+                      <p className="text-xs text-gray-400">
+                        No {bureau} score entered.{' '}
+                        <Link href="/fico-scores" className="text-blue-500 hover:underline">Add one</Link>
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400">
+              No FICO scores entered yet.{' '}
+              <Link href="/fico-scores" className="text-blue-500 hover:underline">Go to FICO Scores</Link> to add them and see projected scores.
+            </p>
+          )}
+        </div>
+
         {/* Card-by-card breakdown */}
         <div className="mt-6">
           <button
@@ -385,11 +527,11 @@ export default function UtilizationSimulator() {
                           const z = zoneFor(r.util)
                           const to30 = r.util > 30 ? r.balance - (r.limit * 0.3) : 0
                           const to10 = r.util > 10 ? r.balance - (r.limit * 0.1) : 0
-                          const paid = alloc.get(r.id) || 0
+                          const paid = effPaid(r.id)
                           const afterBalance = Math.max(0, r.balance - paid)
                           const afterUtil = r.limit > 0 ? (afterBalance / r.limit) * 100 : 0
                           const afterZone = zoneFor(afterUtil)
-                          const affected = payoff > 0 && paid > 0
+                          const affected = hasSim && paid > 0
                           return (
                             <div key={r.id} className="px-4 py-3">
                               <div className="flex items-center justify-between gap-2">
@@ -421,20 +563,28 @@ export default function UtilizationSimulator() {
                                   </span>
                                 )}
                               </div>
-                              {payoff > 0 && (
-                                <div className="mt-2 flex items-center gap-1 text-sm font-medium">
-                                  {affected ? (
-                                    <>
-                                      <TrendingDown className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                                      <span className="text-blue-600 dark:text-blue-400">
-                                        Pay {fmt(paid)} → {fmt(afterBalance)} owed, utilization {afterUtil.toFixed(0)}% ({afterZone.label})
-                                      </span>
-                                    </>
-                                  ) : (
-                                    <span className="text-gray-400 dark:text-gray-500">Pay nothing — higher-utilization cards absorb the payoff first</span>
-                                  )}
+                              <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <div className="relative">
+                                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={manualPayments[r.id] ?? ''}
+                                    onChange={(e) => setManualPayments((p) => ({ ...p, [r.id]: e.target.value.replace(/[^0-9.]/g, '') }))}
+                                    placeholder="0"
+                                    className="w-28 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 pl-6 pr-2 py-1.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  />
                                 </div>
-                              )}
+                                <span className="text-sm text-gray-400 dark:text-gray-500">pay down</span>
+                                {affected ? (
+                                  <span className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400">
+                                    <TrendingDown className="w-4 h-4" />
+                                    {fmt(paid)} → {fmt(afterBalance)} owed, utilization {afterUtil.toFixed(0)}% ({afterZone.label})
+                                  </span>
+                                ) : hasSim && r.balance > 0 ? (
+                                  <span className="text-sm text-gray-400 dark:text-gray-500">no payment planned</span>
+                                ) : null}
+                              </div>
                             </div>
                           )
                         })}
@@ -445,7 +595,7 @@ export default function UtilizationSimulator() {
                     <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                       <p className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-1">Plan a payoff</p>
                       <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
-                        Enter how much you can pay down. It's allocated to the highest-utilization cards first. This is a simulation only — it does not change your stored card balances.
+                        Enter a total amount to auto-allocate to the highest-utilization cards first, or type a manual amount on each card above. This is a simulation only — it does not change your stored card balances.
                       </p>
                       <div className="relative mb-3">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
@@ -458,16 +608,16 @@ export default function UtilizationSimulator() {
                           className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 pl-7 pr-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
-                      {payoff > 0 && ranked.filter((r) => (alloc.get(r.id) || 0) > 0).length > 0 && (
+                      {hasSim && ranked.filter((r) => effPaid(r.id) > 0).length > 0 && (
                         <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 mb-3">
                           <p className="text-sm text-blue-700 dark:text-blue-300">
-                            {fmt(payoff)} goes to{' '}
-                            {ranked.filter((r) => (alloc.get(r.id) || 0) > 0).map((r) => `${r.name} (${fmt(alloc.get(r.id) || 0)})`).join(', ')}
+                            {fmt(effTotalPayment)} goes to{' '}
+                            {ranked.filter((r) => effPaid(r.id) > 0).map((r) => `${r.name} (${fmt(effPaid(r.id))})`).join(', ')}
                             .
                           </p>
                         </div>
                       )}
-                      {payoff > 0 && (
+                      {hasSim && (
                         <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3">
                           <div className="flex items-center justify-between">
                             <p className="text-sm text-gray-500 dark:text-gray-400">Aggregate utilization</p>
@@ -481,7 +631,7 @@ export default function UtilizationSimulator() {
                           </p>
                         </div>
                       )}
-                      {payoff <= 0 && (
+                      {!hasSim && (
                         <p className="text-sm text-gray-400">Enter an amount to see which cards get paid down first and the resulting utilization.</p>
                       )}
                     </div>
