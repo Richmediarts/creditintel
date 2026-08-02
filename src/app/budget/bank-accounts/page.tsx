@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Wallet, CreditCard, TrendingUp, PlusCircle, ArrowRight,
-  Landmark, WalletCards, Edit, Trash2, DollarSign, Upload,
+  Landmark, WalletCards, Edit, Trash2, DollarSign, Upload, ExternalLink,
 } from 'lucide-react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,7 @@ interface BankAccount {
   name: string
   account_type: string
   institution?: string
+  website?: string
   account_number_last4?: string
   current_balance: number
   is_active: number
@@ -31,9 +32,16 @@ const EMPTY_FORM = {
   name: '',
   account_type: 'checking',
   institution: '',
+  website: '',
   account_number_last4: '',
   current_balance: '',
   is_income_account: false,
+}
+
+function normalizeUrl(url: string): string {
+  const trimmed = url.trim()
+  if (!trimmed) return ''
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
 }
 
 export default function BankAccountsPage() {
@@ -47,6 +55,7 @@ export default function BankAccountsPage() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editBalance, setEditBalance] = useState('')
   const [editInstitution, setEditInstitution] = useState('')
+  const [editWebsite, setEditWebsite] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -80,6 +89,7 @@ export default function BankAccountsPage() {
         name: form.name,
         account_type: form.account_type,
         institution: form.institution || null,
+        website: form.website || null,
         account_number_last4: form.account_number_last4 || null,
         current_balance: parseFloat(form.current_balance) || 0,
         is_income_account: form.is_income_account ? 1 : 0,
@@ -99,6 +109,7 @@ export default function BankAccountsPage() {
     setEditingId(account.id)
     setEditBalance(account.current_balance.toString())
     setEditInstitution(account.institution || '')
+    setEditWebsite(account.website || '')
   }
 
   const saveEdit = async (id: number) => {
@@ -111,6 +122,7 @@ export default function BankAccountsPage() {
         name: account.name,
         account_type: account.account_type,
         institution: editInstitution,
+        website: editWebsite,
         account_number_last4: account.account_number_last4 || null,
         current_balance: parseFloat(editBalance) || 0,
         is_active: account.is_active,
@@ -218,6 +230,15 @@ export default function BankAccountsPage() {
                 />
               </div>
               <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Institution URL</label>
+                <input
+                  value={form.website}
+                  onChange={(e) => setForm({ ...form, website: e.target.value })}
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. chase.com"
+                />
+              </div>
+              <div>
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Last 4 Digits</label>
                 <input
                   value={form.account_number_last4}
@@ -286,10 +307,25 @@ export default function BankAccountsPage() {
             }, {})
           ).map(([groupName, groupAccounts]) => {
             const groupTotal = groupAccounts.reduce((s, a) => s + (Number(a.current_balance) || 0), 0)
+            const groupWebsite = groupAccounts.find((a) => a.website)?.website || ''
             return (
               <div key={groupName}>
                 <div className="flex items-center justify-between mb-2 px-1">
-                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{groupName}</h3>
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    {groupWebsite ? (
+                      <a
+                        href={normalizeUrl(groupWebsite)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        {groupName}
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    ) : (
+                      groupName
+                    )}
+                  </h3>
                   <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                     <span>{groupAccounts.length} account{groupAccounts.length !== 1 ? 's' : ''}</span>
                     <span>Bal: {fmt(groupTotal)}</span>
@@ -317,7 +353,15 @@ export default function BankAccountsPage() {
                       )}
                     </div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {account.institution && <span>{account.institution}</span>}
+                      {account.institution && (
+                        <span>
+                          {account.website ? (
+                            <a href={normalizeUrl(account.website)} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">{account.institution}</a>
+                          ) : (
+                            account.institution
+                          )}
+                        </span>
+                      )}
                       {account.institution && account.account_number_last4 && <span className="mx-1">&middot;</span>}
                       {account.account_number_last4 && <span>****{account.account_number_last4}</span>}
                       {!account.institution && !account.account_number_last4 && (
@@ -339,6 +383,13 @@ export default function BankAccountsPage() {
                         value={editInstitution}
                         onChange={(e) => setEditInstitution(e.target.value)}
                         placeholder="Institution"
+                        className="w-full sm:w-36 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <input
+                        type="text"
+                        value={editWebsite}
+                        onChange={(e) => setEditWebsite(e.target.value)}
+                        placeholder="URL"
                         className="w-full sm:w-36 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                       <input

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Wallet, CreditCard, TrendingUp, PlusCircle, ArrowRight,
-  Edit, Trash2, RefreshCw, Plug, Loader2,
+  Edit, Trash2, RefreshCw, Plug, Loader2, ExternalLink,
 } from 'lucide-react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,7 @@ interface CreditCardType {
   name: string
   last_four: string
   institution?: string
+  website?: string
   credit_limit: number
   current_balance: number
   interest_rate: number
@@ -32,10 +33,17 @@ const EMPTY_FORM = {
   name: '',
   last_four: '',
   institution: '',
+  website: '',
   credit_limit: '',
   current_balance: '',
   interest_rate: '',
   due_date: '',
+}
+
+function normalizeUrl(url: string): string {
+  const trimmed = url.trim()
+  if (!trimmed) return ''
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
 }
 
 // Institution logo mapping (domain for Clearbit logo API)
@@ -223,6 +231,7 @@ export default function CreditCardsPage() {
       name: card.name || '',
       last_four: card.last_four || '',
       institution: card.institution || '',
+      website: card.website || '',
       credit_limit: String(card.credit_limit || ''),
       current_balance: String(card.current_balance || ''),
       interest_rate: String(card.interest_rate || ''),
@@ -243,6 +252,7 @@ export default function CreditCardsPage() {
       name: form.name,
       last_four: form.last_four,
       institution: form.institution,
+      website: form.website,
       credit_limit: Number(form.credit_limit) || 0,
       current_balance: Number(form.current_balance) || 0,
       interest_rate: Number(form.interest_rate) || 0,
@@ -427,6 +437,16 @@ export default function CreditCardsPage() {
                   />
                 </div>
                 <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Institution URL</label>
+                  <input
+                    type="text"
+                    value={form.website}
+                    onChange={(e) => setField('website', e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g. capitalone.com"
+                  />
+                </div>
+                <div>
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Due Date</label>
                   <input
                     type="text"
@@ -507,11 +527,26 @@ export default function CreditCardsPage() {
                 const groupLimit = groupCards.reduce((s, c) => s + (Number(c.credit_limit) || 0), 0)
                 const groupAvail = groupLimit - groupBalance
                 const groupUtil = groupLimit > 0 ? (groupBalance / groupLimit) * 100 : 0
+                const groupWebsite = groupCards.find((c) => c.website)?.website || ''
 
                 return (
                   <div key={groupName}>
                     <div className="flex items-center justify-between mb-2 px-1">
-                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{groupName}</h3>
+                      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        {groupWebsite ? (
+                          <a
+                            href={normalizeUrl(groupWebsite)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            {groupName}
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        ) : (
+                          groupName
+                        )}
+                      </h3>
                       <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                         <span>{groupCards.length} card{groupCards.length !== 1 ? 's' : ''}</span>
                         <span>Bal: {fmt(groupBalance)}</span>
@@ -551,7 +586,19 @@ export default function CreditCardsPage() {
                                   <span title="Plaid connected"><Plug className="w-3 h-3 text-green-500 shrink-0" /></span>
                                 )}
                               </div>
-                              <p className="text-xs text-gray-400">{card.institution ? `${card.institution} · ` : ''}**** {card.last_four || '????'}{card.due_date ? ` · Due ${card.due_date}` : ''}</p>
+                              <p className="text-xs text-gray-400">
+                                {card.institution ? (
+                                  <span>
+                                    {card.website ? (
+                                      <a href={normalizeUrl(card.website)} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">{card.institution}</a>
+                                    ) : (
+                                      card.institution
+                                    )}
+                                    {' · '}
+                                  </span>
+                                ) : ''}
+                                **** {card.last_four || '????'}{card.due_date ? ` · Due ${card.due_date}` : ''}
+                              </p>
                             </div>
                           </div>
 
