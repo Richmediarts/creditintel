@@ -83,10 +83,6 @@ export default function UtilizationSimulator() {
   const [cards, setCards] = useState<CardRow[]>([])
   const [showBreakdown, setShowBreakdown] = useState(false)
   const [payoffStr, setPayoffStr] = useState('')
-  const [applying, setApplying] = useState(false)
-  const [payoffMsg, setPayoffMsg] = useState('')
-  const [lastPayments, setLastPayments] = useState<{ id: number; amount: number }[] | null>(null)
-  const [lastPayoff, setLastPayoff] = useState(0)
 
   const limit = parseFloat(limitStr) || 0
   const balance = parseFloat(balanceStr) || 0
@@ -165,64 +161,6 @@ export default function UtilizationSimulator() {
   }
   const newTotalBalance = Math.max(0, balance - Math.min(payoff, balance))
   const newAggregate = limit > 0 ? (newTotalBalance / limit) * 100 : 0
-
-  const applyPayoff = async () => {
-    if (payoff <= 0) return
-    const updates = ranked
-      .map((r) => ({ id: r.id, amount: alloc.get(r.id) || 0 }))
-      .filter((u) => u.amount > 0)
-    if (updates.length === 0) return
-    if (!window.confirm(`Apply ${fmt(payoff)} to ${updates.length} card(s) by paying down the highest-utilization cards first? Total balance will drop from ${fmt(balance)} to ${fmt(newTotalBalance)}. This updates your actual card balances.`)) return
-    setApplying(true)
-    setPayoffMsg('')
-    try {
-      const res = await fetch('/api/budget/credit-cards/payoff', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payments: updates }),
-      })
-      const data = await res.json()
-      if (res.ok) {
-        setLastPayments(updates.map((u) => ({ ...u })))
-        setLastPayoff(payoff)
-        setPayoffMsg(`Applied ${fmt(payoff)} across ${data.updated} card(s). New aggregate utilization: ${newAggregate.toFixed(1)}%.`)
-        setPayoffStr('')
-        await fetchTotals()
-      } else {
-        setPayoffMsg(data.error || 'Failed to apply payoff.')
-      }
-    } catch {
-      setPayoffMsg('Failed to apply payoff.')
-    }
-    setApplying(false)
-  }
-
-  const undoPayoff = async () => {
-    if (!lastPayments || lastPayments.length === 0) return
-    if (!window.confirm(`Undo the last ${fmt(lastPayoff)} payoff and restore the previous card balances?`)) return
-    setApplying(true)
-    setPayoffMsg('')
-    try {
-      const res = await fetch('/api/budget/credit-cards/payoff', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payments: lastPayments.map((p) => ({ id: p.id, amount: -p.amount })) }),
-      })
-      const data = await res.json()
-      if (res.ok) {
-        setPayoffMsg(`Undid the ${fmt(lastPayoff)} payoff. Card balances restored.`)
-        setLastPayments(null)
-        setLastPayoff(0)
-        setPayoffStr('')
-        await fetchTotals()
-      } else {
-        setPayoffMsg(data.error || 'Failed to undo payoff.')
-      }
-    } catch {
-      setPayoffMsg('Failed to undo payoff.')
-    }
-    setApplying(false)
-  }
 
   return (
     <Card>
@@ -491,7 +429,7 @@ export default function UtilizationSimulator() {
                     <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
                       <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Plan a payoff</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                        Enter how much you can pay down. It's allocated to the highest-utilization cards first.
+                        Enter how much you can pay down. It's allocated to the highest-utilization cards first. This is a simulation only — it does not change your stored card balances.
                       </p>
                       <div className="relative mb-3">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
@@ -512,27 +450,6 @@ export default function UtilizationSimulator() {
                             .
                           </p>
                         </div>
-                      )}
-                      <button
-                        onClick={applyPayoff}
-                        disabled={applying || payoff <= 0}
-                        className="inline-flex items-center gap-2 w-full justify-center rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-3 py-2"
-                      >
-                        <Wallet className="w-4 h-4" />
-                        {applying ? 'Applying...' : 'Apply payoff to cards'}
-                      </button>
-                      {lastPayments && (
-                        <button
-                          onClick={undoPayoff}
-                          disabled={applying}
-                          className="inline-flex items-center gap-2 w-full justify-center mt-2 rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed text-sm font-medium px-3 py-2 text-gray-700 dark:text-gray-300"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                          {applying ? 'Restoring...' : `Undo last ${fmt(lastPayoff)} payoff`}
-                        </button>
-                      )}
-                      {payoffMsg && (
-                        <p className="mt-3 text-xs font-medium text-green-600 dark:text-green-400">{payoffMsg}</p>
                       )}
                       {payoff > 0 && (
                         <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3">
