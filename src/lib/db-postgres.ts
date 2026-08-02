@@ -122,6 +122,7 @@ export async function initPostgresSchema() {
       user_id INTEGER NOT NULL REFERENCES users(id),
       name TEXT NOT NULL,
       last_four TEXT,
+      institution TEXT,
       credit_limit REAL DEFAULT 0,
       current_balance REAL DEFAULT 0,
       interest_rate REAL DEFAULT 0,
@@ -213,6 +214,10 @@ export async function initPostgresSchema() {
       key TEXT PRIMARY KEY,
       value TEXT
     );
+  `
+
+  await sql`
+    ALTER TABLE budget_credit_cards ADD COLUMN IF NOT EXISTS institution TEXT;
   `
 
   const serialTables = [

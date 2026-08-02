@@ -16,6 +16,7 @@ interface CreditCardType {
   id: number
   name: string
   last_four: string
+  institution?: string
   credit_limit: number
   current_balance: number
   interest_rate: number
@@ -30,6 +31,7 @@ const fmt = (n: number): string =>
 const EMPTY_FORM = {
   name: '',
   last_four: '',
+  institution: '',
   credit_limit: '',
   current_balance: '',
   interest_rate: '',
@@ -220,6 +222,7 @@ export default function CreditCardsPage() {
     setForm({
       name: card.name || '',
       last_four: card.last_four || '',
+      institution: card.institution || '',
       credit_limit: String(card.credit_limit || ''),
       current_balance: String(card.current_balance || ''),
       interest_rate: String(card.interest_rate || ''),
@@ -239,6 +242,7 @@ export default function CreditCardsPage() {
     const payload = {
       name: form.name,
       last_four: form.last_four,
+      institution: form.institution,
       credit_limit: Number(form.credit_limit) || 0,
       current_balance: Number(form.current_balance) || 0,
       interest_rate: Number(form.interest_rate) || 0,
@@ -413,6 +417,16 @@ export default function CreditCardsPage() {
                   />
                 </div>
                 <div>
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Institution</label>
+                  <input
+                    type="text"
+                    value={form.institution}
+                    onChange={(e) => setField('institution', e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g. Capital One"
+                  />
+                </div>
+                <div>
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Due Date</label>
                   <input
                     type="text"
@@ -484,7 +498,7 @@ export default function CreditCardsPage() {
             <div className="space-y-4">
               {Object.entries(
                 cards.reduce<Record<string, CreditCardType[]>>((groups, card) => {
-                  const group = card.name || 'Other'
+                  const group = card.institution || 'Other'
                   ;(groups[group] ||= []).push(card)
                   return groups
                 }, {})
@@ -521,7 +535,7 @@ export default function CreditCardsPage() {
                           <div className="flex items-center gap-3 min-w-0 md:w-1/3">
                             <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-1">
                               <img
-                                src={getInstitutionLogoUrl(card.name)}
+                                src={getInstitutionLogoUrl(card.institution || card.name)}
                                 alt={`${card.name} logo`}
                                 className="w-8 h-8 object-contain rounded"
                                 onError={(e) => {
@@ -537,7 +551,7 @@ export default function CreditCardsPage() {
                                   <span title="Plaid connected"><Plug className="w-3 h-3 text-green-500 shrink-0" /></span>
                                 )}
                               </div>
-                              <p className="text-xs text-gray-400">**** {card.last_four || '????'}{card.due_date ? ` · Due ${card.due_date}` : ''}</p>
+                              <p className="text-xs text-gray-400">{card.institution ? `${card.institution} · ` : ''}**** {card.last_four || '????'}{card.due_date ? ` · Due ${card.due_date}` : ''}</p>
                             </div>
                           </div>
 

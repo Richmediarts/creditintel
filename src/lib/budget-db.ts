@@ -169,6 +169,7 @@ export interface BudgetCreditCard {
   user_id: number
   name: string
   last_four?: string
+  institution?: string
   credit_limit: number
   current_balance: number
   interest_rate: number
@@ -541,11 +542,12 @@ export async function getCreditCard(userId: number, id: number): Promise<BudgetC
 export async function addCreditCard(userId: number, data: Partial<BudgetCreditCard>): Promise<number> {
   const db = getDb()
   const result = await db.prepare(
-    'INSERT INTO budget_credit_cards (user_id, name, last_four, credit_limit, current_balance, interest_rate, due_date, website, is_active, plaid_account_id, plaid_item_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id'
+    'INSERT INTO budget_credit_cards (user_id, name, last_four, institution, credit_limit, current_balance, interest_rate, due_date, website, is_active, plaid_account_id, plaid_item_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id'
   ).run(
     userId,
     data.name || '',
     data.last_four || '',
+    data.institution || '',
     data.credit_limit || 0,
     data.current_balance || 0,
     data.interest_rate || 0,
@@ -561,10 +563,11 @@ export async function addCreditCard(userId: number, data: Partial<BudgetCreditCa
 export async function updateCreditCard(userId: number, id: number, data: Partial<BudgetCreditCard>): Promise<void> {
   const db = getDb()
   await db.prepare(
-    'UPDATE budget_credit_cards SET name = ?, last_four = ?, credit_limit = ?, current_balance = ?, interest_rate = ?, due_date = ?, website = ?, is_active = ?, plaid_account_id = ?, plaid_item_id = ? WHERE user_id = ? AND id = ?'
+    'UPDATE budget_credit_cards SET name = ?, last_four = ?, institution = ?, credit_limit = ?, current_balance = ?, interest_rate = ?, due_date = ?, website = ?, is_active = ?, plaid_account_id = ?, plaid_item_id = ? WHERE user_id = ? AND id = ?'
   ).run(
     data.name || '',
     data.last_four || '',
+    data.institution || '',
     data.credit_limit || 0,
     data.current_balance || 0,
     data.interest_rate || 0,

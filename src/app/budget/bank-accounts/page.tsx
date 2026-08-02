@@ -46,6 +46,7 @@ export default function BankAccountsPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editBalance, setEditBalance] = useState('')
+  const [editInstitution, setEditInstitution] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -97,13 +98,25 @@ export default function BankAccountsPage() {
   const startEdit = (account: BankAccount) => {
     setEditingId(account.id)
     setEditBalance(account.current_balance.toString())
+    setEditInstitution(account.institution || '')
   }
 
   const saveEdit = async (id: number) => {
+    const account = accounts.find((a) => a.id === id)
+    if (!account) return
     const res = await fetch(`/api/budget/bank-accounts/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ balance: parseFloat(editBalance) || 0 }),
+      body: JSON.stringify({
+        name: account.name,
+        account_type: account.account_type,
+        institution: editInstitution,
+        account_number_last4: account.account_number_last4 || null,
+        current_balance: parseFloat(editBalance) || 0,
+        is_active: account.is_active,
+        is_income_account: account.is_income_account,
+        interest_rate: account.interest_rate || 0,
+      }),
     })
     if (res.ok) {
       setEditingId(null)
@@ -264,9 +277,27 @@ export default function BankAccountsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {accounts.map((account) => (
-            <Card key={account.id} className="hover:shadow-md transition-shadow">
+        <div className="space-y-4">
+          {Object.entries(
+            accounts.reduce<Record<string, BankAccount[]>>((groups, account) => {
+              const group = account.institution || 'Other'
+              ;(groups[group] ||= []).push(account)
+              return groups
+            }, {})
+          ).map(([groupName, groupAccounts]) => {
+            const groupTotal = groupAccounts.reduce((s, a) => s + (Number(a.current_balance) || 0), 0)
+            return (
+              <div key={groupName}>
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">{groupName}</h3>
+                  <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                    <span>{groupAccounts.length} account{groupAccounts.length !== 1 ? 's' : ''}</span>
+                    <span>Bal: {fmt(groupTotal)}</span>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {groupAccounts.map((account) => (
+                    <Card key={account.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                   <div className={`p-2.5 rounded-lg ${account.is_income_account ? 'bg-green-100 dark:bg-green-900/40' : 'bg-gray-100 dark:bg-gray-800'}`}>
@@ -302,23 +333,32 @@ export default function BankAccountsPage() {
                 <div className="flex items-center gap-3">
                   {/* Balance / Edit */}
                   {editingId === account.id ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                      <input
+                        type="text"
+                        value={editInstitution}
+                        onChange={(e) => setEditInstitution(e.target.value)}
+                        placeholder="Institution"
+                        className="w-full sm:w-36 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
                       <input
                         type="number"
                         step="0.01"
                         value={editBalance}
                         onChange={(e) => setEditBalance(e.target.value)}
-                        className="w-28 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-right text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full sm:w-28 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-right text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                       <button
                         onClick={() => saveEdit(account.id)}
                         className="p-1 text-green-600 hover:text-green-700 dark:text-green-400"
+                        title="Save"
                       >
                         <Wallet className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => setEditingId(null)}
                         className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        title="Cancel"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -335,7 +375,7 @@ export default function BankAccountsPage() {
                       <button
                         onClick={() => startEdit(account)}
                         className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
-                        title="Edit balance"
+                        title="Edit account"
                       >
                         <Edit className="h-4 w-4" />
                       </button>
@@ -350,8 +390,12 @@ export default function BankAccountsPage() {
                   )}
                 </div>
               </CardContent>
-            </Card>
-          ))}
+                </Card>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

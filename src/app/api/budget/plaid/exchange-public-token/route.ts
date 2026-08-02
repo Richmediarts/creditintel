@@ -121,6 +121,7 @@ export async function POST(request: NextRequest) {
         const cardId = await addCreditCard(user.userId, {
           name: institutionName || name,
           last_four: mask,
+          institution: institutionName,
           credit_limit: limitVal,
           current_balance: balance,
           interest_rate: 0,
