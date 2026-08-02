@@ -83,6 +83,8 @@ export default function UtilizationSimulator() {
   const [cards, setCards] = useState<CardRow[]>([])
   const [showBreakdown, setShowBreakdown] = useState(false)
   const [payoffStr, setPayoffStr] = useState('')
+  const [applying, setApplying] = useState(false)
+  const [payoffMsg, setPayoffMsg] = useState('')
 
   const limit = parseFloat(limitStr) || 0
   const balance = parseFloat(balanceStr) || 0
@@ -161,6 +163,35 @@ export default function UtilizationSimulator() {
   }
   const newTotalBalance = Math.max(0, balance - Math.min(payoff, balance))
   const newAggregate = limit > 0 ? (newTotalBalance / limit) * 100 : 0
+
+  const applyPayoff = async () => {
+    if (payoff <= 0) return
+    const updates = ranked
+      .map((r) => ({ id: r.id, amount: alloc.get(r.id) || 0 }))
+      .filter((u) => u.amount > 0)
+    if (updates.length === 0) return
+    if (!window.confirm(`Apply ${fmt(payoff)} to ${updates.length} card(s) by paying down the highest-utilization cards first? This reduces their current balances.`)) return
+    setApplying(true)
+    setPayoffMsg('')
+    try {
+      const res = await fetch('/api/budget/credit-cards/payoff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payments: updates }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setPayoffMsg(`Applied ${fmt(payoff)} across ${data.updated} card(s). New aggregate utilization: ${newAggregate.toFixed(1)}%.`)
+        setPayoffStr('')
+        await fetchTotals()
+      } else {
+        setPayoffMsg(data.error || 'Failed to apply payoff.')
+      }
+    } catch {
+      setPayoffMsg('Failed to apply payoff.')
+    }
+    setApplying(false)
+  }
 
   return (
     <Card>
@@ -442,6 +473,26 @@ export default function UtilizationSimulator() {
                           className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 pl-7 pr-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
+                      {payoff > 0 && ranked.filter((r) => (alloc.get(r.id) || 0) > 0).length > 0 && (
+                        <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 mb-3">
+                          <p className="text-xs text-blue-700 dark:text-blue-300">
+                            {fmt(payoff)} goes to{' '}
+                            {ranked.filter((r) => (alloc.get(r.id) || 0) > 0).map((r) => `${r.name} (${fmt(alloc.get(r.id) || 0)})`).join(', ')}
+                            .
+                          </p>
+                        </div>
+                      )}
+                      <button
+                        onClick={applyPayoff}
+                        disabled={applying || payoff <= 0}
+                        className="inline-flex items-center gap-2 w-full justify-center rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-3 py-2"
+                      >
+                        <Wallet className="w-4 h-4" />
+                        {applying ? 'Applying...' : 'Apply payoff to cards'}
+                      </button>
+                      {payoffMsg && (
+                        <p className="mt-3 text-xs font-medium text-green-600 dark:text-green-400">{payoffMsg}</p>
+                      )}
                       {payoff > 0 && (
                         <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3">
                           <div className="flex items-center justify-between">
