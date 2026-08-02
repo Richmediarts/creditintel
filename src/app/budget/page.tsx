@@ -156,10 +156,10 @@ export default function BudgetDashboardPage() {
 
       {/* Overview cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Bank Balance" amount={fmt(stats.total_bank)} icon={Wallet} accent="bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400" href="/budget/paychecks" />
-        <StatCard title="Credit Card Debt" amount={fmt(stats.total_credit)} icon={CreditCard} accent="bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400" />
+        <StatCard title="Total Bank Balance" amount={fmt(stats.total_bank)} icon={Wallet} accent="bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400" href="/budget/bank-accounts" />
+        <StatCard title="Credit Card Debt" amount={fmt(stats.total_credit)} icon={CreditCard} accent="bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400" href="/budget/credit-cards" />
         <StatCard title="Net Position" amount={fmt(netPosition)} icon={TrendingUp} accent="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400" negative={netPosition < 0} sub="Bank balance minus card debt" />
-        <StatCard title="Last Paycheck Net" amount={fmt(stats.last_paycheck_net)} icon={Banknote} accent="bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400" sub={stats.last_paycheck_date ? `Paid ${stats.last_paycheck_date}` : undefined} />
+        <StatCard title="Last Paycheck Net" amount={fmt(stats.last_paycheck_net)} icon={Banknote} accent="bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-400" sub={stats.last_paycheck_date ? `Paid ${stats.last_paycheck_date}` : undefined} href="/budget/paychecks" />
       </div>
 
       {/* Biweekly */}
