@@ -193,7 +193,7 @@ export default function CreditCardsPage() {
   const router = useRouter()
   const [cards, setCards] = useState<CreditCardType[]>([])
   const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState<CreditCardType | null>(null)
+  const [editing, setEditing] = useState<CreditCardType | 'new' | null>(null)
   const [form, setForm] = useState({ ...EMPTY_FORM })
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -218,7 +218,7 @@ export default function CreditCardsPage() {
   const setField = (name: string, v: string) => setForm((f) => ({ ...f, [name]: v }))
 
   const startAdd = () => {
-    setEditing(null)
+    setEditing('new')
     setForm({ ...EMPTY_FORM })
     setError('')
     setMessage('')
@@ -259,8 +259,9 @@ export default function CreditCardsPage() {
       due_date: form.due_date,
     }
 
-    const url = editing ? `/api/budget/credit-cards/${editing.id}` : '/api/budget/credit-cards'
-    const method = editing ? 'PUT' : 'POST'
+    const isNew = !editing || editing === 'new'
+    const url = editing && editing !== 'new' ? `/api/budget/credit-cards/${editing.id}` : '/api/budget/credit-cards'
+    const method = isNew ? 'POST' : 'PUT'
     const res = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
@@ -268,7 +269,7 @@ export default function CreditCardsPage() {
     })
     const data = await res.json()
     if (res.ok) {
-      setMessage(editing ? 'Card updated' : 'Card added')
+      setMessage(isNew ? 'Card added' : 'Card updated')
       setEditing(null)
       setForm({ ...EMPTY_FORM })
       await fetchCards()
@@ -392,7 +393,7 @@ export default function CreditCardsPage() {
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-4">
               <CardTitle className="text-sm">
-                {editing ? `Edit ${editing.name}` : 'Add Credit Card'}
+                {editing && editing !== 'new' ? `Edit ${editing.name}` : 'Add Credit Card'}
               </CardTitle>
               {editing && (
                 <Button variant="ghost" size="sm" onClick={() => { setEditing(null); setForm({ ...EMPTY_FORM }) }}>
@@ -495,7 +496,7 @@ export default function CreditCardsPage() {
 
               <div className="mt-5 flex items-center gap-3">
                 <Button type="submit" disabled={saving}>
-                  <Wallet className="w-4 h-4 mr-2" /> {saving ? 'Saving...' : editing ? 'Save Changes' : 'Add Card'}
+                  <Wallet className="w-4 h-4 mr-2" /> {saving ? 'Saving...' : !editing || editing === 'new' ? 'Add Card' : 'Save Changes'}
                 </Button>
                 <Link href="/budget">
                   <Button variant="secondary"><ArrowRight className="w-4 h-4 mr-2" /> Back to Dashboard</Button>
