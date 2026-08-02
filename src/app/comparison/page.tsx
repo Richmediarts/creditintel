@@ -177,8 +177,8 @@ export default function ComparisonPage() {
     uniqueDates.length === 0
       ? user?.name || 'Consumer'
       : uniqueDates.length === 1
-        ? `${user?.name || 'Consumer'} &bull; Reports as of ${uniqueDates[0]}`
-        : `${user?.name || 'Consumer'} &bull; Reports as of ${reports
+        ? `${user?.name || 'Consumer'} Reports as of ${uniqueDates[0]}`
+        : `${user?.name || 'Consumer'} Reports as of ${reports
             .map((r) => (r.personalInfo.reportDate ? `${r.bureau} (${r.personalInfo.reportDate})` : r.bureau))
             .join(', ')}`
 

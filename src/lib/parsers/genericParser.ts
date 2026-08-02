@@ -24,7 +24,7 @@ function extractPersonalInfo(text: string): PersonalInfo {
   const nameMatch = text.match(/(?:RICHARD|Richard)\s+(L\.?\s*)?JOHNSON|JOHNSON,\s*RICHARD/i)
   const dateMatch = text.match(/Date\s+(?:of\s+)?Birth[:\s]+(\d{1,2}\/\d{1,2}\/\d{4})/i)
   const ssnMatch = text.match(/(?:SSN|Social\s+Security)[:\s]+.*?(\d{3}[-]\d{2}[-]\d{4}|XXX-XX-\d{4})/i)
-  const reportDate = text.match(/(?:Date\s+(?:generated|created|Reported|as of|Prepared)[:\s]+)(\d{1,2}\/\d{1,2}\/\d{4})/i)
+  const reportDate = text.match(/(?:Report\s+Date|Date\s+(?:generated|created|Reported|as of|Prepared))[:\s]+(\d{1,2}\/\d{1,2}\/\d{4})/i)
   const addrMatch = text.match(/(\d+\s+[A-Z][A-Za-z\s]+(?:XING|DR|ST|AVE|BLVD|RD|CIR|WAY|LN|CT|PL|TERR|PARKWAY)[,\s]*[A-Z]{2}\s+\d{5})/i)
 
   return {
