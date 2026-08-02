@@ -359,7 +359,7 @@ export default function UtilizationSimulator() {
         <div className="mt-6">
           <button
             onClick={() => setShowBreakdown(!showBreakdown)}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+            className="inline-flex items-center gap-2 text-lg font-semibold text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
           >
             <ListOrdered className="w-4 h-4" />
             Card-by-card paydown breakdown
@@ -370,7 +370,7 @@ export default function UtilizationSimulator() {
             <div className="mt-3 space-y-4">
               {ranked.length > 0 ? (
                 <>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
                     Cards are ranked by per-card utilization (highest first). Paying down a card above 30% utilization — especially above 50% — removes a bigger negative flag on your credit report than paying down an already-low card.
                   </p>
 
@@ -378,7 +378,7 @@ export default function UtilizationSimulator() {
                     {/* Ranked list */}
                     <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                       <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                        <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">By biggest payoff impact</p>
+                        <p className="text-base font-semibold text-gray-700 dark:text-gray-300">By biggest payoff impact</p>
                       </div>
                       <div className="divide-y divide-gray-100 dark:divide-gray-800">
                         {ranked.map((r, i) => {
@@ -394,12 +394,12 @@ export default function UtilizationSimulator() {
                             <div key={r.id} className="px-4 py-3">
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <span className="w-5 h-5 rounded-full bg-gray-100 dark:bg-gray-800 text-[10px] font-bold text-gray-500 dark:text-gray-400 flex items-center justify-center shrink-0">{i + 1}</span>
-                                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{r.name}</p>
+                                  <span className="w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800 text-xs font-bold text-gray-500 dark:text-gray-400 flex items-center justify-center shrink-0">{i + 1}</span>
+                                  <p className="text-base font-medium text-gray-900 dark:text-white truncate">{r.name}</p>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${(affected ? afterZone : z).chip}`}>{affected ? afterZone.label : z.label}</span>
-                                  <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${(affected ? afterZone : z).chip}`}>{affected ? afterZone.label : z.label}</span>
+                                  <span className="text-lg font-bold text-gray-900 dark:text-white">
                                     {affected ? `${r.util.toFixed(0)}% → ${afterUtil.toFixed(0)}%` : `${r.util.toFixed(0)}%`}
                                   </span>
                                 </div>
@@ -407,7 +407,7 @@ export default function UtilizationSimulator() {
                               <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                                 <div className={`h-full rounded-full ${z.bar}`} style={{ width: `${Math.min(r.util, 100)}%` }} />
                               </div>
-                              <div className="mt-2 flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500">
+                              <div className="mt-2 flex items-center justify-between gap-2 text-sm text-gray-500 dark:text-gray-400">
                                 <span>
                                   {affected
                                     ? `${fmt(r.balance)} owed → ${fmt(afterBalance)} owed / ${fmt(r.limit)} limit`
@@ -422,10 +422,10 @@ export default function UtilizationSimulator() {
                                 )}
                               </div>
                               {payoff > 0 && (
-                                <div className="mt-2 flex items-center gap-1 text-[10px] font-medium">
+                                <div className="mt-2 flex items-center gap-1 text-sm font-medium">
                                   {affected ? (
                                     <>
-                                      <TrendingDown className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                                      <TrendingDown className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                                       <span className="text-blue-600 dark:text-blue-400">
                                         Pay {fmt(paid)} → {fmt(afterBalance)} owed, utilization {afterUtil.toFixed(0)}% ({afterZone.label})
                                       </span>
@@ -443,8 +443,8 @@ export default function UtilizationSimulator() {
 
                     {/* Planned payoff allocation */}
                     <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
-                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Plan a payoff</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                      <p className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-1">Plan a payoff</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">
                         Enter how much you can pay down. It's allocated to the highest-utilization cards first. This is a simulation only — it does not change your stored card balances.
                       </p>
                       <div className="relative mb-3">
@@ -460,7 +460,7 @@ export default function UtilizationSimulator() {
                       </div>
                       {payoff > 0 && ranked.filter((r) => (alloc.get(r.id) || 0) > 0).length > 0 && (
                         <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 mb-3">
-                          <p className="text-xs text-blue-700 dark:text-blue-300">
+                          <p className="text-sm text-blue-700 dark:text-blue-300">
                             {fmt(payoff)} goes to{' '}
                             {ranked.filter((r) => (alloc.get(r.id) || 0) > 0).map((r) => `${r.name} (${fmt(alloc.get(r.id) || 0)})`).join(', ')}
                             .
@@ -470,25 +470,25 @@ export default function UtilizationSimulator() {
                       {payoff > 0 && (
                         <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3">
                           <div className="flex items-center justify-between">
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Aggregate utilization</p>
-                            <p className="text-xs font-semibold text-gray-900 dark:text-white">{util.toFixed(1)}% → {newAggregate.toFixed(1)}%</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">Aggregate utilization</p>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white">{util.toFixed(1)}% → {newAggregate.toFixed(1)}%</p>
                           </div>
                           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                             <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(newAggregate, 100)}%` }} />
                           </div>
-                          <p className="text-[10px] text-gray-400 mt-2">
+                          <p className="text-xs text-gray-400 mt-2">
                             Total balance goes from {fmt(balance)} to {fmt(newTotalBalance)}.
                           </p>
                         </div>
                       )}
                       {payoff <= 0 && (
-                        <p className="text-xs text-gray-400">Enter an amount to see which cards get paid down first and the resulting utilization.</p>
+                        <p className="text-sm text-gray-400">Enter an amount to see which cards get paid down first and the resulting utilization.</p>
                       )}
                     </div>
                   </div>
                 </>
               ) : (
-                <p className="text-xs text-gray-400">No credit cards with limits found. Add credit cards to see the breakdown.</p>
+                <p className="text-sm text-gray-400">No credit cards with limits found. Add credit cards to see the breakdown.</p>
               )}
             </div>
           )}
