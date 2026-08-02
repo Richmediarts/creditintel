@@ -205,13 +205,14 @@ export default function AdminUsersPage() {
                           <label className="block text-xs text-gray-500 mb-1">Role</label>
                           <select
                             value={editRole} onChange={e => setEditRole(e.target.value as 'member' | 'admin')}
-                            disabled={u.id === currentUser.id}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white disabled:opacity-50"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
                           >
                             <option value="member">Member</option>
                             <option value="admin">Admin</option>
                           </select>
-                          {u.id === currentUser.id && <p className="text-[10px] text-gray-400 mt-0.5">Cannot change own role</p>}
+                          {u.id === currentUser.id && editRole === 'member' && (
+                            <p className="text-[10px] text-amber-500 mt-0.5">You cannot demote yourself if you are the last admin</p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-xs text-gray-500 mb-1">New Password (leave blank to keep)</label>

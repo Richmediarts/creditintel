@@ -55,8 +55,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (body.role !== 'admin' && body.role !== 'member') {
         return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
       }
-      if (Number(id) === admin.userId) {
-        return NextResponse.json({ error: 'Cannot change your own role' }, { status: 400 })
+      if (user.role === 'admin' && body.role !== 'admin') {
+        const adminCount = await db.get('SELECT COUNT(*) as count FROM users WHERE role = ?', ['admin'])
+        if (adminCount && Number(adminCount.count) <= 1) {
+          return NextResponse.json({ error: 'Cannot demote the last admin' }, { status: 400 })
+        }
       }
       await db.run('UPDATE users SET role = ? WHERE id = ?', [body.role, Number(id)])
     }
