@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
 import { useCredit } from '@/lib/store/creditStore'
 import type { Bureau, FicoScores, BureauReport } from '@/types'
+import UtilizationSimulator from '@/components/UtilizationSimulator'
 
 const BUREAUS: Bureau[] = ['Experian', 'Equifax', 'TransUnion']
 
@@ -146,18 +147,8 @@ export default function ScoreSimulatorPage() {
     }).finally(() => setScoresLoading(false))
   }, [])
 
-  if (!creditData) {
-    return (
-      <div className="text-center py-20 text-gray-500 dark:text-gray-400">
-        <p className="text-lg font-medium mb-1">No credit data available</p>
-        <p className="text-sm">Upload reports first to use the simulator.</p>
-        <Link href="/upload" className="text-blue-600 hover:underline text-sm mt-3 inline-block">Go to Upload Center</Link>
-      </div>
-    )
-  }
-
-  const { reports } = creditData
-  const results = selectedActions.length > 0 ? simulateAction(selectedActions, reports, scores) : null
+  const reports = creditData?.reports || []
+  const results = selectedActions.length > 0 && creditData ? simulateAction(selectedActions, reports, scores) : null
   const hasScores = Object.values(scores).some(s => s?.score != null)
 
   const toggleAction = (id: string) => {
@@ -186,7 +177,11 @@ export default function ScoreSimulatorPage() {
         </div>
       </div>
 
-      {/* Current Scores */}
+      <UtilizationSimulator />
+
+      {creditData ? (
+        <>
+        {/* Current Scores */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {BUREAUS.map(bureau => {
           const score = scores[bureau]?.score
@@ -355,6 +350,18 @@ export default function ScoreSimulatorPage() {
           </div>
         </CardContent>
       </Card>
+        </>
+      ) : (
+        <Card>
+          <CardContent className="p-6 text-center">
+            <p className="text-gray-500 dark:text-gray-400 text-sm">No credit report data uploaded yet.</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              Upload your credit reports to unlock the Score Simulator above. The Credit Utilization Simulator is available now using your budget credit card balances.
+            </p>
+            <Link href="/upload" className="text-blue-600 hover:underline text-sm mt-3 inline-block">Go to Upload Center</Link>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
