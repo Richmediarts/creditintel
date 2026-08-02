@@ -227,219 +227,22 @@ export interface BudgetModifiedIncome {
   created_at: string
 }
 
-function ensureBudgetSchema(): void {
-  const db = getDb()
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS budget_paychecks (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      pay_date TEXT, pay_period_begin TEXT, pay_period_end TEXT,
-      check_date TEXT, check_number TEXT, employee_name TEXT, employee_id TEXT,
-      company TEXT, hours_worked REAL DEFAULT 0, gross_pay REAL DEFAULT 0,
-      pre_tax_deductions REAL DEFAULT 0, employee_taxes REAL DEFAULT 0,
-      post_tax_deductions REAL DEFAULT 0, net_pay REAL DEFAULT 0,
-      salary REAL DEFAULT 0, biometric_credit REAL DEFAULT 0,
-      floating_holiday REAL DEFAULT 0, holiday_pay REAL DEFAULT 0,
-      vacation_pay REAL DEFAULT 0, group_term_life REAL DEFAULT 0,
-      spousal_biometric REAL DEFAULT 0, other_earnings REAL DEFAULT 0,
-      oasdi REAL DEFAULT 0, medicare REAL DEFAULT 0, federal_tax REAL DEFAULT 0,
-      state_tax REAL DEFAULT 0, state_name TEXT, social_security REAL DEFAULT 0,
-      retirement_401k REAL DEFAULT 0, add_insurance REAL DEFAULT 0,
-      dental_plan REAL DEFAULT 0, eye_plan REAL DEFAULT 0,
-      health_care_fsa REAL DEFAULT 0, health_insurance REAL DEFAULT 0,
-      optional_life REAL DEFAULT 0, hsa REAL DEFAULT 0,
-      loan_repayment REAL DEFAULT 0, dependent_life REAL DEFAULT 0,
-      stock_purchase REAL DEFAULT 0, spousal_life REAL DEFAULT 0,
-      employer_match REAL DEFAULT 0, employer_hsa REAL DEFAULT 0,
-      federal_filing_status TEXT, state_filing_status TEXT,
-      federal_allowances REAL DEFAULT 0, dependent_amount REAL DEFAULT 0,
-      additional_withholding REAL DEFAULT 0,
-      bank_name TEXT, account_number TEXT,
-      deposit_amount REAL DEFAULT 0, bank2_name TEXT, account2_number TEXT,
-      deposit2_amount REAL DEFAULT 0, notes TEXT,
-      gross_pay_ytd REAL DEFAULT 0, pre_tax_deductions_ytd REAL DEFAULT 0,
-      employee_taxes_ytd REAL DEFAULT 0, post_tax_deductions_ytd REAL DEFAULT 0,
-      net_pay_ytd REAL DEFAULT 0, hours_worked_ytd REAL DEFAULT 0,
-      retirement_401k_ytd REAL DEFAULT 0, health_insurance_ytd REAL DEFAULT 0,
-      dental_plan_ytd REAL DEFAULT 0, eye_plan_ytd REAL DEFAULT 0,
-      health_care_fsa_ytd REAL DEFAULT 0, optional_life_ytd REAL DEFAULT 0,
-      add_insurance_ytd REAL DEFAULT 0, federal_tax_ytd REAL DEFAULT 0,
-      state_tax_ytd REAL DEFAULT 0, oasdi_ytd REAL DEFAULT 0,
-      medicare_ytd REAL DEFAULT 0, employer_match_ytd REAL DEFAULT 0,
-      hsa_ytd REAL DEFAULT 0, loan_repayment_ytd REAL DEFAULT 0,
-      dependent_life_ytd REAL DEFAULT 0, stock_purchase_ytd REAL DEFAULT 0,
-      spousal_life_ytd REAL DEFAULT 0, biometric_credit_ytd REAL DEFAULT 0,
-      spousal_biometric_ytd REAL DEFAULT 0, group_term_life_ytd REAL DEFAULT 0,
-      floating_holiday_ytd REAL DEFAULT 0, holiday_pay_ytd REAL DEFAULT 0,
-      vacation_pay_ytd REAL DEFAULT 0, salary_ytd REAL DEFAULT 0,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS budget_bank_accounts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      account_type TEXT NOT NULL,
-      institution TEXT,
-      account_number_last4 TEXT,
-      current_balance REAL DEFAULT 0,
-      website TEXT,
-      is_active INTEGER DEFAULT 1,
-      is_income_account INTEGER DEFAULT 0,
-      interest_rate REAL DEFAULT 0,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS budget_credit_cards (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      last_four TEXT,
-      credit_limit REAL DEFAULT 0,
-      current_balance REAL DEFAULT 0,
-      interest_rate REAL DEFAULT 0,
-      is_active INTEGER DEFAULT 1,
-      website TEXT,
-      due_date TEXT,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS budget_payees (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      category TEXT,
-      account_number TEXT,
-      notes TEXT,
-      website TEXT,
-      default_category_id INTEGER,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS budget_bills (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      payee_id INTEGER,
-      payee_name TEXT,
-      amount REAL DEFAULT 0,
-      due_date TEXT NOT NULL,
-      is_paid INTEGER DEFAULT 0,
-      paid_date TEXT,
-      is_recurring INTEGER DEFAULT 0,
-      recurrence_type TEXT,
-      notes TEXT,
-      category_id INTEGER,
-      account TEXT,
-      credit_card_id INTEGER,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS budget_categories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      name TEXT NOT NULL,
-      monthly_limit REAL DEFAULT 0,
-      color TEXT DEFAULT '#2E7D32',
-      parent_id INTEGER DEFAULT NULL,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS budget_modified_income (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      amount REAL NOT NULL DEFAULT 0,
-      entry_date TEXT NOT NULL,
-      period_type TEXT NOT NULL DEFAULT 'biweekly',
-      notes TEXT DEFAULT '',
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS budget_transactions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      account_id INTEGER NOT NULL,
-      date TEXT NOT NULL,
-      description TEXT NOT NULL,
-      amount REAL NOT NULL,
-      balance REAL DEFAULT 0,
-      plaid_transaction_id TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (user_id) REFERENCES users(id),
-      FOREIGN KEY (account_id) REFERENCES budget_bank_accounts(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS budget_plaid_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      access_token TEXT NOT NULL,
-      item_id TEXT,
-      institution_name TEXT,
-      plaid_cursor TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    );
-  `)
-
-  const catCols = db.prepare('PRAGMA table_info(budget_categories)').all() as { name: string }[]
-  if (!catCols.find(c => c.name === 'actual_spent')) {
-    db.exec('ALTER TABLE budget_categories ADD COLUMN actual_spent REAL DEFAULT 0')
-  }
-
-  const baCols = db.prepare('PRAGMA table_info(budget_bank_accounts)').all() as { name: string }[]
-  if (!baCols.find(c => c.name === 'plaid_account_id')) {
-    db.exec('ALTER TABLE budget_bank_accounts ADD COLUMN plaid_account_id TEXT')
-  }
-  if (!baCols.find(c => c.name === 'plaid_item_id')) {
-    db.exec('ALTER TABLE budget_bank_accounts ADD COLUMN plaid_item_id INTEGER')
-  }
-
-  const ccCols = db.prepare('PRAGMA table_info(budget_credit_cards)').all() as { name: string }[]
-  if (!ccCols.find(c => c.name === 'plaid_account_id')) {
-    db.exec('ALTER TABLE budget_credit_cards ADD COLUMN plaid_account_id TEXT')
-  }
-  if (!ccCols.find(c => c.name === 'plaid_item_id')) {
-    db.exec('ALTER TABLE budget_credit_cards ADD COLUMN plaid_item_id INTEGER')
-  }
-
-  // Ensure paycheck table has all YTD and extra columns
-  const pcCols = db.prepare('PRAGMA table_info(budget_paychecks)').all() as { name: string }[]
-  const pcMissing = [
-    'employer_hsa', 'federal_allowances', 'dependent_amount', 'additional_withholding',
-    'gross_pay_ytd', 'pre_tax_deductions_ytd', 'employee_taxes_ytd', 'post_tax_deductions_ytd',
-    'net_pay_ytd', 'hours_worked_ytd', 'retirement_401k_ytd', 'health_insurance_ytd',
-    'dental_plan_ytd', 'eye_plan_ytd', 'health_care_fsa_ytd', 'optional_life_ytd',
-    'add_insurance_ytd', 'federal_tax_ytd', 'state_tax_ytd', 'oasdi_ytd', 'medicare_ytd',
-    'employer_match_ytd', 'hsa_ytd', 'loan_repayment_ytd', 'dependent_life_ytd',
-    'stock_purchase_ytd', 'spousal_life_ytd', 'biometric_credit_ytd', 'spousal_biometric_ytd',
-    'group_term_life_ytd', 'floating_holiday_ytd', 'holiday_pay_ytd', 'vacation_pay_ytd',
-    'salary_ytd',
-  ]
-  for (const col of pcMissing) {
-    if (!pcCols.find(c => c.name === col)) {
-      db.exec(`ALTER TABLE budget_paychecks ADD COLUMN ${col} REAL DEFAULT 0`)
-    }
-  }
-}
-
 function ensureSchemaOnce(): void {
-  ensureBudgetSchema()
+  // Schema is managed by Postgres (see db.ts ensureSchema)
 }
 
-export function getPaychecks(userId: number): (BudgetPaycheck & { id: number })[] {
-  ensureSchemaOnce()
+// Paychecks
+export async function getPaychecks(userId: number): Promise<(BudgetPaycheck & { id: number })[]> {
   const db = getDb()
-  return db.prepare('SELECT * FROM budget_paychecks WHERE user_id = ? ORDER BY check_date DESC, pay_date DESC').all(userId) as (BudgetPaycheck & { id: number })[]
+  return (await db.prepare('SELECT * FROM budget_paychecks WHERE user_id = ? ORDER BY check_date DESC, pay_date DESC').all(userId)) as (BudgetPaycheck & { id: number })[]
 }
 
-export function getPaycheck(userId: number, id: number): (BudgetPaycheck & { id: number }) | null {
-  ensureSchemaOnce()
+export async function getPaycheck(userId: number, id: number): Promise<(BudgetPaycheck & { id: number }) | null> {
   const db = getDb()
-  return db.prepare('SELECT * FROM budget_paychecks WHERE user_id = ? AND id = ?').get(userId, id) as (BudgetPaycheck & { id: number }) | undefined ?? null
+  return ((await db.prepare('SELECT * FROM budget_paychecks WHERE user_id = ? AND id = ?').get(userId, id)) as (BudgetPaycheck & { id: number }) | undefined) ?? null
 }
 
-export function addPaycheck(userId: number, data: Partial<BudgetPaycheck>): number {
-  ensureSchemaOnce()
+export async function addPaycheck(userId: number, data: Partial<BudgetPaycheck>): Promise<number> {
   const db = getDb()
   const cols = [...PAYCHECK_COLUMNS]
   const values = cols.map((c) => {
@@ -450,14 +253,13 @@ export function addPaycheck(userId: number, data: Partial<BudgetPaycheck>): numb
     return NUMERIC_COLUMNS.has(c) ? Number(v) : String(v)
   })
   const placeholders = cols.map(() => '?').join(', ')
-  const result = db.prepare(
-    `INSERT INTO budget_paychecks (user_id, ${cols.join(', ')}) VALUES (?, ${placeholders})`
+  const result = await db.prepare(
+    `INSERT INTO budget_paychecks (user_id, ${cols.join(', ')}) VALUES (?, ${placeholders}) RETURNING id`
   ).run(userId, ...values)
   return Number(result.lastInsertRowid)
 }
 
-export function updatePaycheck(userId: number, id: number, data: Partial<BudgetPaycheck>): void {
-  ensureSchemaOnce()
+export async function updatePaycheck(userId: number, id: number, data: Partial<BudgetPaycheck>): Promise<void> {
   const db = getDb()
   const setClauses: string[] = []
   const values: unknown[] = []
@@ -470,13 +272,12 @@ export function updatePaycheck(userId: number, id: number, data: Partial<BudgetP
   }
   if (setClauses.length === 0) return
   values.push(id, userId)
-  db.prepare(`UPDATE budget_paychecks SET ${setClauses.join(', ')} WHERE id = ? AND user_id = ?`).run(...values)
+  await db.prepare(`UPDATE budget_paychecks SET ${setClauses.join(', ')} WHERE id = ? AND user_id = ?`).run(...values)
 }
 
-export function deletePaycheck(userId: number, id: number): void {
-  ensureSchemaOnce()
+export async function deletePaycheck(userId: number, id: number): Promise<void> {
   const db = getDb()
-  db.prepare('DELETE FROM budget_paychecks WHERE user_id = ? AND id = ?').run(userId, id)
+  await db.prepare('DELETE FROM budget_paychecks WHERE user_id = ? AND id = ?').run(userId, id)
 }
 
 const NUMERIC_COLUMNS = new Set<string>([
@@ -497,8 +298,8 @@ const NUMERIC_COLUMNS = new Set<string>([
   'salary_ytd',
 ])
 
-export function getNextPaycheckDate(userId: number): string | null {
-  const paychecks = getPaychecks(userId)
+export async function getNextPaycheckDate(userId: number): Promise<string | null> {
+  const paychecks = await getPaychecks(userId)
   if (paychecks.length === 0) return null
   const latest = paychecks[0]
   if (!latest.check_date && !latest.pay_date) return null
@@ -512,30 +313,29 @@ export function getNextPaycheckDate(userId: number): string | null {
   return next.toISOString().split('T')[0]
 }
 
-export function getBudgetStats(userId: number): BudgetStats {
-  ensureSchemaOnce()
+export async function getBudgetStats(userId: number): Promise<BudgetStats> {
   const db = getDb()
 
-  const totalBank = (db.prepare('SELECT COALESCE(SUM(current_balance), 0) as t FROM budget_bank_accounts WHERE user_id = ? AND is_active = 1').get(userId) as { t: number }).t
-  const totalCredit = (db.prepare('SELECT COALESCE(SUM(current_balance), 0) as t FROM budget_credit_cards WHERE user_id = ? AND is_active = 1').get(userId) as { t: number }).t
+  const totalBank = (await db.prepare('SELECT COALESCE(SUM(current_balance), 0) as t FROM budget_bank_accounts WHERE user_id = ? AND is_active = 1').get(userId) as { t: number }).t
+  const totalCredit = (await db.prepare('SELECT COALESCE(SUM(current_balance), 0) as t FROM budget_credit_cards WHERE user_id = ? AND is_active = 1').get(userId) as { t: number }).t
 
-  const totalIncomeAccounts = (db.prepare('SELECT COALESCE(SUM(current_balance), 0) as t FROM budget_bank_accounts WHERE user_id = ? AND is_active = 1 AND is_income_account = 1').get(userId) as { t: number }).t
+  const totalIncomeAccounts = (await db.prepare('SELECT COALESCE(SUM(current_balance), 0) as t FROM budget_bank_accounts WHERE user_id = ? AND is_active = 1 AND is_income_account = 1').get(userId) as { t: number }).t
 
-  const lastPaycheckRow = db.prepare(
+  const lastPaycheckRow = (await db.prepare(
     'SELECT * FROM budget_paychecks WHERE user_id = ? ORDER BY check_date DESC, pay_date DESC LIMIT 1'
-  ).get(userId) as (BudgetPaycheck & { id: number }) | undefined
+  ).get(userId)) as (BudgetPaycheck & { id: number }) | undefined
   const lastPaycheckNet = lastPaycheckRow?.net_pay || 0
   const lastPaycheckDate = lastPaycheckRow?.check_date || lastPaycheckRow?.pay_date || null
 
-  const nextPaycheck = getNextPaycheckDate(userId)
+  const nextPaycheck = await getNextPaycheckDate(userId)
 
   let totalExpensesPaid = 0
   if (nextPaycheck && lastPaycheckDate) {
-    totalExpensesPaid = (db.prepare(
+    totalExpensesPaid = (await db.prepare(
       'SELECT COALESCE(SUM(amount), 0) as t FROM budget_bills WHERE user_id = ? AND is_paid = 1 AND paid_date >= ? AND paid_date <= ?'
     ).get(userId, lastPaycheckDate, nextPaycheck) as { t: number }).t
   } else {
-    totalExpensesPaid = (db.prepare(
+    totalExpensesPaid = (await db.prepare(
       'SELECT COALESCE(SUM(amount), 0) as t FROM budget_bills WHERE user_id = ? AND is_paid = 1'
     ).get(userId) as { t: number }).t
   }
@@ -543,28 +343,28 @@ export function getBudgetStats(userId: number): BudgetStats {
   let billsBeforeNextPay: BudgetStats['bills_before_next_pay'] = []
   let billsBeforeNextPayTotal = 0
   if (nextPaycheck) {
-    billsBeforeNextPay = db.prepare(`
+    billsBeforeNextPay = (await db.prepare(`
       SELECT b.id, COALESCE(b.payee_name, p.name) as payee_name, b.amount, b.due_date
       FROM budget_bills b
       LEFT JOIN budget_payees p ON b.payee_id = p.id
       WHERE b.user_id = ? AND b.is_paid = 0 AND b.due_date <= ?
       ORDER BY b.due_date ASC
-    `).all(userId, nextPaycheck) as BudgetStats['bills_before_next_pay']
+    `).all(userId, nextPaycheck)) as BudgetStats['bills_before_next_pay']
     billsBeforeNextPayTotal = billsBeforeNextPay.reduce((s, b) => s + (Number(b.amount) || 0), 0)
   }
 
-  const upcomingBills = db.prepare(`
+  const upcomingBills = (await db.prepare(`
     SELECT b.id, COALESCE(b.payee_name, p.name) as payee_name, b.amount, b.due_date, b.is_paid
     FROM budget_bills b
     LEFT JOIN budget_payees p ON b.payee_id = p.id
     WHERE b.user_id = ? AND b.is_paid = 0
     ORDER BY b.due_date ASC LIMIT 5
-  `).all(userId) as BudgetStats['upcoming_bills']
+  `).all(userId)) as BudgetStats['upcoming_bills']
 
   const totalExpenses = totalExpensesPaid + billsBeforeNextPayTotal
 
   const biweeklyIncome = lastPaycheckNet
-  const totalBudget = (db.prepare('SELECT COALESCE(SUM(monthly_limit), 0) as t FROM budget_categories WHERE user_id = ?').get(userId) as { t: number }).t
+  const totalBudget = (await db.prepare('SELECT COALESCE(SUM(monthly_limit), 0) as t FROM budget_categories WHERE user_id = ?').get(userId) as { t: number }).t
   const biweeklyExpenses = totalBudget ? totalBudget / 2 : 0
   const biweeklyRemaining = biweeklyIncome - biweeklyExpenses
   const monthlyIncome = lastPaycheckNet ? lastPaycheckNet * 26 / 12 : 0
@@ -580,11 +380,11 @@ export function getBudgetStats(userId: number): BudgetStats {
   thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30)
   const thirtyDaysFromNowStr = thirtyDaysFromNow.toISOString().split('T')[0]
 
-  const monthlyExpensesPaid = (db.prepare(
+  const monthlyExpensesPaid = (await db.prepare(
     'SELECT COALESCE(SUM(amount), 0) as t FROM budget_bills WHERE user_id = ? AND is_paid = 1 AND paid_date >= ? AND paid_date <= ?'
   ).get(userId, thirtyDaysAgoStr, todayStr) as { t: number }).t
 
-  const monthlyExpensesDue = (db.prepare(
+  const monthlyExpensesDue = (await db.prepare(
     'SELECT COALESCE(SUM(amount), 0) as t FROM budget_bills WHERE user_id = ? AND is_paid = 0 AND due_date >= ? AND due_date <= ?'
   ).get(userId, todayStr, thirtyDaysFromNowStr) as { t: number }).t
 
@@ -623,65 +423,56 @@ export function getBudgetStats(userId: number): BudgetStats {
 }
 
 // Payees
-export function getPayees(userId: number): BudgetPayee[] {
-  ensureSchemaOnce()
+export async function getPayees(userId: number): Promise<BudgetPayee[]> {
   const db = getDb()
-  return db.prepare('SELECT * FROM budget_payees WHERE user_id = ? ORDER BY name').all(userId) as BudgetPayee[]
+  return (await db.prepare('SELECT * FROM budget_payees WHERE user_id = ? ORDER BY name').all(userId)) as BudgetPayee[]
 }
 
-export function getPayee(userId: number, id: number): BudgetPayee | null {
-  ensureSchemaOnce()
+export async function getPayee(userId: number, id: number): Promise<BudgetPayee | null> {
   const db = getDb()
-  return db.prepare('SELECT * FROM budget_payees WHERE user_id = ? AND id = ?').get(userId, id) as BudgetPayee | undefined ?? null
+  return ((await db.prepare('SELECT * FROM budget_payees WHERE user_id = ? AND id = ?').get(userId, id)) as BudgetPayee | undefined) ?? null
 }
 
-export function addPayee(userId: number, data: Partial<BudgetPayee>): number {
-  ensureSchemaOnce()
+export async function addPayee(userId: number, data: Partial<BudgetPayee>): Promise<number> {
   const db = getDb()
-  const result = db.prepare(
-    'INSERT INTO budget_payees (user_id, name, category, account_number, notes, website, default_category_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  const result = await db.prepare(
+    'INSERT INTO budget_payees (user_id, name, category, account_number, notes, website, default_category_id) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id'
   ).run(userId, data.name || '', data.category || '', data.account_number || '', data.notes || '', data.website || '', data.default_category_id || null)
   return Number(result.lastInsertRowid)
 }
 
-export function updatePayee(userId: number, id: number, data: Partial<BudgetPayee>): void {
-  ensureSchemaOnce()
+export async function updatePayee(userId: number, id: number, data: Partial<BudgetPayee>): Promise<void> {
   const db = getDb()
-  db.prepare(
+  await db.prepare(
     'UPDATE budget_payees SET name = ?, category = ?, account_number = ?, notes = ?, website = ?, default_category_id = ? WHERE user_id = ? AND id = ?'
   ).run(data.name || '', data.category || '', data.account_number || '', data.notes || '', data.website || '', data.default_category_id || null, userId, id)
 }
 
-export function deletePayee(userId: number, id: number): void {
-  ensureSchemaOnce()
+export async function deletePayee(userId: number, id: number): Promise<void> {
   const db = getDb()
-  db.prepare('DELETE FROM budget_payees WHERE user_id = ? AND id = ?').run(userId, id)
+  await db.prepare('DELETE FROM budget_payees WHERE user_id = ? AND id = ?').run(userId, id)
 }
 
-export function getPayeeByName(userId: number, name: string): BudgetPayee | null {
-  ensureSchemaOnce()
+export async function getPayeeByName(userId: number, name: string): Promise<BudgetPayee | null> {
   const db = getDb()
-  return db.prepare('SELECT * FROM budget_payees WHERE user_id = ? AND name = ?').get(userId, name) as BudgetPayee | undefined ?? null
+  return ((await db.prepare('SELECT * FROM budget_payees WHERE user_id = ? AND name = ?').get(userId, name)) as BudgetPayee | undefined) ?? null
 }
 
 // Bank Accounts
-export function getBankAccounts(userId: number): BudgetBankAccount[] {
-  ensureSchemaOnce()
+export async function getBankAccounts(userId: number): Promise<BudgetBankAccount[]> {
   const db = getDb()
-  return db.prepare('SELECT * FROM budget_bank_accounts WHERE user_id = ? ORDER BY name').all(userId) as BudgetBankAccount[]
+  return (await db.prepare('SELECT * FROM budget_bank_accounts WHERE user_id = ? ORDER BY name').all(userId)) as BudgetBankAccount[]
 }
 
-export function getBankAccount(userId: number, id: number): BudgetBankAccount | null {
-  ensureSchemaOnce()
+export async function getBankAccount(userId: number, id: number): Promise<BudgetBankAccount | null> {
   const db = getDb()
-  return db.prepare('SELECT * FROM budget_bank_accounts WHERE user_id = ? AND id = ?').get(userId, id) as BudgetBankAccount | undefined ?? null
+  return ((await db.prepare('SELECT * FROM budget_bank_accounts WHERE user_id = ? AND id = ?').get(userId, id)) as BudgetBankAccount | undefined) ?? null
 }
 
-export function addBankAccount(userId: number, data: Partial<BudgetBankAccount>): number {
-  ensureSchemaOnce()
+export async function addBankAccount(userId: number, data: Partial<BudgetBankAccount>): Promise<number> {
   const db = getDb()
-  const result = db.prepare(
-    'INSERT INTO budget_bank_accounts (user_id, name, account_type, institution, account_number_last4, current_balance, website, is_active, is_income_account, interest_rate, plaid_account_id, plaid_item_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  const result = await db.prepare(
+    'INSERT INTO budget_bank_accounts (user_id, name, account_type, institution, account_number_last4, current_balance, website, is_active, is_income_account, interest_rate, plaid_account_id, plaid_item_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id'
   ).run(
     userId,
     data.name || '',
@@ -699,10 +490,9 @@ export function addBankAccount(userId: number, data: Partial<BudgetBankAccount>)
   return Number(result.lastInsertRowid)
 }
 
-export function updateBankAccount(userId: number, id: number, data: Partial<BudgetBankAccount>): void {
-  ensureSchemaOnce()
+export async function updateBankAccount(userId: number, id: number, data: Partial<BudgetBankAccount>): Promise<void> {
   const db = getDb()
-  db.prepare(
+  await db.prepare(
     'UPDATE budget_bank_accounts SET name = ?, account_type = ?, institution = ?, account_number_last4 = ?, current_balance = ?, website = ?, is_active = ?, is_income_account = ?, interest_rate = ?, plaid_account_id = ?, plaid_item_id = ? WHERE user_id = ? AND id = ?'
   ).run(
     data.name || '',
@@ -721,43 +511,37 @@ export function updateBankAccount(userId: number, id: number, data: Partial<Budg
   )
 }
 
-export function deleteBankAccount(userId: number, id: number): void {
-  ensureSchemaOnce()
+export async function deleteBankAccount(userId: number, id: number): Promise<void> {
   const db = getDb()
-  db.prepare('DELETE FROM budget_bank_accounts WHERE user_id = ? AND id = ?').run(userId, id)
+  await db.prepare('DELETE FROM budget_bank_accounts WHERE user_id = ? AND id = ?').run(userId, id)
 }
 
-export function updateBankAccountBalance(userId: number, id: number, balance: number): void {
-  ensureSchemaOnce()
+export async function updateBankAccountBalance(userId: number, id: number, balance: number): Promise<void> {
   const db = getDb()
-  db.prepare('UPDATE budget_bank_accounts SET current_balance = ? WHERE user_id = ? AND id = ?').run(balance, userId, id)
+  await db.prepare('UPDATE budget_bank_accounts SET current_balance = ? WHERE user_id = ? AND id = ?').run(balance, userId, id)
 }
 
-export function clearBankAccountPlaid(userId: number, id: number): void {
-  ensureSchemaOnce()
+export async function clearBankAccountPlaid(userId: number, id: number): Promise<void> {
   const db = getDb()
-  db.prepare('UPDATE budget_bank_accounts SET plaid_account_id = NULL, plaid_item_id = NULL, current_balance = 0 WHERE user_id = ? AND id = ?').run(userId, id)
-  db.prepare('DELETE FROM budget_transactions WHERE user_id = ? AND account_id = ?').run(userId, id)
+  await db.prepare('UPDATE budget_bank_accounts SET plaid_account_id = NULL, plaid_item_id = NULL, current_balance = 0 WHERE user_id = ? AND id = ?').run(userId, id)
+  await db.prepare('DELETE FROM budget_transactions WHERE user_id = ? AND account_id = ?').run(userId, id)
 }
 
 // Credit Cards
-export function getCreditCards(userId: number): BudgetCreditCard[] {
-  ensureSchemaOnce()
+export async function getCreditCards(userId: number): Promise<BudgetCreditCard[]> {
   const db = getDb()
-  return db.prepare('SELECT * FROM budget_credit_cards WHERE user_id = ? ORDER BY name').all(userId) as BudgetCreditCard[]
+  return (await db.prepare('SELECT * FROM budget_credit_cards WHERE user_id = ? ORDER BY name').all(userId)) as BudgetCreditCard[]
 }
 
-export function getCreditCard(userId: number, id: number): BudgetCreditCard | null {
-  ensureSchemaOnce()
+export async function getCreditCard(userId: number, id: number): Promise<BudgetCreditCard | null> {
   const db = getDb()
-  return db.prepare('SELECT * FROM budget_credit_cards WHERE user_id = ? AND id = ?').get(userId, id) as BudgetCreditCard | undefined ?? null
+  return ((await db.prepare('SELECT * FROM budget_credit_cards WHERE user_id = ? AND id = ?').get(userId, id)) as BudgetCreditCard | undefined) ?? null
 }
 
-export function addCreditCard(userId: number, data: Partial<BudgetCreditCard>): number {
-  ensureSchemaOnce()
+export async function addCreditCard(userId: number, data: Partial<BudgetCreditCard>): Promise<number> {
   const db = getDb()
-  const result = db.prepare(
-    'INSERT INTO budget_credit_cards (user_id, name, last_four, credit_limit, current_balance, interest_rate, due_date, website, is_active, plaid_account_id, plaid_item_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  const result = await db.prepare(
+    'INSERT INTO budget_credit_cards (user_id, name, last_four, credit_limit, current_balance, interest_rate, due_date, website, is_active, plaid_account_id, plaid_item_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id'
   ).run(
     userId,
     data.name || '',
@@ -774,10 +558,9 @@ export function addCreditCard(userId: number, data: Partial<BudgetCreditCard>): 
   return Number(result.lastInsertRowid)
 }
 
-export function updateCreditCard(userId: number, id: number, data: Partial<BudgetCreditCard>): void {
-  ensureSchemaOnce()
+export async function updateCreditCard(userId: number, id: number, data: Partial<BudgetCreditCard>): Promise<void> {
   const db = getDb()
-  db.prepare(
+  await db.prepare(
     'UPDATE budget_credit_cards SET name = ?, last_four = ?, credit_limit = ?, current_balance = ?, interest_rate = ?, due_date = ?, website = ?, is_active = ?, plaid_account_id = ?, plaid_item_id = ? WHERE user_id = ? AND id = ?'
   ).run(
     data.name || '',
@@ -795,60 +578,53 @@ export function updateCreditCard(userId: number, id: number, data: Partial<Budge
   )
 }
 
-export function deleteCreditCard(userId: number, id: number): void {
-  ensureSchemaOnce()
+export async function deleteCreditCard(userId: number, id: number): Promise<void> {
   const db = getDb()
-  db.prepare('DELETE FROM budget_credit_cards WHERE user_id = ? AND id = ?').run(userId, id)
+  await db.prepare('DELETE FROM budget_credit_cards WHERE user_id = ? AND id = ?').run(userId, id)
 }
 
-export function clearCreditCardPlaid(userId: number, id: number): void {
-  ensureSchemaOnce()
+export async function clearCreditCardPlaid(userId: number, id: number): Promise<void> {
   const db = getDb()
-  db.prepare('UPDATE budget_credit_cards SET plaid_account_id = NULL, plaid_item_id = NULL, current_balance = 0 WHERE user_id = ? AND id = ?').run(userId, id)
+  await db.prepare('UPDATE budget_credit_cards SET plaid_account_id = NULL, plaid_item_id = NULL, current_balance = 0 WHERE user_id = ? AND id = ?').run(userId, id)
 }
 
-export function getBillsByCreditCard(userId: number, creditCardId: number): BudgetBill[] {
-  ensureSchemaOnce()
+export async function getBillsByCreditCard(userId: number, creditCardId: number): Promise<BudgetBill[]> {
   const db = getDb()
-  return db.prepare('SELECT * FROM budget_bills WHERE user_id = ? AND credit_card_id = ? ORDER BY due_date').all(userId, creditCardId) as BudgetBill[]
+  return (await db.prepare('SELECT * FROM budget_bills WHERE user_id = ? AND credit_card_id = ? ORDER BY due_date').all(userId, creditCardId)) as BudgetBill[]
 }
 
 // Bills
-export function getBills(userId: number): BudgetBill[] {
-  ensureSchemaOnce()
+export async function getBills(userId: number): Promise<BudgetBill[]> {
   const db = getDb()
-  return db.prepare(`
+  return (await db.prepare(`
     SELECT b.*, COALESCE(b.payee_name, p.name) as payee_name
     FROM budget_bills b
     LEFT JOIN budget_payees p ON b.payee_id = p.id
     WHERE b.user_id = ?
     ORDER BY b.due_date
-  `).all(userId) as BudgetBill[]
+  `).all(userId)) as BudgetBill[]
 }
 
-export function getUnpaidBills(userId: number): BudgetBill[] {
-  ensureSchemaOnce()
+export async function getUnpaidBills(userId: number): Promise<BudgetBill[]> {
   const db = getDb()
-  return db.prepare(`
+  return (await db.prepare(`
     SELECT b.*, COALESCE(b.payee_name, p.name) as payee_name
     FROM budget_bills b
     LEFT JOIN budget_payees p ON b.payee_id = p.id
     WHERE b.user_id = ? AND b.is_paid = 0
     ORDER BY b.due_date
-  `).all(userId) as BudgetBill[]
+  `).all(userId)) as BudgetBill[]
 }
 
-export function getBill(userId: number, id: number): BudgetBill | null {
-  ensureSchemaOnce()
+export async function getBill(userId: number, id: number): Promise<BudgetBill | null> {
   const db = getDb()
-  return db.prepare('SELECT * FROM budget_bills WHERE user_id = ? AND id = ?').get(userId, id) as BudgetBill | undefined ?? null
+  return ((await db.prepare('SELECT * FROM budget_bills WHERE user_id = ? AND id = ?').get(userId, id)) as BudgetBill | undefined) ?? null
 }
 
-export function addBill(userId: number, data: Partial<BudgetBill>): number {
-  ensureSchemaOnce()
+export async function addBill(userId: number, data: Partial<BudgetBill>): Promise<number> {
   const db = getDb()
-  const result = db.prepare(
-    'INSERT INTO budget_bills (user_id, payee_id, payee_name, amount, due_date, is_paid, paid_date, is_recurring, recurrence_type, notes, category_id, account, credit_card_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  const result = await db.prepare(
+    'INSERT INTO budget_bills (user_id, payee_id, payee_name, amount, due_date, is_paid, paid_date, is_recurring, recurrence_type, notes, category_id, account, credit_card_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id'
   ).run(
     userId,
     data.payee_id || null,
@@ -867,10 +643,9 @@ export function addBill(userId: number, data: Partial<BudgetBill>): number {
   return Number(result.lastInsertRowid)
 }
 
-export function updateBill(userId: number, id: number, data: Partial<BudgetBill>): void {
-  ensureSchemaOnce()
+export async function updateBill(userId: number, id: number, data: Partial<BudgetBill>): Promise<void> {
   const db = getDb()
-  db.prepare(
+  await db.prepare(
     'UPDATE budget_bills SET payee_id = ?, payee_name = ?, amount = ?, due_date = ?, is_paid = ?, paid_date = ?, is_recurring = ?, recurrence_type = ?, notes = ?, category_id = ?, account = ?, credit_card_id = ? WHERE user_id = ? AND id = ?'
   ).run(
     data.payee_id || null,
@@ -890,118 +665,104 @@ export function updateBill(userId: number, id: number, data: Partial<BudgetBill>
   )
 }
 
-export function updateBillField(userId: number, id: number, field: string, value: unknown): void {
-  ensureSchemaOnce()
+export async function updateBillField(userId: number, id: number, field: string, value: unknown): Promise<void> {
   const db = getDb()
   const allowedFields = ['payee_id', 'payee_name', 'amount', 'due_date', 'is_paid', 'paid_date', 'is_recurring', 'recurrence_type', 'notes', 'category_id', 'account', 'credit_card_id']
   if (!allowedFields.includes(field)) return
-  db.prepare(`UPDATE budget_bills SET ${field} = ? WHERE user_id = ? AND id = ?`).run(value, userId, id)
+  await db.prepare(`UPDATE budget_bills SET ${field} = ? WHERE user_id = ? AND id = ?`).run(value, userId, id)
 }
 
-export function markBillPaid(userId: number, id: number): void {
-  ensureSchemaOnce()
+export async function markBillPaid(userId: number, id: number): Promise<void> {
   const db = getDb()
   const today = new Date().toISOString().split('T')[0]
-  db.prepare('UPDATE budget_bills SET is_paid = 1, paid_date = ? WHERE user_id = ? AND id = ?').run(today, userId, id)
+  await db.prepare('UPDATE budget_bills SET is_paid = 1, paid_date = ? WHERE user_id = ? AND id = ?').run(today, userId, id)
 }
 
-export function markBillUnpaid(userId: number, id: number): void {
-  ensureSchemaOnce()
+export async function markBillUnpaid(userId: number, id: number): Promise<void> {
   const db = getDb()
-  db.prepare('UPDATE budget_bills SET is_paid = 0, paid_date = NULL WHERE user_id = ? AND id = ?').run(userId, id)
+  await db.prepare('UPDATE budget_bills SET is_paid = 0, paid_date = NULL WHERE user_id = ? AND id = ?').run(userId, id)
 }
 
-export function deleteBill(userId: number, id: number): void {
-  ensureSchemaOnce()
+export async function deleteBill(userId: number, id: number): Promise<void> {
   const db = getDb()
-  db.prepare('DELETE FROM budget_bills WHERE user_id = ? AND id = ?').run(userId, id)
+  await db.prepare('DELETE FROM budget_bills WHERE user_id = ? AND id = ?').run(userId, id)
 }
 
 // Budget Categories
-export function getBudgetCategories(userId: number): BudgetCategory[] {
-  ensureSchemaOnce()
+export async function getBudgetCategories(userId: number): Promise<BudgetCategory[]> {
   const db = getDb()
-  return db.prepare('SELECT * FROM budget_categories WHERE user_id = ? ORDER BY parent_id, name').all(userId) as BudgetCategory[]
+  return (await db.prepare('SELECT * FROM budget_categories WHERE user_id = ? ORDER BY parent_id, name').all(userId)) as BudgetCategory[]
 }
 
-export function getBudgetCategory(userId: number, id: number): BudgetCategory | null {
-  ensureSchemaOnce()
+export async function getBudgetCategory(userId: number, id: number): Promise<BudgetCategory | null> {
   const db = getDb()
-  return db.prepare('SELECT * FROM budget_categories WHERE user_id = ? AND id = ?').get(userId, id) as BudgetCategory | undefined ?? null
+  return ((await db.prepare('SELECT * FROM budget_categories WHERE user_id = ? AND id = ?').get(userId, id)) as BudgetCategory | undefined) ?? null
 }
 
-export function getAllBudgetCategoriesFlat(userId: number): BudgetCategory[] {
-  ensureSchemaOnce()
+export async function getAllBudgetCategoriesFlat(userId: number): Promise<BudgetCategory[]> {
   const db = getDb()
-  return db.prepare('SELECT * FROM budget_categories WHERE user_id = ? ORDER BY name').all(userId) as BudgetCategory[]
+  return (await db.prepare('SELECT * FROM budget_categories WHERE user_id = ? ORDER BY name').all(userId)) as BudgetCategory[]
 }
 
-export function addBudgetCategory(userId: number, data: Partial<BudgetCategory>): number {
-  ensureSchemaOnce()
+export async function addBudgetCategory(userId: number, data: Partial<BudgetCategory>): Promise<number> {
   const db = getDb()
-  const result = db.prepare(
-    'INSERT INTO budget_categories (user_id, name, monthly_limit, color, parent_id, actual_spent) VALUES (?, ?, ?, ?, ?, ?)'
+  const result = await db.prepare(
+    'INSERT INTO budget_categories (user_id, name, monthly_limit, color, parent_id, actual_spent) VALUES (?, ?, ?, ?, ?, ?) RETURNING id'
   ).run(userId, data.name || '', data.monthly_limit || 0, data.color || '#2E7D32', data.parent_id || null, data.actual_spent || 0)
   return Number(result.lastInsertRowid)
 }
 
-export function updateBudgetCategory(userId: number, id: number, data: Partial<BudgetCategory>): void {
-  ensureSchemaOnce()
+export async function updateBudgetCategory(userId: number, id: number, data: Partial<BudgetCategory>): Promise<void> {
   const db = getDb()
-  db.prepare(
+  await db.prepare(
     'UPDATE budget_categories SET name = ?, monthly_limit = ?, color = ?, parent_id = ?, actual_spent = ? WHERE user_id = ? AND id = ?'
   ).run(data.name || '', data.monthly_limit || 0, data.color || '#2E7D32', data.parent_id || null, data.actual_spent || 0, userId, id)
 }
 
-export function deleteBudgetCategory(userId: number, id: number): void {
-  ensureSchemaOnce()
+export async function deleteBudgetCategory(userId: number, id: number): Promise<void> {
   const db = getDb()
-  db.prepare('DELETE FROM budget_categories WHERE user_id = ? AND id = ?').run(userId, id)
+  await db.prepare('DELETE FROM budget_categories WHERE user_id = ? AND id = ?').run(userId, id)
 }
 
 // Modified Income
-export function getModifiedIncomes(userId: number): BudgetModifiedIncome[] {
-  ensureSchemaOnce()
+export async function getModifiedIncomes(userId: number): Promise<BudgetModifiedIncome[]> {
   const db = getDb()
-  return db.prepare('SELECT * FROM budget_modified_income WHERE user_id = ? ORDER BY entry_date DESC').all(userId) as BudgetModifiedIncome[]
+  return (await db.prepare('SELECT * FROM budget_modified_income WHERE user_id = ? ORDER BY entry_date DESC').all(userId)) as BudgetModifiedIncome[]
 }
 
-export function addModifiedIncome(userId: number, data: Partial<BudgetModifiedIncome>): number {
-  ensureSchemaOnce()
+export async function addModifiedIncome(userId: number, data: Partial<BudgetModifiedIncome>): Promise<number> {
   const db = getDb()
-  const result = db.prepare(
-    'INSERT INTO budget_modified_income (user_id, amount, entry_date, period_type, notes) VALUES (?, ?, ?, ?, ?)'
+  const result = await db.prepare(
+    'INSERT INTO budget_modified_income (user_id, amount, entry_date, period_type, notes) VALUES (?, ?, ?, ?, ?) RETURNING id'
   ).run(userId, data.amount || 0, data.entry_date || '', data.period_type || 'biweekly', data.notes || '')
   return Number(result.lastInsertRowid)
 }
 
-export function deleteModifiedIncome(userId: number, id: number): void {
-  ensureSchemaOnce()
+export async function deleteModifiedIncome(userId: number, id: number): Promise<void> {
   const db = getDb()
-  db.prepare('DELETE FROM budget_modified_income WHERE user_id = ? AND id = ?').run(userId, id)
+  await db.prepare('DELETE FROM budget_modified_income WHERE user_id = ? AND id = ?').run(userId, id)
 }
 
 // Pay Period History
-export function getPayPeriodHistory(userId: number) {
-  ensureSchemaOnce()
+export async function getPayPeriodHistory(userId: number) {
   const db = getDb()
-  const paychecks = db.prepare('SELECT * FROM budget_paychecks WHERE user_id = ? ORDER BY check_date DESC').all(userId) as (BudgetPaycheck & { id: number })[]
+  const paychecks = (await db.prepare('SELECT * FROM budget_paychecks WHERE user_id = ? ORDER BY check_date DESC').all(userId)) as (BudgetPaycheck & { id: number })[]
   const periods: Record<string, { income: number; expenses: number; bills: BudgetBill[] }> = {}
-  
+
   for (const pc of paychecks) {
     if (!pc.check_date) continue
     const periodKey = pc.check_date
     const nextPc = paychecks.find(p => p.check_date && p.check_date < periodKey)
     const periodEnd = nextPc ? nextPc.check_date : new Date().toISOString().split('T')[0]
-    
-    const bills = db.prepare(`
+
+    const bills = (await db.prepare(`
       SELECT b.*, COALESCE(b.payee_name, p.name) as payee_name
       FROM budget_bills b
       LEFT JOIN budget_payees p ON b.payee_id = p.id
       WHERE b.user_id = ? AND b.due_date >= ? AND b.due_date <= ?
       ORDER BY b.due_date
-    `).all(userId, periodKey, periodEnd) as BudgetBill[]
-    
+    `).all(userId, periodKey, periodEnd)) as BudgetBill[]
+
     const expenses = bills.reduce((s, b) => s + (Number(b.amount) || 0), 0)
     periods[periodKey] = {
       income: pc.net_pay || 0,
@@ -1009,13 +770,12 @@ export function getPayPeriodHistory(userId: number) {
       bills
     }
   }
-  
+
   return periods
 }
 
 // Transactions
-export function getTransactions(userId: number, accountId?: number, startDate?: string, endDate?: string) {
-  ensureSchemaOnce()
+export async function getTransactions(userId: number, accountId?: number, startDate?: string, endDate?: string) {
   const db = getDb()
   let sql = 'SELECT * FROM budget_transactions WHERE user_id = ?'
   const params: unknown[] = [userId]
@@ -1023,37 +783,33 @@ export function getTransactions(userId: number, accountId?: number, startDate?: 
   if (startDate) { sql += ' AND date >= ?'; params.push(startDate) }
   if (endDate) { sql += ' AND date <= ?'; params.push(endDate) }
   sql += ' ORDER BY date DESC'
-  return db.prepare(sql).all(...params) as { id: number; user_id: number; account_id: number; date: string; description: string; amount: number; balance: number; plaid_transaction_id: string | null }[]
+  return (await db.prepare(sql).all(...params)) as { id: number; user_id: number; account_id: number; date: string; description: string; amount: number; balance: number; plaid_transaction_id: string | null }[]
 }
 
-export function addTransactions(userId: number, accountId: number, transactionsList: { date: string; description: string; amount: number; balance: number }[]) {
-  ensureSchemaOnce()
+export async function addTransactions(userId: number, accountId: number, transactionsList: { date: string; description: string; amount: number; balance: number }[]) {
   const db = getDb()
   const insert = db.prepare('INSERT INTO budget_transactions (user_id, account_id, date, description, amount, balance) VALUES (?, ?, ?, ?, ?, ?)')
   let count = 0
   for (const tx of transactionsList) {
     if (tx.date && tx.amount !== 0) {
-      insert.run(userId, accountId, tx.date, tx.description, tx.amount, tx.balance || 0)
+      await insert.run(userId, accountId, tx.date, tx.description, tx.amount, tx.balance || 0)
       count++
     }
   }
   return count
 }
 
-export function clearTransactions(userId: number, accountId: number) {
-  ensureSchemaOnce()
+export async function clearTransactions(userId: number, accountId: number) {
   const db = getDb()
-  db.prepare('DELETE FROM budget_transactions WHERE user_id = ? AND account_id = ?').run(userId, accountId)
+  await db.prepare('DELETE FROM budget_transactions WHERE user_id = ? AND account_id = ?').run(userId, accountId)
 }
 
-export function deleteTransaction(userId: number, id: number) {
-  ensureSchemaOnce()
+export async function deleteTransaction(userId: number, id: number) {
   const db = getDb()
-  db.prepare('DELETE FROM budget_transactions WHERE user_id = ? AND id = ?').run(userId, id)
+  await db.prepare('DELETE FROM budget_transactions WHERE user_id = ? AND id = ?').run(userId, id)
 }
 
-export function updateTransaction(userId: number, id: number, data: { date?: string; description?: string; amount?: number; balance?: number }) {
-  ensureSchemaOnce()
+export async function updateTransaction(userId: number, id: number, data: { date?: string; description?: string; amount?: number; balance?: number }) {
   const db = getDb()
   const sets: string[] = []
   const vals: unknown[] = []
@@ -1063,97 +819,86 @@ export function updateTransaction(userId: number, id: number, data: { date?: str
   if (data.balance !== undefined) { sets.push('balance = ?'); vals.push(data.balance) }
   if (sets.length === 0) return
   vals.push(id, userId)
-  db.prepare(`UPDATE budget_transactions SET ${sets.join(', ')} WHERE id = ? AND user_id = ?`).run(...vals)
+  await db.prepare(`UPDATE budget_transactions SET ${sets.join(', ')} WHERE id = ? AND user_id = ?`).run(...vals)
 }
 
-export function clearAllTransactions(userId: number) {
-  ensureSchemaOnce()
+export async function clearAllTransactions(userId: number) {
   const db = getDb()
-  db.prepare('DELETE FROM budget_transactions WHERE user_id = ?').run(userId)
+  await db.prepare('DELETE FROM budget_transactions WHERE user_id = ?').run(userId)
 }
 
 // Plaid Items
-export function addPlaidItem(userId: number, accessToken: string, itemId: string, institutionName: string) {
-  ensureSchemaOnce()
+export async function addPlaidItem(userId: number, accessToken: string, itemId: string, institutionName: string) {
   const db = getDb()
-  const result = db.prepare('INSERT INTO budget_plaid_items (user_id, access_token, item_id, institution_name) VALUES (?, ?, ?, ?)').run(userId, accessToken, itemId, institutionName)
+  const result = await db.prepare('INSERT INTO budget_plaid_items (user_id, access_token, item_id, institution_name) VALUES (?, ?, ?, ?) RETURNING id').run(userId, accessToken, itemId, institutionName)
   return Number(result.lastInsertRowid)
 }
 
-export function getPlaidItems(userId: number) {
-  ensureSchemaOnce()
+export async function getPlaidItems(userId: number) {
   const db = getDb()
-  return db.prepare('SELECT * FROM budget_plaid_items WHERE user_id = ? ORDER BY id').all(userId) as { id: number; user_id: number; access_token: string; item_id: string; institution_name: string; plaid_cursor: string | null }[]
+  return (await db.prepare('SELECT * FROM budget_plaid_items WHERE user_id = ? ORDER BY id').all(userId)) as { id: number; user_id: number; access_token: string; item_id: string; institution_name: string; plaid_cursor: string | null }[]
 }
 
-export function deletePlaidItem(userId: number, itemId: number) {
-  ensureSchemaOnce()
+export async function deletePlaidItem(userId: number, itemId: number) {
   const db = getDb()
-  db.prepare('DELETE FROM budget_plaid_items WHERE user_id = ? AND id = ?').run(userId, itemId)
-  db.prepare('UPDATE budget_bank_accounts SET plaid_account_id = NULL, plaid_item_id = NULL WHERE user_id = ? AND plaid_item_id = ?').run(userId, itemId)
-  db.prepare('UPDATE budget_credit_cards SET plaid_account_id = NULL, plaid_item_id = NULL WHERE user_id = ? AND plaid_item_id = ?').run(userId, itemId)
+  await db.prepare('DELETE FROM budget_plaid_items WHERE user_id = ? AND id = ?').run(userId, itemId)
+  await db.prepare('UPDATE budget_bank_accounts SET plaid_account_id = NULL, plaid_item_id = NULL WHERE user_id = ? AND plaid_item_id = ?').run(userId, itemId)
+  await db.prepare('UPDATE budget_credit_cards SET plaid_account_id = NULL, plaid_item_id = NULL WHERE user_id = ? AND plaid_item_id = ?').run(userId, itemId)
 }
 
-export function updatePlaidCursor(userId: number, itemPk: number, cursorVal: string) {
-  ensureSchemaOnce()
+export async function updatePlaidCursor(userId: number, itemPk: number, cursorVal: string) {
   const db = getDb()
-  db.prepare('UPDATE budget_plaid_items SET plaid_cursor = ? WHERE user_id = ? AND id = ?').run(cursorVal, userId, itemPk)
+  await db.prepare('UPDATE budget_plaid_items SET plaid_cursor = ? WHERE user_id = ? AND id = ?').run(cursorVal, userId, itemPk)
 }
 
-export function getAccountsByPlaidItem(userId: number, itemPk: number) {
-  ensureSchemaOnce()
+export async function getAccountsByPlaidItem(userId: number, itemPk: number) {
   const db = getDb()
-  const banks = db.prepare('SELECT id, plaid_account_id, name, current_balance FROM budget_bank_accounts WHERE user_id = ? AND plaid_item_id = ? AND is_active = 1').all(userId, itemPk) as { id: number; plaid_account_id: string; name: string; current_balance: number }[]
-  const cards = db.prepare('SELECT id, plaid_account_id, name, current_balance FROM budget_credit_cards WHERE user_id = ? AND plaid_item_id = ? AND is_active = 1').all(userId, itemPk) as { id: number; plaid_account_id: string; name: string; current_balance: number }[]
+  const banks = (await db.prepare('SELECT id, plaid_account_id, name, current_balance FROM budget_bank_accounts WHERE user_id = ? AND plaid_item_id = ? AND is_active = 1').all(userId, itemPk)) as { id: number; plaid_account_id: string; name: string; current_balance: number }[]
+  const cards = (await db.prepare('SELECT id, plaid_account_id, name, current_balance FROM budget_credit_cards WHERE user_id = ? AND plaid_item_id = ? AND is_active = 1').all(userId, itemPk)) as { id: number; plaid_account_id: string; name: string; current_balance: number }[]
   return [...banks.map(b => ({ ...b, type: 'bank' as const })), ...cards.map(c => ({ ...c, type: 'credit' as const }))]
 }
 
-export function upsertPlaidTransaction(userId: number, localAccountId: number, plaidTxId: string, date: string, description: string, amount: number, runningBalance: number, isCreditCard: boolean = false) {
-  ensureSchemaOnce()
+export async function upsertPlaidTransaction(userId: number, localAccountId: number, plaidTxId: string, date: string, description: string, amount: number, runningBalance: number, isCreditCard: boolean = false) {
   const db = getDb()
-  const existing = db.prepare('SELECT id FROM budget_transactions WHERE plaid_transaction_id = ?').get(plaidTxId) as { id: number } | undefined
+  const existing = (await db.prepare('SELECT id FROM budget_transactions WHERE plaid_transaction_id = ?').get(plaidTxId)) as { id: number } | undefined
   if (existing) {
-    db.prepare('UPDATE budget_transactions SET date=?, description=?, amount=?, running_balance=? WHERE plaid_transaction_id=?').run(date, description, amount, runningBalance, plaidTxId)
+    await db.prepare('UPDATE budget_transactions SET date=?, description=?, amount=?, running_balance=? WHERE plaid_transaction_id=?').run(date, description, amount, runningBalance, plaidTxId)
   } else {
-    db.prepare('INSERT INTO budget_transactions (user_id, account_id, date, description, amount, balance, plaid_transaction_id) VALUES (?, ?, ?, ?, ?, ?, ?)').run(userId, localAccountId, date, description, amount, runningBalance, plaidTxId)
+    await db.prepare('INSERT INTO budget_transactions (user_id, account_id, date, description, amount, balance, plaid_transaction_id) VALUES (?, ?, ?, ?, ?, ?, ?)').run(userId, localAccountId, date, description, amount, runningBalance, plaidTxId)
   }
 }
 
-export function deletePlaidTransaction(plaidTxId: string) {
-  ensureSchemaOnce()
+export async function deletePlaidTransaction(plaidTxId: string) {
   const db = getDb()
-  db.prepare('DELETE FROM budget_transactions WHERE plaid_transaction_id = ?').run(plaidTxId)
+  await db.prepare('DELETE FROM budget_transactions WHERE plaid_transaction_id = ?').run(plaidTxId)
 }
 
 // Dashboard stats helper: total budget
-export function getTotalBudget(userId: number): number {
-  ensureSchemaOnce()
+export async function getTotalBudget(userId: number): Promise<number> {
   const db = getDb()
-  return (db.prepare('SELECT COALESCE(SUM(monthly_limit), 0) as t FROM budget_categories WHERE user_id = ?').get(userId) as { t: number }).t
+  return (await db.prepare('SELECT COALESCE(SUM(monthly_limit), 0) as t FROM budget_categories WHERE user_id = ?').get(userId) as { t: number }).t
 }
 
 // Goals helper: get all debt accounts
-export function getDebtAccounts(userId: number) {
-  ensureSchemaOnce()
+export async function getDebtAccounts(userId: number) {
   const db = getDb()
-  const creditCards = db.prepare('SELECT id, name, current_balance as balance, interest_rate as rate FROM budget_credit_cards WHERE user_id = ? AND is_active = 1').all(userId)
-  const loans = db.prepare("SELECT id, name, current_balance as balance, interest_rate as rate FROM budget_bank_accounts WHERE user_id = ? AND is_active = 1 AND account_type = 'loan'").all(userId)
+  const creditCards = await db.prepare('SELECT id, name, current_balance as balance, interest_rate as rate FROM budget_credit_cards WHERE user_id = ? AND is_active = 1').all(userId)
+  const loans = await db.prepare("SELECT id, name, current_balance as balance, interest_rate as rate FROM budget_bank_accounts WHERE user_id = ? AND is_active = 1 AND account_type = 'loan'").all(userId)
   return { creditCards, loans }
 }
 
 // Bills with payees (for interactive budget, reports, etc.)
-export function getBillsWithPayees(userId: number) {
-  ensureSchemaOnce()
+export async function getBillsWithPayees(userId: number) {
   const db = getDb()
-  return db.prepare(`
+  return (await db.prepare(`
     SELECT b.*, COALESCE(b.payee_name, p.name) as payee_name
     FROM budget_bills b
     LEFT JOIN budget_payees p ON b.payee_id = p.id
     WHERE b.user_id = ?
     ORDER BY b.due_date
-  `).all(userId) as (BudgetBill & { payee_name: string })[]
+  `).all(userId)) as (BudgetBill & { payee_name: string })[]
 }
 
-export function initBudgetDb(): void {
-  ensureSchemaOnce()
+export async function initBudgetDb(): Promise<void> {
+  // No-op: schema managed by Postgres
 }

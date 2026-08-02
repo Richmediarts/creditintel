@@ -15,7 +15,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const { id } = await params
-  const bill = getBill(auth.userId, Number(id))
+  const bill = await getBill(auth.userId, Number(id))
   if (!bill) {
     return NextResponse.json({ error: 'Bill not found' }, { status: 404 })
   }
@@ -33,13 +33,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const data = await request.json()
     
     if (data.field && data.value !== undefined) {
-      updateBillField(auth.userId, Number(id), data.field, data.value)
+      await updateBillField(auth.userId, Number(id), data.field, data.value)
     } else if (data.paid === true) {
-      markBillPaid(auth.userId, Number(id))
+      await markBillPaid(auth.userId, Number(id))
     } else if (data.paid === false) {
-      markBillUnpaid(auth.userId, Number(id))
+      await markBillUnpaid(auth.userId, Number(id))
     } else {
-      updateBill(auth.userId, Number(id), data)
+      await updateBill(auth.userId, Number(id), data)
     }
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -55,7 +55,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   try {
     const { id } = await params
-    deleteBill(auth.userId, Number(id))
+    await deleteBill(auth.userId, Number(id))
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to delete bill' }, { status: 500 })

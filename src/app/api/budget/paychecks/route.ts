@@ -14,8 +14,8 @@ export async function GET(request: NextRequest) {
   if (!auth) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
-  const paychecks = getPaychecks(auth.userId)
-  const nextPaycheck = getNextPaycheckDate(auth.userId)
+  const paychecks = await getPaychecks(auth.userId)
+  const nextPaycheck = await getNextPaycheckDate(auth.userId)
   return NextResponse.json({ paychecks, nextPaycheck })
 }
 
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     if (!body.check_date && !body.pay_date) {
       return NextResponse.json({ error: 'Check date or pay date is required' }, { status: 400 })
     }
-    const id = addPaycheck(auth.userId, body)
+    const id = await addPaycheck(auth.userId, body)
     return NextResponse.json({ success: true, id })
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed to add paycheck' }, { status: 500 })

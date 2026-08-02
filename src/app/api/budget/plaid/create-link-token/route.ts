@@ -5,12 +5,12 @@ import { Configuration, PlaidApi, PlaidEnvironments, LinkTokenCreateRequest, Lin
 import fs from 'fs'
 import path from 'path'
 
-function getPlaidConfig() {
+async function getPlaidConfig() {
   // 1. Check DB settings table
   try {
     const db = getDb()
-    db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
-    const row = db.prepare("SELECT value FROM settings WHERE key = 'plaid_config'").get() as { value: string } | undefined
+    await db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
+    const row = await db.get("SELECT value FROM settings WHERE key = 'plaid_config'", [])
     if (row) {
       try {
         const cfg = JSON.parse(row.value)
@@ -32,8 +32,8 @@ function getPlaidConfig() {
             // Also hydrate DB for this instance
             try {
               const db = getDb()
-              db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
-              db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('plaid_config', ?)").run(entry.value)
+              await db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
+              await db.run("INSERT INTO settings (key, value) VALUES ('plaid_config', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value", [entry.value])
             } catch { /* ignore */ }
             return cfg
           }
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
   const user = verifyToken(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const config = getPlaidConfig()
+  const config = await getPlaidConfig()
   if (!config.client_id || !config.secret) {
     return NextResponse.json({ error: 'Plaid not configured. Set PLAID_CLIENT_ID and PLAID_SECRET.' }, { status: 400 })
   }

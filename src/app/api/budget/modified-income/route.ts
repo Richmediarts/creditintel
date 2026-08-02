@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  const incomes = getModifiedIncomes(auth.userId)
+  const incomes = await getModifiedIncomes(auth.userId)
   return NextResponse.json({ incomes })
 }
 
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const data = await request.json()
-    const id = addModifiedIncome(auth.userId, data)
+    const id = await addModifiedIncome(auth.userId, data)
     return NextResponse.json({ id }, { status: 201 })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create modified income' }, { status: 500 })

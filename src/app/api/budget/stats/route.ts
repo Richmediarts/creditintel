@@ -14,6 +14,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  const stats = getBudgetStats(auth.userId)
+  const stats = await getBudgetStats(auth.userId)
   return NextResponse.json({ stats })
 }

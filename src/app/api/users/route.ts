@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   }
 
   const db = getDb()
-  const users = db.prepare('SELECT id, name, email, role, address, created_at FROM users ORDER BY created_at ASC').all()
+  const users = await db.all('SELECT id, name, email, role, address, created_at FROM users ORDER BY created_at ASC', [])
   return NextResponse.json({ users })
 }
 
@@ -35,15 +35,16 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getDb()
-    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase().trim())
+    const existing = await db.get('SELECT id FROM users WHERE email = ?', [email.toLowerCase().trim()])
     if (existing) {
       return NextResponse.json({ error: 'Email already in use' }, { status: 409 })
     }
 
     const passwordHash = await hashPassword(password)
-    const result = db.prepare(
-      'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)'
-    ).run(name.trim(), email.toLowerCase().trim(), passwordHash, role || 'member')
+    const result = await db.run(
+      'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?) RETURNING id',
+      [name.trim(), email.toLowerCase().trim(), passwordHash, role || 'member']
+    )
 
     return NextResponse.json({
       user: { id: result.lastInsertRowid, name: name.trim(), email: email.toLowerCase().trim(), role: role || 'member' },

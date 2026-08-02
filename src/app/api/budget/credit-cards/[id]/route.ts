@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const { id } = await params
-  const card = getCreditCard(auth.userId, Number(id))
+  const card = await getCreditCard(auth.userId, Number(id))
   if (!card) {
     return NextResponse.json({ error: 'Credit card not found' }, { status: 404 })
   }
@@ -33,7 +33,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params
     const data = await request.json()
-    updateCreditCard(auth.userId, Number(id), data)
+    await updateCreditCard(auth.userId, Number(id), data)
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update credit card' }, { status: 500 })
@@ -49,8 +49,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   try {
     const { id } = await params
     const cardId = Number(id)
-    const card = getCreditCard(auth.userId, cardId)
-    deleteCreditCard(auth.userId, cardId)
+    const card = await getCreditCard(auth.userId, cardId)
+    await deleteCreditCard(auth.userId, cardId)
 
     // Persist deletion to seed.json so it survives Vercel cold starts (best-effort)
     if (card) {

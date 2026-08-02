@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   }
 
   const db = getDb()
-  const user = db.prepare('SELECT id, name, email, role, address, created_at FROM users WHERE id = ?').get(payload.userId) as any
+  const user = await db.get('SELECT id, name, email, role, address, created_at FROM users WHERE id = ?', [payload.userId])
 
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 401 })
@@ -37,7 +37,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const db = getDb()
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(payload.userId) as any
+  const user = await db.get('SELECT * FROM users WHERE id = ?', [payload.userId])
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 401 })
   }
@@ -46,19 +46,19 @@ export async function PATCH(request: NextRequest) {
     const { email, name, address, currentPassword, newPassword } = await request.json()
 
     if (name !== undefined) {
-      db.prepare('UPDATE users SET name = ? WHERE id = ?').run(name.trim(), user.id)
+      await db.run('UPDATE users SET name = ? WHERE id = ?', [name.trim(), user.id])
     }
 
     if (address !== undefined) {
-      db.prepare('UPDATE users SET address = ? WHERE id = ?').run(address.trim(), user.id)
+      await db.run('UPDATE users SET address = ? WHERE id = ?', [address.trim(), user.id])
     }
 
     if (email) {
-      const existing = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(email.toLowerCase().trim(), user.id)
+      const existing = await db.get('SELECT id FROM users WHERE email = ? AND id != ?', [email.toLowerCase().trim(), user.id])
       if (existing) {
         return NextResponse.json({ error: 'Email already in use' }, { status: 409 })
       }
-      db.prepare('UPDATE users SET email = ? WHERE id = ?').run(email.toLowerCase().trim(), user.id)
+      await db.run('UPDATE users SET email = ? WHERE id = ?', [email.toLowerCase().trim(), user.id])
     }
 
     if (newPassword) {
@@ -74,7 +74,7 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: 'New password must be at least 6 characters' }, { status: 400 })
       }
       const passwordHash = await hashPassword(newPassword)
-      db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, user.id)
+      await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, user.id])
     }
 
     return NextResponse.json({ message: 'Account updated' })

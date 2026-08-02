@@ -4,13 +4,21 @@ import { getDb } from '@/lib/db'
 import { Configuration, PlaidApi, PlaidEnvironments, AccountsBalanceGetRequest } from 'plaid'
 import { getPlaidItems } from '@/lib/budget-db'
 
-function getPlaidConfig() {
-  const db = getDb()
-  db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
-  const row = db.prepare("SELECT value FROM settings WHERE key = 'plaid_config'").get() as { value: string } | undefined
-  if (row) {
-    try { return JSON.parse(row.value) } catch { /* ignore */ }
-  }
+async function getPlaidConfig() {
+  // 1. Check DB settings table
+  try {
+    const db = getDb()
+    await db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
+    const row = await db.get("SELECT value FROM settings WHERE key = 'plaid_config'", [])
+    if (row) {
+      try {
+        const cfg = JSON.parse(row.value)
+        if (cfg.client_id && cfg.secret) return cfg
+      } catch { /* ignore */ }
+    }
+  } catch { /* ignore */ }
+
+  // 2. Fall back to env vars
   return {
     client_id: process.env.PLAID_CLIENT_ID || '',
     secret: process.env.PLAID_SECRET || '',
@@ -38,14 +46,14 @@ export async function POST(request: NextRequest) {
   const user = verifyToken(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const config = getPlaidConfig()
+  const config = await getPlaidConfig()
   if (!config.client_id || !config.secret) {
     return NextResponse.json({ error: 'Plaid not configured' }, { status: 400 })
   }
 
   try {
     const client = getPlaidClient(config)
-    const items = getPlaidItems(user.userId)
+    const items = await getPlaidItems(user.userId)
     const results: { item: string; status: string; error?: string }[] = []
     const db = getDb()
 
@@ -58,9 +66,9 @@ export async function POST(request: NextRequest) {
           const balance = acct.balances?.current || 0
           const limitVal = acct.balances?.limit || 0
 
-          const updated = db.prepare('UPDATE budget_bank_accounts SET current_balance = ? WHERE user_id = ? AND plaid_account_id = ?').run(balance, user.userId, aid)
+          const updated = await db.run('UPDATE budget_bank_accounts SET current_balance = ? WHERE user_id = ? AND plaid_account_id = ?', [balance, user.userId, aid])
           if (updated.changes === 0) {
-            db.prepare('UPDATE budget_credit_cards SET current_balance = ?, credit_limit = ? WHERE user_id = ? AND plaid_account_id = ?').run(balance, limitVal, user.userId, aid)
+            await db.run('UPDATE budget_credit_cards SET current_balance = ?, credit_limit = ? WHERE user_id = ? AND plaid_account_id = ?', [balance, limitVal, user.userId, aid])
           }
         }
         results.push({ item: item.institution_name || '', status: 'ok' })

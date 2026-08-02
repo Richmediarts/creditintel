@@ -18,7 +18,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   const db = getDb()
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(id)) as any
+  const user = await db.get('SELECT * FROM users WHERE id = ?', [Number(id)])
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
   }
@@ -32,23 +32,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       }
       const { hashPassword } = await import('@/lib/auth')
       const passwordHash = await hashPassword(body.password)
-      db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, Number(id))
+      await db.run('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, Number(id)])
     }
 
     if (body.name !== undefined) {
-      db.prepare('UPDATE users SET name = ? WHERE id = ?').run(body.name.trim(), Number(id))
+      await db.run('UPDATE users SET name = ? WHERE id = ?', [body.name.trim(), Number(id)])
     }
 
     if (body.email !== undefined) {
-      const existing = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(body.email.toLowerCase().trim(), Number(id))
+      const existing = await db.get('SELECT id FROM users WHERE email = ? AND id != ?', [body.email.toLowerCase().trim(), Number(id)])
       if (existing) {
         return NextResponse.json({ error: 'Email already in use' }, { status: 409 })
       }
-      db.prepare('UPDATE users SET email = ? WHERE id = ?').run(body.email.toLowerCase().trim(), Number(id))
+      await db.run('UPDATE users SET email = ? WHERE id = ?', [body.email.toLowerCase().trim(), Number(id)])
     }
 
     if (body.address !== undefined) {
-      db.prepare('UPDATE users SET address = ? WHERE id = ?').run(body.address.trim(), Number(id))
+      await db.run('UPDATE users SET address = ? WHERE id = ?', [body.address.trim(), Number(id)])
     }
 
     if (body.role) {
@@ -58,7 +58,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       if (Number(id) === admin.userId) {
         return NextResponse.json({ error: 'Cannot change your own role' }, { status: 400 })
       }
-      db.prepare('UPDATE users SET role = ? WHERE id = ?').run(body.role, Number(id))
+      await db.run('UPDATE users SET role = ? WHERE id = ?', [body.role, Number(id)])
     }
 
     return NextResponse.json({ success: true })
@@ -76,7 +76,7 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   }
 
   const db = getDb()
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(id)) as any
+  const user = await db.get('SELECT * FROM users WHERE id = ?', [Number(id)])
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
   }
@@ -84,14 +84,27 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
     return NextResponse.json({ error: 'Cannot delete yourself' }, { status: 400 })
   }
   if (user.role === 'admin') {
-    const adminCount = (db.prepare('SELECT COUNT(*) as count FROM users WHERE role = ?').get('admin') as any).count
-    if (adminCount <= 1) {
+    const adminCount = await db.get('SELECT COUNT(*) as count FROM users WHERE role = ?', ['admin'])
+    if (adminCount && Number(adminCount.count) <= 1) {
       return NextResponse.json({ error: 'Cannot delete the last admin' }, { status: 400 })
     }
   }
 
-  db.prepare('DELETE FROM disputes WHERE user_id = ?').run(Number(id))
-  db.prepare('DELETE FROM users WHERE id = ?').run(Number(id))
+  await db.transaction(async () => {
+    await db.run('DELETE FROM disputes WHERE user_id = ?', [Number(id)])
+    await db.run('DELETE FROM reports WHERE user_id = ?', [Number(id)])
+    await db.run('DELETE FROM fico_scores WHERE user_id = ?', [Number(id)])
+    await db.run('DELETE FROM budget_transactions WHERE user_id = ?', [Number(id)])
+    await db.run('DELETE FROM budget_bills WHERE user_id = ?', [Number(id)])
+    await db.run('DELETE FROM budget_paychecks WHERE user_id = ?', [Number(id)])
+    await db.run('DELETE FROM budget_payees WHERE user_id = ?', [Number(id)])
+    await db.run('DELETE FROM budget_categories WHERE user_id = ?', [Number(id)])
+    await db.run('DELETE FROM budget_bank_accounts WHERE user_id = ?', [Number(id)])
+    await db.run('DELETE FROM budget_credit_cards WHERE user_id = ?', [Number(id)])
+    await db.run('DELETE FROM budget_plaid_items WHERE user_id = ?', [Number(id)])
+    await db.run('DELETE FROM budget_modified_income WHERE user_id = ?', [Number(id)])
+    await db.run('DELETE FROM users WHERE id = ?', [Number(id)])
+  })
 
   return NextResponse.json({ success: true })
 }

@@ -16,7 +16,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   }
 
   const db = getDb()
-  const dispute = db.prepare('SELECT * FROM disputes WHERE id = ? AND user_id = ?').get(Number(id), auth.userId) as any
+  const dispute = await db.get('SELECT * FROM disputes WHERE id = ? AND user_id = ?', [Number(id), auth.userId])
   if (!dispute) {
     return NextResponse.json({ error: 'Dispute not found' }, { status: 404 })
   }
@@ -83,10 +83,10 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
     }
 
-    fields.push('updated_at = datetime(\'now\')')
+    fields.push('updated_at = NOW()')
     values.push(Number(id))
 
-    db.prepare(`UPDATE disputes SET ${fields.join(', ')} WHERE id = ?`).run(...values)
+    await db.run(`UPDATE disputes SET ${fields.join(', ')} WHERE id = ?`, values)
 
     return NextResponse.json({ success: true })
   } catch (e: unknown) {
@@ -102,7 +102,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   }
 
   const db = getDb()
-  const result = db.prepare('DELETE FROM disputes WHERE id = ? AND user_id = ?').run(Number(id), auth.userId)
+  const result = await db.run('DELETE FROM disputes WHERE id = ? AND user_id = ?', [Number(id), auth.userId])
   if (result.changes === 0) {
     return NextResponse.json({ error: 'Dispute not found' }, { status: 404 })
   }

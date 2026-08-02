@@ -15,21 +15,21 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getDb()
-    const user = db.prepare(
+    const user = (await db.prepare(
       'SELECT id, reset_token_expiry FROM users WHERE reset_token = ?'
-    ).get(token) as any
+    ).get(token)) as any
 
     if (!user) {
       return NextResponse.json({ error: 'Invalid or expired reset token' }, { status: 400 })
     }
 
     if (new Date(user.reset_token_expiry) < new Date()) {
-      db.prepare('UPDATE users SET reset_token = NULL, reset_token_expiry = NULL WHERE id = ?').run(user.id)
+      await db.prepare('UPDATE users SET reset_token = NULL, reset_token_expiry = NULL WHERE id = ?').run(user.id)
       return NextResponse.json({ error: 'Reset token has expired. Request a new one.' }, { status: 400 })
     }
 
     const passwordHash = await hashPassword(password)
-    db.prepare(
+    await db.prepare(
       'UPDATE users SET password_hash = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?'
     ).run(passwordHash, user.id)
 

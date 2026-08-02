@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getDb()
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim()) as any
+    const user = (await db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim())) as any
 
     if (!user) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })

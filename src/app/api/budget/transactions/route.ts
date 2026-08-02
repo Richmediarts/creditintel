@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
   query += ' ORDER BY date DESC, created_at DESC'
 
-  const transactions = db.prepare(query).all(...params)
+  const transactions = await db.all(query, params)
   return NextResponse.json({ transactions })
 }
 
@@ -53,15 +53,17 @@ export async function POST(request: NextRequest) {
     const db = getDb()
     
     // Get running balance for this account
-    const lastTx = db.prepare(
-      'SELECT balance FROM budget_transactions WHERE user_id = ? AND account_id = ? ORDER BY date DESC, created_at DESC LIMIT 1'
-    ).get(auth.userId, data.account_id) as { balance: number } | undefined
+    const lastTx = await db.get(
+      'SELECT balance FROM budget_transactions WHERE user_id = ? AND account_id = ? ORDER BY date DESC, created_at DESC LIMIT 1',
+      [auth.userId, data.account_id]
+    ) as { balance: number } | undefined
     
     const runningBalance = (lastTx?.balance || 0) + Number(data.amount)
     
-    const result = db.prepare(
-      'INSERT INTO budget_transactions (user_id, account_id, date, description, amount, balance) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(auth.userId, data.account_id, data.date, data.description, data.amount, runningBalance)
+    const result = await db.run(
+      'INSERT INTO budget_transactions (user_id, account_id, date, description, amount, balance) VALUES (?, ?, ?, ?, ?, ?) RETURNING id',
+      [auth.userId, data.account_id, data.date, data.description, data.amount, runningBalance]
+    )
     
     return NextResponse.json({ id: Number(result.lastInsertRowid) }, { status: 201 })
   } catch (error) {

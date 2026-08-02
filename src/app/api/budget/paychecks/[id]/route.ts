@@ -15,7 +15,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!auth) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
-  const paycheck = getPaycheck(auth.userId, Number(id))
+  const paycheck = await getPaycheck(auth.userId, Number(id))
   if (!paycheck) {
     return NextResponse.json({ error: 'Paycheck not found' }, { status: 404 })
   }
@@ -30,11 +30,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   }
   try {
     const body = (await request.json()) as Partial<BudgetPaycheck>
-    const existing = getPaycheck(auth.userId, Number(id))
+    const existing = await getPaycheck(auth.userId, Number(id))
     if (!existing) {
       return NextResponse.json({ error: 'Paycheck not found' }, { status: 404 })
     }
-    updatePaycheck(auth.userId, Number(id), body)
+    await updatePaycheck(auth.userId, Number(id), body)
     return NextResponse.json({ success: true })
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed to update paycheck' }, { status: 500 })
@@ -47,6 +47,6 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   if (!auth) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
-  deletePaycheck(auth.userId, Number(id))
+  await deletePaycheck(auth.userId, Number(id))
   return NextResponse.json({ success: true })
 }

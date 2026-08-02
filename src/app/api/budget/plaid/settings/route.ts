@@ -4,14 +4,14 @@ import { getDb } from '@/lib/db'
 import fs from 'fs'
 import path from 'path'
 
-function readPlaidConfig(): { client_id: string; secret: string; environment: string } {
+async function readPlaidConfig(): Promise<{ client_id: string; secret: string; environment: string }> {
   const empty = { client_id: '', secret: '', environment: 'sandbox' }
 
   // 1. Check DB
   try {
     const db = getDb()
-    db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
-    const row = db.prepare("SELECT value FROM settings WHERE key = 'plaid_config'").get() as { value: string } | undefined
+    await db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
+    const row = await db.get("SELECT value FROM settings WHERE key = 'plaid_config'", [])
     if (row) {
       try {
         const cfg = JSON.parse(row.value)
@@ -33,8 +33,8 @@ function readPlaidConfig(): { client_id: string; secret: string; environment: st
             // Hydrate DB
             try {
               const db = getDb()
-              db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
-              db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('plaid_config', ?)").run(entry.value)
+              await db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
+              await db.run("INSERT INTO settings (key, value) VALUES ('plaid_config', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value", [entry.value])
             } catch { /* ignore */ }
             return cfg
           }
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
   const user = verifyToken(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const config = readPlaidConfig()
+  const config = await readPlaidConfig()
   return NextResponse.json({ client_id: config.client_id, environment: config.environment })
 }
 
@@ -76,8 +76,8 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getDb()
-    db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
-    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('plaid_config', ?)").run(JSON.stringify(cfg))
+    await db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
+    await db.run("INSERT INTO settings (key, value) VALUES ('plaid_config', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value", [JSON.stringify(cfg)])
 
     // Persist to seed.json so settings survive Vercel cold starts
     try {

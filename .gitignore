@@ -9,3 +9,6 @@ data/
 *.pdf
 *.docx
 .~lock.*
+.env
+.env.local
+.env*.local

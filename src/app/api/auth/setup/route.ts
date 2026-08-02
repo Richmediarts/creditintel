@@ -14,19 +14,20 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getDb()
-    const userCount = (db.prepare('SELECT COUNT(*) as count FROM users').get() as any).count
-    if (userCount > 0) {
+    const userCount = await db.get('SELECT COUNT(*) as count FROM users', [])
+    if (userCount && Number(userCount.count) > 0) {
       return NextResponse.json({ error: 'Setup already completed' }, { status: 400 })
     }
 
-    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase().trim())
+    const existing = await db.get('SELECT id FROM users WHERE email = ?', [email.toLowerCase().trim()])
     if (existing) {
       return NextResponse.json({ error: 'Email already in use' }, { status: 409 })
     }
 
     const hash = await hashPassword(password)
-    db.prepare('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)').run(
-      name, email.toLowerCase().trim(), hash, 'admin'
+    await db.run(
+      'INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)',
+      [name, email.toLowerCase().trim(), hash, 'admin']
     )
 
     return NextResponse.json({ success: true })

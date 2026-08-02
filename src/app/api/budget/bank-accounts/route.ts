@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  const accounts = getBankAccounts(auth.userId)
+  const accounts = await getBankAccounts(auth.userId)
   return NextResponse.json({ accounts })
 }
 
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const data = await request.json()
-    const id = addBankAccount(auth.userId, data)
+    const id = await addBankAccount(auth.userId, data)
     return NextResponse.json({ id }, { status: 201 })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create bank account' }, { status: 500 })

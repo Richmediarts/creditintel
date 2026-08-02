@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   }
 
   const db = getDb()
-  const rows = db.prepare('SELECT bureau, score, date_updated FROM fico_scores WHERE user_id = ?').all(auth.userId) as any[]
+  const rows = (await db.prepare('SELECT bureau, score, date_updated FROM fico_scores WHERE user_id = ?').all(auth.userId)) as any[]
 
   const scores: Record<string, { score: number | null; dateUpdated: string }> = {}
   for (const r of rows) {
@@ -41,10 +41,10 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getDb()
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO fico_scores (user_id, bureau, score, date_updated)
-      VALUES (?, ?, ?, datetime('now'))
-      ON CONFLICT(user_id, bureau) DO UPDATE SET score = excluded.score, date_updated = datetime('now')
+      VALUES (?, ?, ?, NOW())
+      ON CONFLICT(user_id, bureau) DO UPDATE SET score = excluded.score, date_updated = NOW()
     `).run(auth.userId, bureau, score)
 
     return NextResponse.json({ success: true })

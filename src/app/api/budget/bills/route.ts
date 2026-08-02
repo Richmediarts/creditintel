@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   const unpaidOnly = searchParams.get('unpaid') === 'true'
-  const bills = unpaidOnly ? getUnpaidBills(auth.userId) : getBills(auth.userId)
+  const bills = unpaidOnly ? await getUnpaidBills(auth.userId) : await getBills(auth.userId)
   return NextResponse.json({ bills })
 }
 
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const data = await request.json()
-    const id = addBill(auth.userId, data)
+    const id = await addBill(auth.userId, data)
     return NextResponse.json({ id }, { status: 201 })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create bill' }, { status: 500 })

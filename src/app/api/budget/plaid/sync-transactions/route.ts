@@ -4,12 +4,21 @@ import { getDb } from '@/lib/db'
 import { Configuration, PlaidApi, PlaidEnvironments, TransactionsSyncRequest } from 'plaid'
 import { getPlaidItems, getAccountsByPlaidItem, upsertPlaidTransaction, deletePlaidTransaction, updatePlaidCursor } from '@/lib/budget-db'
 
-function getPlaidConfig() {
-  const db = getDb()
-  const row = db.prepare("SELECT value FROM settings WHERE key = 'plaid_config'").get() as { value: string } | undefined
-  if (row) {
-    try { return JSON.parse(row.value) } catch { /* ignore */ }
-  }
+async function getPlaidConfig() {
+  // 1. Check DB settings table
+  try {
+    const db = getDb()
+    await db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
+    const row = await db.get("SELECT value FROM settings WHERE key = 'plaid_config'", [])
+    if (row) {
+      try {
+        const cfg = JSON.parse(row.value)
+        if (cfg.client_id && cfg.secret) return cfg
+      } catch { /* ignore */ }
+    }
+  } catch { /* ignore */ }
+
+  // 2. Fall back to env vars
   return {
     client_id: process.env.PLAID_CLIENT_ID || '',
     secret: process.env.PLAID_SECRET || '',
@@ -37,14 +46,14 @@ export async function POST(request: NextRequest) {
   const user = verifyToken(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const config = getPlaidConfig()
+  const config = await getPlaidConfig()
   if (!config.client_id || !config.secret) {
     return NextResponse.json({ error: 'Plaid not configured' }, { status: 400 })
   }
 
   try {
     const client = getPlaidClient(config)
-    const items = getPlaidItems(user.userId)
+    const items = await getPlaidItems(user.userId)
     const totals = { added: 0, modified: 0, removed: 0 }
 
     for (const item of items) {
@@ -56,22 +65,22 @@ export async function POST(request: NextRequest) {
         const res = await client.transactionsSync(req)
         const data = res.data
 
-        const accountsMap = new Map(getAccountsByPlaidItem(user.userId, item.id).map(a => [a.plaid_account_id, a]))
+        const accountsMap = new Map((await getAccountsByPlaidItem(user.userId, item.id)).map(a => [a.plaid_account_id, a]))
 
         for (const tx of data.added) {
           const local = accountsMap.get(tx.account_id)
           if (!local) continue
-          upsertPlaidTransaction(user.userId, local.id, tx.transaction_id, tx.date, tx.merchant_name || tx.name || '', -(tx.amount || 0), 0)
+          await upsertPlaidTransaction(user.userId, local.id, tx.transaction_id, tx.date, tx.merchant_name || tx.name || '', -(tx.amount || 0), 0)
           totals.added++
         }
         for (const tx of data.modified) {
           const local = accountsMap.get(tx.account_id)
           if (!local) continue
-          upsertPlaidTransaction(user.userId, local.id, tx.transaction_id, tx.date, tx.merchant_name || tx.name || '', -(tx.amount || 0), 0)
+          await upsertPlaidTransaction(user.userId, local.id, tx.transaction_id, tx.date, tx.merchant_name || tx.name || '', -(tx.amount || 0), 0)
           totals.modified++
         }
         for (const tx of data.removed) {
-          deletePlaidTransaction(tx.transaction_id)
+          await deletePlaidTransaction(tx.transaction_id)
           totals.removed++
         }
 
@@ -79,7 +88,7 @@ export async function POST(request: NextRequest) {
         hasMore = data.has_more
       }
 
-      if (cursorVal) updatePlaidCursor(user.userId, item.id, cursorVal)
+      if (cursorVal) await updatePlaidCursor(user.userId, item.id, cursorVal)
     }
 
     const msg = `Synced: ${totals.added} added, ${totals.modified} modified, ${totals.removed} removed`

@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  const cards = getCreditCards(auth.userId)
+  const cards = await getCreditCards(auth.userId)
   return NextResponse.json({ cards })
 }
 
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const data = await request.json()
-    const id = addCreditCard(auth.userId, data)
+    const id = await addCreditCard(auth.userId, data)
     return NextResponse.json({ id }, { status: 201 })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create credit card' }, { status: 500 })

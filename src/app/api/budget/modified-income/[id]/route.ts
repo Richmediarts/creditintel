@@ -16,7 +16,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   try {
     const { id } = await params
-    deleteModifiedIncome(auth.userId, Number(id))
+    await deleteModifiedIncome(auth.userId, Number(id))
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to delete modified income' }, { status: 500 })

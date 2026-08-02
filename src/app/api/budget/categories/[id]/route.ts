@@ -15,7 +15,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const { id } = await params
-  const category = getBudgetCategory(auth.userId, Number(id))
+  const category = await getBudgetCategory(auth.userId, Number(id))
   if (!category) {
     return NextResponse.json({ error: 'Category not found' }, { status: 404 })
   }
@@ -31,7 +31,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params
     const data = await request.json()
-    updateBudgetCategory(auth.userId, Number(id), data)
+    await updateBudgetCategory(auth.userId, Number(id), data)
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update category' }, { status: 500 })
@@ -47,11 +47,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   try {
     const { id } = await params
     const data = await request.json()
-    const existing = getBudgetCategory(auth.userId, Number(id))
+    const existing = await getBudgetCategory(auth.userId, Number(id))
     if (!existing) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
-    updateBudgetCategory(auth.userId, Number(id), { ...existing, ...data })
+    await updateBudgetCategory(auth.userId, Number(id), { ...existing, ...data })
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update category' }, { status: 500 })
@@ -66,7 +66,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   try {
     const { id } = await params
-    deleteBudgetCategory(auth.userId, Number(id))
+    await deleteBudgetCategory(auth.userId, Number(id))
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to delete category' }, { status: 500 })

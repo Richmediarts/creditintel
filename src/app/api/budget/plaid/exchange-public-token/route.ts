@@ -3,13 +3,47 @@ import { verifyToken } from '@/lib/auth'
 import { getDb } from '@/lib/db'
 import { Configuration, PlaidApi, PlaidEnvironments, ItemPublicTokenExchangeRequest, AccountsGetRequest, TransactionsSyncRequest } from 'plaid'
 import { addPlaidItem, addBankAccount, addCreditCard, addBill, addPayee, getPayeeByName, getAccountsByPlaidItem, upsertPlaidTransaction, updatePlaidCursor, deletePlaidTransaction } from '@/lib/budget-db'
+import fs from 'fs'
+import path from 'path'
 
-function getPlaidConfig() {
-  const db = getDb()
-  const row = db.prepare("SELECT value FROM settings WHERE key = 'plaid_config'").get() as { value: string } | undefined
-  if (row) {
-    try { return JSON.parse(row.value) } catch { /* ignore */ }
-  }
+async function getPlaidConfig() {
+  // 1. Check DB settings table
+  try {
+    const db = getDb()
+    await db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
+    const row = await db.get("SELECT value FROM settings WHERE key = 'plaid_config'", [])
+    if (row) {
+      try {
+        const cfg = JSON.parse(row.value)
+        if (cfg.client_id && cfg.secret) return cfg
+      } catch { /* ignore */ }
+    }
+  } catch { /* ignore */ }
+
+  // 2. Check seed.json directly
+  try {
+    const seedPath = path.join(process.cwd(), 'seed', 'seed.json')
+    if (fs.existsSync(seedPath)) {
+      const seed = JSON.parse(fs.readFileSync(seedPath, 'utf-8'))
+      if (seed.settings) {
+        const entry = seed.settings.find((s: { key: string }) => s.key === 'plaid_config')
+        if (entry) {
+          const cfg = JSON.parse(entry.value)
+          if (cfg.client_id && cfg.secret) {
+            // Hydrate DB
+            try {
+              const db = getDb()
+              await db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
+              await db.run("INSERT INTO settings (key, value) VALUES ('plaid_config', ?) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [entry.value])
+            } catch { /* ignore */ }
+            return cfg
+          }
+        }
+      }
+    }
+  } catch { /* ignore */ }
+
+  // 3. Fall back to env vars
   return {
     client_id: process.env.PLAID_CLIENT_ID || '',
     secret: process.env.PLAID_SECRET || '',
@@ -37,7 +71,7 @@ export async function POST(request: NextRequest) {
   const user = verifyToken(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const config = getPlaidConfig()
+  const config = await getPlaidConfig()
   if (!config.client_id || !config.secret) {
     return NextResponse.json({ error: 'Plaid not configured' }, { status: 400 })
   }
@@ -58,7 +92,7 @@ export async function POST(request: NextRequest) {
     const accountsRes = await client.accountsGet(accountsReq)
     const accountsData = accountsRes.data.accounts
 
-    const itemPk = addPlaidItem(user.userId, accessToken, itemId, institutionName)
+    const itemPk = await addPlaidItem(user.userId, accessToken, itemId, institutionName)
 
     const created: { type: string; name: string }[] = []
 
@@ -72,7 +106,7 @@ export async function POST(request: NextRequest) {
       const plaidAccountId = acct.account_id
 
       if (acctType === 'depository' || acctType === 'investment') {
-        addBankAccount(user.userId, {
+        await addBankAccount(user.userId, {
           name: institutionName || name,
           account_type: acctSubtype || (acctType === 'investment' ? 'investment' : 'checking'),
           institution: institutionName,
@@ -84,7 +118,7 @@ export async function POST(request: NextRequest) {
         })
         created.push({ type: 'bank', name: institutionName || name })
       } else if (acctType === 'credit') {
-        const cardId = addCreditCard(user.userId, {
+        const cardId = await addCreditCard(user.userId, {
           name: institutionName || name,
           last_four: mask,
           credit_limit: limitVal,
@@ -96,9 +130,9 @@ export async function POST(request: NextRequest) {
         })
         if (institutionName || name) {
           const payeeName = institutionName || name
-          const existingPayee = getPayeeByName(user.userId, payeeName)
-          const payeeId = existingPayee ? existingPayee.id : addPayee(user.userId, { name: payeeName })
-          addBill(user.userId, {
+          const existingPayee = await getPayeeByName(user.userId, payeeName)
+          const payeeId = existingPayee ? existingPayee.id : await addPayee(user.userId, { name: payeeName })
+          await addBill(user.userId, {
             payee_id: payeeId,
             payee_name: payeeName,
             amount: balance,
@@ -113,7 +147,7 @@ export async function POST(request: NextRequest) {
         }
         created.push({ type: 'credit', name: institutionName || name })
       } else if (acctType === 'loan') {
-        addBankAccount(user.userId, {
+        await addBankAccount(user.userId, {
           name: institutionName || name,
           account_type: 'loan',
           institution: institutionName,
@@ -135,26 +169,26 @@ export async function POST(request: NextRequest) {
         const syncRes = await client.transactionsSync(syncReq)
         const syncData = syncRes.data
 
-        const accountsMap = new Map(getAccountsByPlaidItem(user.userId, itemPk).map(a => [a.plaid_account_id, a]))
+        const accountsMap = new Map((await getAccountsByPlaidItem(user.userId, itemPk)).map(a => [a.plaid_account_id, a]))
 
         for (const tx of syncData.added) {
           const local = accountsMap.get(tx.account_id)
           if (!local) continue
-          upsertPlaidTransaction(user.userId, local.id, tx.transaction_id, tx.date, tx.merchant_name || tx.name || '', -(tx.amount || 0), 0)
+          await upsertPlaidTransaction(user.userId, local.id, tx.transaction_id, tx.date, tx.merchant_name || tx.name || '', -(tx.amount || 0), 0)
         }
         for (const tx of syncData.modified) {
           const local = accountsMap.get(tx.account_id)
           if (!local) continue
-          upsertPlaidTransaction(user.userId, local.id, tx.transaction_id, tx.date, tx.merchant_name || tx.name || '', -(tx.amount || 0), 0)
+          await upsertPlaidTransaction(user.userId, local.id, tx.transaction_id, tx.date, tx.merchant_name || tx.name || '', -(tx.amount || 0), 0)
         }
         for (const tx of syncData.removed) {
-          deletePlaidTransaction(tx.transaction_id)
+          await deletePlaidTransaction(tx.transaction_id)
         }
 
         cursorVal = syncData.next_cursor
         hasMore = syncData.has_more
       }
-      if (cursorVal) updatePlaidCursor(user.userId, itemPk, cursorVal)
+      if (cursorVal) await updatePlaidCursor(user.userId, itemPk, cursorVal)
     } catch {
       // Initial sync failure is non-fatal
     }

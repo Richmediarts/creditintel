@@ -2,6 +2,27 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { getDb, calculateExpectedResponseDateFrom } from '@/lib/db'
 
+interface DisputeRow {
+  id: number
+  user_id: number
+  creditor_name: string
+  bureau: string
+  inaccuracies: string | null
+  status: string
+  letter_type: string
+  filed_date: string | null
+  expected_response_date: string | null
+  resolved_date: string | null
+  notes: string | null
+  printed_at: string | null
+  sent_at: string | null
+  pending_at: string | null
+  resend_at: string | null
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 function getAuthUser(request: NextRequest) {
   const token = request.cookies.get('credit-dashboard-token')?.value
   if (!token) return null
@@ -15,12 +36,13 @@ export async function GET(request: NextRequest) {
   }
 
   const db = getDb()
-  const disputes = db.prepare(
-    'SELECT * FROM disputes WHERE user_id = ? ORDER BY updated_at DESC'
-  ).all(auth.userId) as any[]
+  const disputes = (await db.all(
+    'SELECT * FROM disputes WHERE user_id = ? ORDER BY updated_at DESC',
+    [auth.userId]
+  )) as DisputeRow[]
 
   const now = new Date()
-  const result = disputes.map(d => {
+  const result = disputes.map((d: DisputeRow) => {
     let isOverdue = false
     let daysUntilResponse: number | null = null
 
@@ -76,10 +98,11 @@ export async function POST(request: NextRequest) {
     const effectiveFiledDate = filedDate || now
     const expectedDate = calculateExpectedResponseDateFrom(lt, effectiveFiledDate)
 
-    const result = db.prepare(`
+    const result = await db.run(`
       INSERT INTO disputes (user_id, creditor_name, bureau, inaccuracies, status, letter_type, filed_date, expected_response_date, notes, printed_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+      RETURNING id
+    `, [
       auth.userId,
       creditorName.trim(),
       bureau,
@@ -90,7 +113,7 @@ export async function POST(request: NextRequest) {
       expectedDate,
       notes || '',
       now,
-    )
+    ])
 
     return NextResponse.json({ id: result.lastInsertRowid }, { status: 201 })
   } catch (e: unknown) {

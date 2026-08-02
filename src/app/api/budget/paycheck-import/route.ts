@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       }
 
       kwargs.notes = 'Imported from paystub'
-      const id = addPaycheck(user.userId, kwargs)
+      const id = await addPaycheck(user.userId, kwargs)
       return NextResponse.json({ success: true, id })
     }
 

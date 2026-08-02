@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   const flat = searchParams.get('flat') === 'true'
-  const categories = flat ? getAllBudgetCategoriesFlat(auth.userId) : getBudgetCategories(auth.userId)
+  const categories = flat ? await getAllBudgetCategoriesFlat(auth.userId) : await getBudgetCategories(auth.userId)
   return NextResponse.json({ categories })
 }
 
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const data = await request.json()
-    const id = addBudgetCategory(auth.userId, data)
+    const id = await addBudgetCategory(auth.userId, data)
     return NextResponse.json({ id }, { status: 201 })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create category' }, { status: 500 })

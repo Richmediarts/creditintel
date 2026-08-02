@@ -15,7 +15,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const { id } = await params
-  const payee = getPayee(auth.userId, Number(id))
+  const payee = await getPayee(auth.userId, Number(id))
   if (!payee) {
     return NextResponse.json({ error: 'Payee not found' }, { status: 404 })
   }
@@ -31,7 +31,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   try {
     const { id } = await params
     const data = await request.json()
-    updatePayee(auth.userId, Number(id), data)
+    await updatePayee(auth.userId, Number(id), data)
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update payee' }, { status: 500 })
@@ -46,7 +46,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   try {
     const { id } = await params
-    deletePayee(auth.userId, Number(id))
+    await deletePayee(auth.userId, Number(id))
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to delete payee' }, { status: 500 })

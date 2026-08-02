@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   }
 
   const db = getDb()
-  const rows = db.prepare('SELECT bureau, data FROM reports WHERE user_id = ?').all(auth.userId) as any[]
+  const rows = (await db.prepare('SELECT bureau, data FROM reports WHERE user_id = ?').all(auth.userId)) as any[]
 
   const reports = rows.map(r => {
     try {
@@ -41,10 +41,10 @@ export async function POST(request: NextRequest) {
     }
 
     const db = getDb()
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO reports (user_id, bureau, data, updated_at)
-      VALUES (?, ?, ?, datetime('now'))
-      ON CONFLICT(user_id, bureau) DO UPDATE SET data = excluded.data, updated_at = datetime('now')
+      VALUES (?, ?, ?, NOW())
+      ON CONFLICT(user_id, bureau) DO UPDATE SET data = excluded.data, updated_at = NOW()
     `).run(auth.userId, bureau, JSON.stringify(data))
 
     return NextResponse.json({ success: true })
@@ -65,7 +65,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   const db = getDb()
-  db.prepare('DELETE FROM reports WHERE user_id = ? AND bureau = ?').run(auth.userId, bureau)
+  await db.prepare('DELETE FROM reports WHERE user_id = ? AND bureau = ?').run(auth.userId, bureau)
 
   return NextResponse.json({ success: true })
 }

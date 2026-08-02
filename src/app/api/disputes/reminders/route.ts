@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { getDb } from '@/lib/db'
 
+interface DisputeRow {
+  id: number
+  creditor_name: string
+  bureau: string
+  expected_response_date: string
+  status: string
+}
+
 function getAuthUser(request: NextRequest) {
   const token = request.cookies.get('credit-dashboard-token')?.value
   if (!token) return null
@@ -17,18 +25,18 @@ export async function GET(request: NextRequest) {
   const db = getDb()
   const now = new Date().toISOString().split('T')[0]
 
-  const overdue = db.prepare(`
+  const overdue = (await db.all(`
     SELECT * FROM disputes
     WHERE user_id = ? AND status NOT IN ('complete') AND expected_response_date IS NOT NULL AND expected_response_date < ?
     ORDER BY expected_response_date ASC
-  `).all(auth.userId, now) as any[]
+  `, [auth.userId, now])) as DisputeRow[]
 
-  const dueSoon = db.prepare(`
+  const dueSoon = (await db.all(`
     SELECT * FROM disputes
     WHERE user_id = ? AND status NOT IN ('complete')
-      AND expected_response_date IS NOT NULL AND expected_response_date >= ? AND expected_response_date <= date(?, '+7 days')
+      AND expected_response_date IS NOT NULL AND expected_response_date >= ? AND expected_response_date <= (?::date + INTERVAL '7 days')
     ORDER BY expected_response_date ASC
-  `).all(auth.userId, now, now) as any[]
+  `, [auth.userId, now, now])) as DisputeRow[]
 
   return NextResponse.json({
     overdue: overdue.map(d => ({

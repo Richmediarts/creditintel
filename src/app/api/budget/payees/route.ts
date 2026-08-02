@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
 
-  const payees = getPayees(auth.userId)
+  const payees = await getPayees(auth.userId)
   return NextResponse.json({ payees })
 }
 
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const data = await request.json()
-    const id = addPayee(auth.userId, data)
+    const id = await addPayee(auth.userId, data)
     return NextResponse.json({ id }, { status: 201 })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to create payee' }, { status: 500 })

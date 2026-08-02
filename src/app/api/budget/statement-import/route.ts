@@ -43,9 +43,10 @@ export async function POST(request: NextRequest) {
     let targetAccountId = accountId
 
     if (!targetAccountId && newAccountName) {
-      const result = db.prepare(
-        'INSERT INTO budget_bank_accounts (user_id, name, account_type, institution, account_number_last4, current_balance) VALUES (?, ?, ?, ?, ?, ?)'
-      ).run(user.userId, newAccountName, newAccountType, newInstitution || '', newLast4 || '', newBalance)
+      const result = await db.run(
+        'INSERT INTO budget_bank_accounts (user_id, name, account_type, institution, account_number_last4, current_balance) VALUES (?, ?, ?, ?, ?, ?) RETURNING id',
+        [user.userId, newAccountName, newAccountType, newInstitution || '', newLast4 || '', newBalance]
+      )
       targetAccountId = Number(result.lastInsertRowid)
     }
 
@@ -54,11 +55,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (clearExisting) {
-      const db2 = getDb()
-      db2.prepare('DELETE FROM budget_transactions WHERE user_id = ? AND account_id = ?').run(user.userId, targetAccountId)
+      await db.run('DELETE FROM budget_transactions WHERE user_id = ? AND account_id = ?', [user.userId, targetAccountId])
     }
 
-    const existing = getTransactions(user.userId, targetAccountId)
+    const existing = await getTransactions(user.userId, targetAccountId)
     const existingKeys = new Set(existing.map(tx => `${tx.date}|${tx.amount}`))
 
     const newTransactions = transactionsList.filter(tx => {
@@ -70,14 +70,14 @@ export async function POST(request: NextRequest) {
     const dupCount = transactionsList.length - newTransactions.length
 
     if (newTransactions.length > 0) {
-      addTransactions(user.userId, targetAccountId, newTransactions)
+      await addTransactions(user.userId, targetAccountId, newTransactions)
 
       const sorted = [...newTransactions].sort((a, b) => b.date.localeCompare(a.date))
       const latestBalance = sorted[0]?.balance || 0
       if (latestBalance !== 0) {
-        const acct = db.prepare('SELECT * FROM budget_bank_accounts WHERE user_id = ? AND id = ?').get(user.userId, targetAccountId) as { name: string; account_type: string; institution: string; account_number_last4: string } | undefined
+        const acct = await db.get('SELECT * FROM budget_bank_accounts WHERE user_id = ? AND id = ?', [user.userId, targetAccountId])
         if (acct) {
-          db.prepare('UPDATE budget_bank_accounts SET current_balance = ? WHERE user_id = ? AND id = ?').run(latestBalance, user.userId, targetAccountId)
+          await db.run('UPDATE budget_bank_accounts SET current_balance = ? WHERE user_id = ? AND id = ?', [latestBalance, user.userId, targetAccountId])
         }
       }
     }

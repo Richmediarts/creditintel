@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const { id } = await params
-  const account = getBankAccount(auth.userId, Number(id))
+  const account = await getBankAccount(auth.userId, Number(id))
   if (!account) {
     return NextResponse.json({ error: 'Account not found' }, { status: 404 })
   }
@@ -35,9 +35,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const data = await request.json()
     
     if (data.balance !== undefined) {
-      updateBankAccountBalance(auth.userId, Number(id), Number(data.balance))
+      await updateBankAccountBalance(auth.userId, Number(id), Number(data.balance))
     } else {
-      updateBankAccount(auth.userId, Number(id), data)
+      await updateBankAccount(auth.userId, Number(id), data)
     }
     return NextResponse.json({ success: true })
   } catch (error) {
@@ -54,8 +54,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   try {
     const { id } = await params
     const accountId = Number(id)
-    const account = getBankAccount(auth.userId, accountId)
-    deleteBankAccount(auth.userId, accountId)
+    const account = await getBankAccount(auth.userId, accountId)
+    await deleteBankAccount(auth.userId, accountId)
 
     // Persist deletion to seed.json so it survives Vercel cold starts (best-effort)
     if (account) {
