@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       for (const p of payments) {
         const id = Number(p.id)
         const amount = Number(p.amount)
-        if (!Number.isFinite(id) || !Number.isFinite(amount) || amount <= 0) continue
+        if (!Number.isFinite(id) || !Number.isFinite(amount) || amount === 0) continue
         const result = await db.prepare(
           'UPDATE budget_credit_cards SET current_balance = GREATEST(0, current_balance - ?) WHERE user_id = ? AND id = ?'
         ).run(amount, auth.userId, id)
