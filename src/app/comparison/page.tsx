@@ -171,6 +171,17 @@ export default function ComparisonPage() {
 
   const { reports } = creditData
 
+  const reportDates = reports.map((r) => r.personalInfo.reportDate).filter(Boolean) as string[]
+  const uniqueDates = [...new Set(reportDates)]
+  const reportsAsOf =
+    uniqueDates.length === 0
+      ? user?.name || 'Consumer'
+      : uniqueDates.length === 1
+        ? `${user?.name || 'Consumer'} &bull; Reports as of ${uniqueDates[0]}`
+        : `${user?.name || 'Consumer'} &bull; Reports as of ${reports
+            .map((r) => (r.personalInfo.reportDate ? `${r.bureau} (${r.personalInfo.reportDate})` : r.bureau))
+            .join(', ')}`
+
   if (reports.length === 0) {
     return (
       <Card>
@@ -204,7 +215,7 @@ export default function ComparisonPage() {
         </Link>
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Credit Report Comparison</h1>
-          <p className="text-sm text-gray-500">{user?.name || 'Consumer'} &bull; Reports as of June 2026</p>
+          <p className="text-sm text-gray-500">{reportsAsOf}</p>
         </div>
       </div>
 
