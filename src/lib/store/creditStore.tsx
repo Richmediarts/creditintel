@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react'
 import type { Bureau, BureauReport, CreditData, GlobalSummary, MergedAccount, Account, AccountDiscrepancy } from '@/types'
 import { parseFile } from '@/lib/parsers'
+import { gzipBase64 } from '@/lib/gzip'
 import { generateAIFindings } from '@/lib/utils/analysis'
 import { generateDisputeItems } from '@/lib/utils/analysis'
 import { useAuth } from '@/lib/auth-context'
@@ -231,10 +232,15 @@ async function fetchServerReports(): Promise<BureauReport[]> {
 
 async function saveReportToServer(report: BureauReport): Promise<void> {
   try {
+    const payload: BureauReport = { ...report }
+    if (payload.fileData) {
+      payload.fileData = await gzipBase64(payload.fileData)
+      payload.fileDataGzip = true
+    }
     await fetch('/api/reports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bureau: report.bureau, data: report }),
+      body: JSON.stringify({ bureau: report.bureau, data: payload }),
     })
   } catch { /* ignore */ }
 }
@@ -307,8 +313,8 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
         await saveReportToServer(data)
         const serverReports = await fetchServerReports()
         const merged = serverReports.map(sr =>
-          sr.bureau === data.bureau && uploadedFileData && !sr.fileData
-            ? { ...sr, fileData: uploadedFileData }
+          sr.bureau === data.bureau && uploadedFileData
+            ? { ...sr, fileData: uploadedFileData, fileDataGzip: false }
             : sr
         )
         dispatch({ type: 'REPLACE_STATE', payload: { reports: merged, creditData: null } })

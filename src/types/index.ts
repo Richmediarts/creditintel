@@ -87,6 +87,7 @@ export interface BureauReport {
   rawText?: string
   filename?: string
   fileData?: string
+  fileDataGzip?: boolean
   fileType?: 'pdf' | 'txt'
 }
 

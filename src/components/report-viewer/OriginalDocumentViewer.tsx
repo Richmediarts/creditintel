@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { File, ChevronDown, ChevronUp, Download } from 'lucide-react'
 import type { BureauReport } from '@/types'
+import { gunzipBase64 } from '@/lib/gzip'
 
 const bureauAccent: Record<string, { border: string; bg: string; text: string }> = {
   Experian: { border: 'border-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20', text: 'text-blue-600 dark:text-blue-400' },
@@ -18,12 +19,37 @@ const bureauPdfPath: Record<string, string> = {
 
 export function OriginalDocumentViewer({ report }: { report: BureauReport }) {
   const [expanded, setExpanded] = useState(false)
+  const [pdfSrc, setPdfSrc] = useState<string | null>(null)
+  const [pdfError, setPdfError] = useState(false)
   const accent = bureauAccent[report.bureau] || bureauAccent['Experian']
   const staticPdf = bureauPdfPath[report.bureau]
-  const hasPdf = report.fileType === 'pdf' && report.fileData
   const hasStaticPdf = staticPdf !== undefined
 
-  const pdfSrc = hasPdf ? `data:application/pdf;base64,${report.fileData}` : staticPdf
+  useEffect(() => {
+    let cancelled = false
+    if (report.fileType === 'pdf' && report.fileData) {
+      if (report.fileDataGzip) {
+        gunzipBase64(report.fileData)
+          .then((b64) => {
+            if (!cancelled) setPdfSrc(`data:application/pdf;base64,${b64}`)
+          })
+          .catch(() => {
+            if (!cancelled) setPdfError(true)
+          })
+      } else {
+        setPdfSrc(`data:application/pdf;base64,${report.fileData}`)
+      }
+    } else {
+      setPdfSrc(null)
+    }
+    return () => { cancelled = true }
+  }, [report.fileData, report.fileDataGzip, report.fileType])
+
+  const resolvedPdfSrc = pdfError ? null : (pdfSrc ?? (hasPdfFallback() ? staticPdf : null))
+
+  function hasPdfFallback(): boolean {
+    return hasStaticPdf && !report.fileData
+  }
 
   return (
     <div className={`rounded-lg border ${accent.border} ${accent.bg} overflow-hidden`}>
@@ -40,9 +66,9 @@ export function OriginalDocumentViewer({ report }: { report: BureauReport }) {
             {report.filename || 'Credit report'} &middot; PDF
           </p>
         </div>
-        {pdfSrc && !expanded && (
+        {resolvedPdfSrc && !expanded && (
           <a
-            href={pdfSrc}
+            href={resolvedPdfSrc}
             download={`${report.bureau}-Credit-Report.pdf`}
             onClick={e => e.stopPropagation()}
             className="p-1.5 rounded-md hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
@@ -56,9 +82,9 @@ export function OriginalDocumentViewer({ report }: { report: BureauReport }) {
 
       {expanded && (
         <div className="border-t border-gray-200 dark:border-gray-700">
-          {pdfSrc ? (
+          {resolvedPdfSrc ? (
             <embed
-              src={pdfSrc}
+              src={resolvedPdfSrc}
               type="application/pdf"
               className="w-full h-[600px] md:h-[800px] rounded-b-lg"
             />
