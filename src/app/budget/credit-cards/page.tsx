@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Wallet, CreditCard, TrendingUp, PlusCircle, ArrowRight,
-  Edit, Trash2, RefreshCw, Plug, Loader2, ExternalLink,
+  Edit, Trash2, RefreshCw, Plug, Loader2, ExternalLink, Link2,
 } from 'lucide-react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -24,6 +24,7 @@ interface CreditCardType {
   due_date: string
   plaid_account_id?: string
   plaid_item_id?: number
+  is_active?: number
 }
 
 const fmt = (n: number): string =>
@@ -195,6 +196,8 @@ export default function CreditCardsPage() {
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<CreditCardType | 'new' | null>(null)
   const [form, setForm] = useState({ ...EMPTY_FORM })
+  const [urlEditingId, setUrlEditingId] = useState<number | null>(null)
+  const [editWebsite, setEditWebsite] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -277,6 +280,32 @@ export default function CreditCardsPage() {
       setError(data.error || 'Failed to save card')
     }
     setSaving(false)
+  }
+
+  const saveCardUrl = async (id: number) => {
+    const card = cards.find((c) => c.id === id)
+    if (!card) return
+    const res = await fetch(`/api/budget/credit-cards/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: card.name,
+        last_four: card.last_four,
+        institution: card.institution || '',
+        website: editWebsite,
+        credit_limit: Number(card.credit_limit) || 0,
+        current_balance: Number(card.current_balance) || 0,
+        interest_rate: Number(card.interest_rate) || 0,
+        due_date: card.due_date || '',
+        is_active: card.is_active !== undefined ? card.is_active : 1,
+        plaid_account_id: card.plaid_account_id || null,
+        plaid_item_id: card.plaid_item_id || null,
+      }),
+    })
+    if (res.ok) {
+      setUrlEditingId(null)
+      await fetchCards()
+    }
   }
 
   const handleDelete = async (card: CreditCardType) => {
@@ -600,6 +629,24 @@ export default function CreditCardsPage() {
                                 ) : ''}
                                 **** {card.last_four || '????'}{card.due_date ? ` · Due ${card.due_date}` : ''}
                               </p>
+                              {urlEditingId === card.id && (
+                                <div className="mt-1 flex items-center gap-1.5">
+                                  <input
+                                    type="text"
+                                    value={editWebsite}
+                                    onChange={(e) => setEditWebsite(e.target.value)}
+                                    placeholder="capitalone.com"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') saveCardUrl(card.id)
+                                      if (e.key === 'Escape') setUrlEditingId(null)
+                                    }}
+                                    className="w-44 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  />
+                                  <button onClick={() => saveCardUrl(card.id)} className="text-xs text-green-600 hover:underline">Save</button>
+                                  <button onClick={() => setUrlEditingId(null)} className="text-xs text-gray-500 hover:underline">Cancel</button>
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -632,6 +679,16 @@ export default function CreditCardsPage() {
                           </div>
 
                           <div className="flex items-center gap-2 md:ml-auto shrink-0">
+                            <button
+                              onClick={() => {
+                                setUrlEditingId(urlEditingId === card.id ? null : card.id)
+                                setEditWebsite(card.website || '')
+                              }}
+                              title="Edit institution URL"
+                              className="p-1.5 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                            >
+                              <Link2 className="w-4 h-4" />
+                            </button>
                             <button
                               onClick={() => startEdit(card)}
                               className="p-1.5 rounded-lg text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
