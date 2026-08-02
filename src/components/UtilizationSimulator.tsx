@@ -386,8 +386,10 @@ export default function UtilizationSimulator() {
                           const to30 = r.util > 30 ? r.balance - (r.limit * 0.3) : 0
                           const to10 = r.util > 10 ? r.balance - (r.limit * 0.1) : 0
                           const paid = alloc.get(r.id) || 0
-                          const afterUtil = r.limit > 0 ? ((r.balance - Math.min(paid, r.balance)) / r.limit) * 100 : 0
+                          const afterBalance = Math.max(0, r.balance - paid)
+                          const afterUtil = r.limit > 0 ? (afterBalance / r.limit) * 100 : 0
                           const afterZone = zoneFor(afterUtil)
+                          const affected = payoff > 0 && paid > 0
                           return (
                             <div key={r.id} className="px-4 py-3">
                               <div className="flex items-center justify-between gap-2">
@@ -396,16 +398,22 @@ export default function UtilizationSimulator() {
                                   <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{r.name}</p>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${z.chip}`}>{z.label}</span>
-                                  <span className="text-sm font-bold text-gray-900 dark:text-white">{r.util.toFixed(0)}%</span>
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${(affected ? afterZone : z).chip}`}>{affected ? afterZone.label : z.label}</span>
+                                  <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                    {affected ? `${r.util.toFixed(0)}% → ${afterUtil.toFixed(0)}%` : `${r.util.toFixed(0)}%`}
+                                  </span>
                                 </div>
                               </div>
                               <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                                 <div className={`h-full rounded-full ${z.bar}`} style={{ width: `${Math.min(r.util, 100)}%` }} />
                               </div>
                               <div className="mt-2 flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500">
-                                <span>{fmt(r.balance)} owed / {fmt(r.limit)} limit</span>
-                                {r.util > 10 && (
+                                <span>
+                                  {affected
+                                    ? `${fmt(r.balance)} owed → ${fmt(afterBalance)} owed / ${fmt(r.limit)} limit`
+                                    : `${fmt(r.balance)} owed / ${fmt(r.limit)} limit`}
+                                </span>
+                                {r.util > 10 && !affected && (
                                   <span>
                                     {to30 > 0 ? `to 30%: ${fmt(to30)}` : ''}
                                     {to30 > 0 && to10 > 0 ? ' · ' : ''}
@@ -413,10 +421,18 @@ export default function UtilizationSimulator() {
                                   </span>
                                 )}
                               </div>
-                              {payoff > 0 && paid > 0 && (
-                                <div className="mt-2 flex items-center gap-1 text-[10px] font-medium text-blue-600 dark:text-blue-400">
-                                  <TrendingDown className="w-3 h-3" />
-                                  Allocate {fmt(paid)} → utilization drops to {afterUtil.toFixed(0)}% ({afterZone.label})
+                              {payoff > 0 && (
+                                <div className="mt-2 flex items-center gap-1 text-[10px] font-medium">
+                                  {affected ? (
+                                    <>
+                                      <TrendingDown className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                                      <span className="text-blue-600 dark:text-blue-400">
+                                        Pay {fmt(paid)} → {fmt(afterBalance)} owed, utilization {afterUtil.toFixed(0)}% ({afterZone.label})
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <span className="text-gray-400 dark:text-gray-500">Pay nothing — higher-utilization cards absorb the payoff first</span>
+                                  )}
                                 </div>
                               )}
                             </div>
