@@ -2,10 +2,26 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
-import { Gauge, PiggyBank, Target, RotateCcw, RefreshCw, Wallet } from 'lucide-react'
+import { Gauge, PiggyBank, Target, RotateCcw, RefreshCw, Wallet, ListOrdered, ChevronDown, ChevronUp, TrendingDown } from 'lucide-react'
 
 const fmt = (n: number): string =>
   '$' + (Number.isFinite(n) ? n : 0).toLocaleString('en-US', { maximumFractionDigits: 0 })
+
+interface CardRow {
+  id: number
+  name: string
+  institution?: string
+  credit_limit?: number
+  current_balance?: number
+}
+
+interface RankedCard {
+  id: number
+  name: string
+  limit: number
+  balance: number
+  util: number
+}
 
 interface Zone {
   label: string
@@ -64,6 +80,9 @@ export default function UtilizationSimulator() {
   const [target, setTarget] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [prefilled, setPrefilled] = useState<{ limit: number; balance: number } | null>(null)
+  const [cards, setCards] = useState<CardRow[]>([])
+  const [showBreakdown, setShowBreakdown] = useState(false)
+  const [payoffStr, setPayoffStr] = useState('')
 
   const limit = parseFloat(limitStr) || 0
   const balance = parseFloat(balanceStr) || 0
@@ -74,9 +93,10 @@ export default function UtilizationSimulator() {
       const res = await fetch('/api/budget/credit-cards', { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
-        const cards: { credit_limit?: number; current_balance?: number }[] = data.cards || []
-        const totalLimit = cards.reduce((s, c) => s + (Number(c.credit_limit) || 0), 0)
-        const totalBalance = cards.reduce((s, c) => s + (Number(c.current_balance) || 0), 0)
+        const list: CardRow[] = data.cards || []
+        const totalLimit = list.reduce((s, c) => s + (Number(c.credit_limit) || 0), 0)
+        const totalBalance = list.reduce((s, c) => s + (Number(c.current_balance) || 0), 0)
+        setCards(list)
         setPrefilled({ limit: totalLimit, balance: totalBalance })
         setLimitStr(totalLimit ? String(Math.round(totalLimit * 100) / 100) : '')
         setBalanceStr(totalBalance ? String(Math.round(totalBalance * 100) / 100) : '')
@@ -120,6 +140,27 @@ export default function UtilizationSimulator() {
     if (limit <= 0) return 0
     return Math.max(0, balance - (limit * pct) / 100)
   }
+
+  const ranked: RankedCard[] = cards
+    .map((card) => {
+      const lim = Number(card.credit_limit) || 0
+      const bal = Number(card.current_balance) || 0
+      return { id: card.id, name: card.name, limit: lim, balance: bal, util: lim > 0 ? (bal / lim) * 100 : 0 }
+    })
+    .filter((r) => r.limit > 0)
+    .sort((a, b) => b.util - a.util || b.balance - a.balance)
+
+  const payoff = parseFloat(payoffStr) || 0
+  const alloc = new Map<number, number>()
+  let remaining = payoff
+  for (const r of ranked) {
+    const amt = Math.max(0, Math.min(r.balance, remaining))
+    alloc.set(r.id, amt)
+    remaining -= amt
+    if (remaining <= 0) break
+  }
+  const newTotalBalance = Math.max(0, balance - Math.min(payoff, balance))
+  const newAggregate = limit > 0 ? (newTotalBalance / limit) * 100 : 0
 
   return (
     <Card>
@@ -312,6 +353,120 @@ export default function UtilizationSimulator() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Card-by-card breakdown */}
+        <div className="mt-6">
+          <button
+            onClick={() => setShowBreakdown(!showBreakdown)}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+          >
+            <ListOrdered className="w-4 h-4" />
+            Card-by-card paydown breakdown
+            {showBreakdown ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+
+          {showBreakdown && (
+            <div className="mt-3 space-y-4">
+              {ranked.length > 0 ? (
+                <>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Cards are ranked by per-card utilization (highest first). Paying down a card above 30% utilization — especially above 50% — removes a bigger negative flag on your credit report than paying down an already-low card.
+                  </p>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Ranked list */}
+                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                      <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                        <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">By biggest payoff impact</p>
+                      </div>
+                      <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {ranked.map((r, i) => {
+                          const z = zoneFor(r.util)
+                          const to30 = r.util > 30 ? r.balance - (r.limit * 0.3) : 0
+                          const to10 = r.util > 10 ? r.balance - (r.limit * 0.1) : 0
+                          const paid = alloc.get(r.id) || 0
+                          const afterUtil = r.limit > 0 ? ((r.balance - Math.min(paid, r.balance)) / r.limit) * 100 : 0
+                          const afterZone = zoneFor(afterUtil)
+                          return (
+                            <div key={r.id} className="px-4 py-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="w-5 h-5 rounded-full bg-gray-100 dark:bg-gray-800 text-[10px] font-bold text-gray-500 dark:text-gray-400 flex items-center justify-center shrink-0">{i + 1}</span>
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{r.name}</p>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${z.chip}`}>{z.label}</span>
+                                  <span className="text-sm font-bold text-gray-900 dark:text-white">{r.util.toFixed(0)}%</span>
+                                </div>
+                              </div>
+                              <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                                <div className={`h-full rounded-full ${z.bar}`} style={{ width: `${Math.min(r.util, 100)}%` }} />
+                              </div>
+                              <div className="mt-2 flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500">
+                                <span>{fmt(r.balance)} owed / {fmt(r.limit)} limit</span>
+                                {r.util > 10 && (
+                                  <span>
+                                    {to30 > 0 ? `to 30%: ${fmt(to30)}` : ''}
+                                    {to30 > 0 && to10 > 0 ? ' · ' : ''}
+                                    {to10 > 0 ? `to 10%: ${fmt(to10)}` : ''}
+                                  </span>
+                                )}
+                              </div>
+                              {payoff > 0 && paid > 0 && (
+                                <div className="mt-2 flex items-center gap-1 text-[10px] font-medium text-blue-600 dark:text-blue-400">
+                                  <TrendingDown className="w-3 h-3" />
+                                  Allocate {fmt(paid)} → utilization drops to {afterUtil.toFixed(0)}% ({afterZone.label})
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Planned payoff allocation */}
+                    <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4">
+                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Plan a payoff</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                        Enter how much you can pay down. It's allocated to the highest-utilization cards first.
+                      </p>
+                      <div className="relative mb-3">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={payoffStr}
+                          onChange={(e) => setPayoffStr(e.target.value.replace(/[^0-9.]/g, ''))}
+                          placeholder="1,000"
+                          className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 pl-7 pr-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      {payoff > 0 && (
+                        <div className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Aggregate utilization</p>
+                            <p className="text-xs font-semibold text-gray-900 dark:text-white">{util.toFixed(1)}% → {newAggregate.toFixed(1)}%</p>
+                          </div>
+                          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                            <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(newAggregate, 100)}%` }} />
+                          </div>
+                          <p className="text-[10px] text-gray-400 mt-2">
+                            Total balance goes from {fmt(balance)} to {fmt(newTotalBalance)}.
+                          </p>
+                        </div>
+                      )}
+                      {payoff <= 0 && (
+                        <p className="text-xs text-gray-400">Enter an amount to see which cards get paid down first and the resulting utilization.</p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs text-gray-400">No credit cards with limits found. Add credit cards to see the breakdown.</p>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="mt-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800">
