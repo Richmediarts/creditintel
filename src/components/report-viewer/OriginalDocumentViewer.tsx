@@ -27,22 +27,32 @@ export function OriginalDocumentViewer({ report }: { report: BureauReport }) {
 
   useEffect(() => {
     let cancelled = false
+    let objectUrl: string | null = null
+
     if (report.fileType === 'pdf' && report.fileData) {
-      if (report.fileDataGzip) {
-        gunzipBase64(report.fileData)
-          .then((b64) => {
-            if (!cancelled) setPdfSrc(`data:application/pdf;base64,${b64}`)
-          })
-          .catch(() => {
-            if (!cancelled) setPdfError(true)
-          })
-      } else {
-        setPdfSrc(`data:application/pdf;base64,${report.fileData}`)
+      const fileData = report.fileData
+      const needsGunzip = !!report.fileDataGzip
+      const prepare = async () => {
+        try {
+          const raw = needsGunzip ? await gunzipBase64(fileData) : fileData
+          const binary = atob(raw)
+          const bytes = new Uint8Array(binary.length)
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+          objectUrl = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }))
+          if (!cancelled) setPdfSrc(objectUrl)
+        } catch {
+          if (!cancelled) setPdfError(true)
+        }
       }
+      prepare()
     } else {
       setPdfSrc(null)
     }
-    return () => { cancelled = true }
+
+    return () => {
+      cancelled = true
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
   }, [report.fileData, report.fileDataGzip, report.fileType])
 
   const resolvedPdfSrc = pdfError ? null : (pdfSrc ?? (hasPdfFallback() ? staticPdf : null))
