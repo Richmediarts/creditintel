@@ -269,16 +269,20 @@ export function CreditProvider({ children }: { children: React.ReactNode }) {
   // Hydrate on auth state change
   useEffect(() => {
     if (authLoading) return
+    let cancelled = false
 
     if (user) {
       fetchServerReports().then(reports => {
-        dispatch({ type: 'REPLACE_STATE', payload: { reports, creditData: null } })
+        if (!cancelled) {
+          dispatch({ type: 'REPLACE_STATE', payload: { reports, creditData: null } })
+        }
         setInitialized(true)
       })
     } else {
       dispatch({ type: 'CLEAR_ALL' })
       setInitialized(true)
     }
+    return () => { cancelled = true }
   }, [user, authLoading])
 
   // Persist to localStorage on every state change (non-logged-in cache)
