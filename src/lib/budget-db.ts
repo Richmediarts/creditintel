@@ -243,44 +243,6 @@ export async function getPaycheck(userId: number, id: number): Promise<(BudgetPa
   return ((await db.prepare('SELECT * FROM budget_paychecks WHERE user_id = ? AND id = ?').get(userId, id)) as (BudgetPaycheck & { id: number }) | undefined) ?? null
 }
 
-export async function addPaycheck(userId: number, data: Partial<BudgetPaycheck>): Promise<number> {
-  const db = getDb()
-  const cols = [...PAYCHECK_COLUMNS]
-  const values = cols.map((c) => {
-    const v = (data as Record<string, unknown>)[c]
-    if (v === undefined || v === null || v === '') {
-      return NUMERIC_COLUMNS.has(c) ? 0 : ''
-    }
-    return NUMERIC_COLUMNS.has(c) ? Number(v) : String(v)
-  })
-  const placeholders = cols.map(() => '?').join(', ')
-  const result = await db.prepare(
-    `INSERT INTO budget_paychecks (user_id, ${cols.join(', ')}) VALUES (?, ${placeholders}) RETURNING id`
-  ).run(userId, ...values)
-  return Number(result.lastInsertRowid)
-}
-
-export async function updatePaycheck(userId: number, id: number, data: Partial<BudgetPaycheck>): Promise<void> {
-  const db = getDb()
-  const setClauses: string[] = []
-  const values: unknown[] = []
-  for (const c of PAYCHECK_COLUMNS) {
-    if ((data as Record<string, unknown>)[c] !== undefined) {
-      const v = (data as Record<string, unknown>)[c]
-      setClauses.push(`${c} = ?`)
-      values.push(v === null || v === '' ? (NUMERIC_COLUMNS.has(c) ? 0 : '') : NUMERIC_COLUMNS.has(c) ? Number(v) : String(v))
-    }
-  }
-  if (setClauses.length === 0) return
-  values.push(id, userId)
-  await db.prepare(`UPDATE budget_paychecks SET ${setClauses.join(', ')} WHERE id = ? AND user_id = ?`).run(...values)
-}
-
-export async function deletePaycheck(userId: number, id: number): Promise<void> {
-  const db = getDb()
-  await db.prepare('DELETE FROM budget_paychecks WHERE user_id = ? AND id = ?').run(userId, id)
-}
-
 const NUMERIC_COLUMNS = new Set<string>([
   'hours_worked', 'gross_pay', 'pre_tax_deductions', 'employee_taxes', 'post_tax_deductions',
   'net_pay', 'salary', 'biometric_credit', 'floating_holiday', 'holiday_pay', 'vacation_pay',
@@ -298,6 +260,47 @@ const NUMERIC_COLUMNS = new Set<string>([
   'group_term_life_ytd', 'floating_holiday_ytd', 'holiday_pay_ytd', 'vacation_pay_ytd',
   'salary_ytd',
 ])
+
+const DATE_COLUMNS = new Set<string>(['pay_date', 'pay_period_begin', 'pay_period_end', 'check_date'])
+
+function normalizePaycheckValue(c: string, v: unknown): string | number | null {
+  if (v === undefined || v === null || v === '') {
+    if (DATE_COLUMNS.has(c)) return null
+    return NUMERIC_COLUMNS.has(c) ? 0 : ''
+  }
+  return NUMERIC_COLUMNS.has(c) ? Number(v) : String(v)
+}
+
+export async function addPaycheck(userId: number, data: Partial<BudgetPaycheck>): Promise<number> {
+  const db = getDb()
+  const cols = [...PAYCHECK_COLUMNS]
+  const values = cols.map((c) => normalizePaycheckValue(c, (data as Record<string, unknown>)[c]))
+  const placeholders = cols.map(() => '?').join(', ')
+  const result = await db.prepare(
+    `INSERT INTO budget_paychecks (user_id, ${cols.join(', ')}) VALUES (?, ${placeholders}) RETURNING id`
+  ).run(userId, ...values)
+  return Number(result.lastInsertRowid)
+}
+
+export async function updatePaycheck(userId: number, id: number, data: Partial<BudgetPaycheck>): Promise<void> {
+  const db = getDb()
+  const setClauses: string[] = []
+  const values: unknown[] = []
+  for (const c of PAYCHECK_COLUMNS) {
+    if ((data as Record<string, unknown>)[c] !== undefined) {
+      setClauses.push(`${c} = ?`)
+      values.push(normalizePaycheckValue(c, (data as Record<string, unknown>)[c]))
+    }
+  }
+  if (setClauses.length === 0) return
+  values.push(id, userId)
+  await db.prepare(`UPDATE budget_paychecks SET ${setClauses.join(', ')} WHERE id = ? AND user_id = ?`).run(...values)
+}
+
+export async function deletePaycheck(userId: number, id: number): Promise<void> {
+  const db = getDb()
+  await db.prepare('DELETE FROM budget_paychecks WHERE user_id = ? AND id = ?').run(userId, id)
+}
 
 export async function getNextPaycheckDate(userId: number): Promise<string | null> {
   const paychecks = await getPaychecks(userId)
