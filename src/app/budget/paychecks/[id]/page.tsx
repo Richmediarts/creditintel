@@ -218,7 +218,7 @@ export default function PaycheckViewPage() {
 
         {/* Summary strip */}
         <div className="bg-white dark:bg-gray-800">
-          <div className="grid grid-cols-3 lg:grid-cols-6 bg-[#1a1814]">
+          <div className="grid grid-cols-3 lg:grid-cols-7 bg-[#1a1814]">
             {[
               { label: 'Period', right: false },
               { label: 'Hours Worked', right: true },
@@ -226,19 +226,21 @@ export default function PaycheckViewPage() {
               { label: 'Pre-Tax Ded.', right: true },
               { label: 'Emp. Taxes', right: true },
               { label: 'Post-Tax Ded.', right: true },
+              { label: 'Net Pay', right: true },
             ].map((h) => (
               <div key={h.label} className={`px-3 py-2 text-[10px] uppercase tracking-widest text-[#a09890] font-mono ${h.right ? 'text-right' : 'text-left'}`}>
                 {h.label}
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-3 lg:grid-cols-6 bg-[#1a1814]">
+          <div className="grid grid-cols-3 lg:grid-cols-7 bg-[#1a1814]">
             {[
               { label: 'Current', val: hours.toFixed(1), money: false },
               { label: '', val: fmt(pc.gross_pay), money: true },
               { label: '', val: fmt(pc.pre_tax_deductions), money: true },
               { label: '', val: fmt(pc.employee_taxes), money: true },
               { label: '', val: fmt(pc.post_tax_deductions), money: true },
+              { label: '', val: fmt(pc.net_pay), money: true },
             ].map((c, i) => (
               <div key={i} className={`px-3 py-2 text-xs font-medium text-white font-mono ${c.money ? 'text-right' : 'text-left text-[#a09890] uppercase'}`}>
                 {c.label}{c.money ? c.val : c.val}
