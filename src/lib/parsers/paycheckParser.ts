@@ -500,8 +500,9 @@ export function parsePaycheckText(rawText: string): ParsedPaycheck {
       if (depositVal) result.deposit2_amount = depositVal
     }
 
-    // Account numbers (******1234)
-    const accMatch = line.match(/\*{6}(\d{4})/)
+    // Account numbers (******1234). The doubled-glyph de-dup above may halve
+    // the asterisk run ("******1234" -> "***1234"), so match 2+ stars.
+    const accMatch = line.match(/\*{2,}(\d{4})/)
     if (accMatch) {
       if (result.bank_name === 'PNC Bank' && !result.account_number) {
         result.account_number = '****' + accMatch[1]

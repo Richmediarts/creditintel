@@ -40,7 +40,9 @@ export async function extractPdfText(file: File): Promise<string> {
         // pdfjs mangled the earnings table but native still has the clean
         // header/summary (which OCR often misses), so combine both.
         const ocr = (await extractWithOCR(pdf)).rawConcat
-        return nativeHeaderAndSummary(nativeText) + '\n' + ocr
+        // OCR sometimes drops the direct-deposit rows (e.g. the PNC line),
+        // so tack the native payment section back on as well.
+        return nativeHeaderAndSummary(nativeText) + '\n' + ocr + '\n' + nativeDirectDeposit(nativeText)
       }
       return nativeText
     }
@@ -83,6 +85,17 @@ function nativeHeaderAndSummary(native: string): string {
     if (!gotCurrent) out.push(line)
   }
   return out.join('\n')
+}
+
+// Returns the direct-deposit / payment-information block from the native
+// extraction (the "Direct Deposit"/"Payment Information" header through the
+// end of the text). OCR frequently misses these rows, so callers append them
+// to the merged text; the parser de-duplicates doubled glyphs it may contain.
+function nativeDirectDeposit(native: string): string {
+  const lines = native.split('\n')
+  const start = lines.findIndex((l) => /direct deposit|payment information/i.test(l))
+  if (start < 0) return ''
+  return lines.slice(start).join('\n')
 }
 
 export async function extractTextFromPDF(file: File): Promise<ExtractedText> {
