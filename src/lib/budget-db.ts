@@ -233,14 +233,35 @@ function ensureSchemaOnce(): void {
 }
 
 // Paychecks
+const PAYCHECK_DATE_FIELDS = new Set<string>(['pay_date', 'pay_period_begin', 'pay_period_end', 'check_date'])
+
+function toDateString(v: unknown): string | undefined {
+  if (v === null || v === undefined) return undefined
+  if (v instanceof Date) return v.toISOString().split('T')[0]
+  const s = String(v)
+  const m = s.match(/^\d{4}-\d{2}-\d{2}/)
+  return m ? m[0] : s
+}
+
+function normalizePaycheckDates(row: Record<string, unknown>): Record<string, unknown> {
+  for (const f of PAYCHECK_DATE_FIELDS) {
+    if (row[f] !== undefined && row[f] !== null) {
+      row[f] = toDateString(row[f])
+    }
+  }
+  return row
+}
+
 export async function getPaychecks(userId: number): Promise<(BudgetPaycheck & { id: number })[]> {
   const db = getDb()
-  return (await db.prepare('SELECT * FROM budget_paychecks WHERE user_id = ? ORDER BY check_date DESC, pay_date DESC').all(userId)) as (BudgetPaycheck & { id: number })[]
+  const rows = (await db.prepare('SELECT * FROM budget_paychecks WHERE user_id = ? ORDER BY check_date DESC, pay_date DESC').all(userId)) as (BudgetPaycheck & { id: number })[]
+  return rows.map((r) => normalizePaycheckDates(r as unknown as Record<string, unknown>) as unknown as BudgetPaycheck & { id: number })
 }
 
 export async function getPaycheck(userId: number, id: number): Promise<(BudgetPaycheck & { id: number }) | null> {
   const db = getDb()
-  return ((await db.prepare('SELECT * FROM budget_paychecks WHERE user_id = ? AND id = ?').get(userId, id)) as (BudgetPaycheck & { id: number }) | undefined) ?? null
+  const row = ((await db.prepare('SELECT * FROM budget_paychecks WHERE user_id = ? AND id = ?').get(userId, id)) as (BudgetPaycheck & { id: number }) | undefined) ?? null
+  return row ? (normalizePaycheckDates(row as unknown as Record<string, unknown>) as unknown as BudgetPaycheck & { id: number }) : null
 }
 
 const NUMERIC_COLUMNS = new Set<string>([
@@ -328,6 +349,7 @@ export async function getBudgetStats(userId: number): Promise<BudgetStats> {
   const lastPaycheckRow = (await db.prepare(
     'SELECT * FROM budget_paychecks WHERE user_id = ? ORDER BY check_date DESC, pay_date DESC LIMIT 1'
   ).get(userId)) as (BudgetPaycheck & { id: number }) | undefined
+  if (lastPaycheckRow) normalizePaycheckDates(lastPaycheckRow as unknown as Record<string, unknown>)
   const lastPaycheckNet = lastPaycheckRow?.net_pay || 0
   const lastPaycheckDate = lastPaycheckRow?.check_date || lastPaycheckRow?.pay_date || null
 
