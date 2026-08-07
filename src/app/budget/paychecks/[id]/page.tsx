@@ -235,7 +235,8 @@ export default function PaycheckViewPage() {
           </div>
           <div className="grid grid-cols-3 lg:grid-cols-7 bg-[#1a1814]">
             {[
-              { label: 'Current', val: hours.toFixed(1), money: false },
+              { label: 'Current', val: '', money: false },
+              { label: '', val: String(hours), money: true },
               { label: '', val: fmt(pc.gross_pay), money: true },
               { label: '', val: fmt(pc.pre_tax_deductions), money: true },
               { label: '', val: fmt(pc.employee_taxes), money: true },
