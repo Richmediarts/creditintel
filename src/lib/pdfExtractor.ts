@@ -17,11 +17,25 @@ async function loadPdf(file: File): Promise<any> {
   return await loadingTask.promise
 }
 
+// Detect pdfjs text extraction artifacts that corrupt values, e.g. doubled
+// glyphs ("SSaallaarryy", "6644", "33,,770099..2244") or merged columns
+// ("4,636.5475.00"). Such text cannot be parsed reliably, so callers fall
+// back to OCR which reads the rendered page instead.
+function looksMangled(text: string): boolean {
+  const tokens = text.split(/\s+/)
+  let doubledCount = 0
+  for (const t of tokens) {
+    if (t.length >= 4 && t.length % 2 === 0 && t.replace(/(.)\1/g, '').length === 0) doubledCount++
+    if (/\d[\d,]*\.\d{2}[\d,]*\.\d{2}/.test(t)) return true
+  }
+  return doubledCount >= 2
+}
+
 export async function extractPdfText(file: File): Promise<string> {
   const pdf = await loadPdf(file)
   try {
     const nativeText = await extractNative(pdf)
-    if (nativeText.replace(/\s+/g, '').trim().length > 80) {
+    if (nativeText.replace(/\s+/g, '').trim().length > 80 && !looksMangled(nativeText)) {
       return nativeText
     }
   } catch {

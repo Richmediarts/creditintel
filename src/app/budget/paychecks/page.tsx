@@ -210,6 +210,7 @@ export default function PaychecksPage() {
     setImporting(true)
     const formData = new FormData()
     formData.set('parsed_json', JSON.stringify(parsedData))
+    if (importText) formData.set('raw_text', importText)
     const res = await fetch('/api/budget/paycheck-import', { method: 'POST', body: formData })
     const data = await res.json()
     if (res.ok) {

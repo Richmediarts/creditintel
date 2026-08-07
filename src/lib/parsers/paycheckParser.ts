@@ -143,7 +143,20 @@ function getValueAfterLabel(line: string, label: string, ytd = false): number | 
 
 export function parsePaycheckText(rawText: string): ParsedPaycheck {
   const result: ParsedPaycheck = {}
-  const lines = rawText.split('\n')
+
+  // Collapse doubled glyphs ("SSaallaarryy" -> "Salary", "6644" -> "64").
+  // Only fires when every character in a token is repeated in pairs, so real
+  // values like "400.00" or "64,614.11" are never touched.
+  const lines = rawText.split('\n').map((line) =>
+    line.split(/\s+/)
+      .map((token) => {
+        if (token.length >= 2 && token.length % 2 === 0 && token.replace(/(.)\1/g, '').length === 0) {
+          return token.replace(/(.)\1/g, '$1')
+        }
+        return token
+      })
+      .join(' ')
+  )
 
   // Pass 1: Company, employee ID, dates
   for (const line of lines) {
@@ -493,7 +506,7 @@ export function parsePaycheckText(rawText: string): ParsedPaycheck {
     }
   }
 
-  const EARNINGS_SECTION_END = /^\s*(employee taxes|pre tax deductions|post tax deductions|employer paid benefits|taxable wages|earnings\b|payment information|federal\b|state\b)/i
+  const EARNINGS_SECTION_END = /^\s*(employee taxes|pre tax|post tax|employer paid benefits|taxable wages|earnings\b|payment information|federal\b|state\b|oasdi\b|medicare\b|401\s*k\b|dental\b|medical\b|eye plan|health care|fsa\b|optional life|add insurance|loan\b|stock\b|spousal life|dependent life|employer match|hsa\b|benefits\b)/i
 
   let inEarnings = false
   let currentEntry: { def: (typeof EARNINGS_DEFS)[number]; buffer: string[] } | null = null

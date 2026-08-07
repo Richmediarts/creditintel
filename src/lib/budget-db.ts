@@ -72,6 +72,7 @@ export interface BudgetPaycheck {
   account2_number?: string
   deposit2_amount?: number
   notes?: string
+  raw_text?: string
   gross_pay_ytd?: number
   pre_tax_deductions_ytd?: number
   employee_taxes_ytd?: number
@@ -127,7 +128,7 @@ const PAYCHECK_COLUMNS = [
   'employer_match_ytd', 'hsa_ytd', 'loan_repayment_ytd', 'dependent_life_ytd',
   'stock_purchase_ytd', 'spousal_life_ytd', 'biometric_credit_ytd', 'spousal_biometric_ytd',
   'group_term_life_ytd', 'floating_holiday_ytd', 'holiday_pay_ytd', 'vacation_pay_ytd',
-  'salary_ytd',
+  'salary_ytd', 'raw_text',
 ] as const
 
 export interface BudgetStats {

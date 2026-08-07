@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
       }
 
       kwargs.notes = 'Imported from paystub'
+      if (rawText) kwargs.raw_text = rawText
       const id = await addPaycheck(user.userId, kwargs)
       return NextResponse.json({ success: true, id })
     }

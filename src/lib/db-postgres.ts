@@ -85,7 +85,7 @@ export async function initPostgresSchema() {
       additional_withholding REAL DEFAULT 0,
       bank_name TEXT, account_number TEXT,
       deposit_amount REAL DEFAULT 0, bank2_name TEXT, account2_number TEXT,
-      deposit2_amount REAL DEFAULT 0, notes TEXT,
+      deposit2_amount REAL DEFAULT 0, notes TEXT, raw_text TEXT,
       gross_pay_ytd REAL DEFAULT 0, pre_tax_deductions_ytd REAL DEFAULT 0,
       employee_taxes_ytd REAL DEFAULT 0, post_tax_deductions_ytd REAL DEFAULT 0,
       net_pay_ytd REAL DEFAULT 0, hours_worked_ytd REAL DEFAULT 0,
@@ -271,6 +271,9 @@ export async function initPostgresSchema() {
   `
   await sql`
     ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS other_earnings_rate REAL DEFAULT 0;
+  `
+  await sql`
+    ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS raw_text TEXT;
   `
 
   const serialTables = [
