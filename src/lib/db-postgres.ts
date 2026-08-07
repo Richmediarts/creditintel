@@ -63,10 +63,14 @@ export async function initPostgresSchema() {
       company TEXT, hours_worked REAL DEFAULT 0, gross_pay REAL DEFAULT 0,
       pre_tax_deductions REAL DEFAULT 0, employee_taxes REAL DEFAULT 0,
       post_tax_deductions REAL DEFAULT 0, net_pay REAL DEFAULT 0,
-      salary REAL DEFAULT 0, biometric_credit REAL DEFAULT 0,
-      floating_holiday REAL DEFAULT 0, holiday_pay REAL DEFAULT 0,
-      vacation_pay REAL DEFAULT 0, group_term_life REAL DEFAULT 0,
-      spousal_biometric REAL DEFAULT 0, other_earnings REAL DEFAULT 0,
+      salary REAL DEFAULT 0, salary_hours REAL DEFAULT 0, salary_rate REAL DEFAULT 0,
+      biometric_credit REAL DEFAULT 0, biometric_credit_hours REAL DEFAULT 0, biometric_credit_rate REAL DEFAULT 0,
+      floating_holiday REAL DEFAULT 0, floating_holiday_hours REAL DEFAULT 0, floating_holiday_rate REAL DEFAULT 0,
+      holiday_pay REAL DEFAULT 0, holiday_pay_hours REAL DEFAULT 0, holiday_pay_rate REAL DEFAULT 0,
+      vacation_pay REAL DEFAULT 0, vacation_hours REAL DEFAULT 0, vacation_rate REAL DEFAULT 0,
+      group_term_life REAL DEFAULT 0, group_term_life_hours REAL DEFAULT 0, group_term_life_rate REAL DEFAULT 0,
+      spousal_biometric REAL DEFAULT 0, spousal_biometric_hours REAL DEFAULT 0, spousal_biometric_rate REAL DEFAULT 0,
+      other_earnings REAL DEFAULT 0, other_earnings_hours REAL DEFAULT 0, other_earnings_rate REAL DEFAULT 0,
       oasdi REAL DEFAULT 0, medicare REAL DEFAULT 0, federal_tax REAL DEFAULT 0,
       state_tax REAL DEFAULT 0, state_name TEXT, social_security REAL DEFAULT 0,
       retirement_401k REAL DEFAULT 0, add_insurance REAL DEFAULT 0,
@@ -218,6 +222,55 @@ export async function initPostgresSchema() {
 
   await sql`
     ALTER TABLE budget_credit_cards ADD COLUMN IF NOT EXISTS institution TEXT;
+  `
+
+  await sql`
+    ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS salary_hours REAL DEFAULT 0;
+  `
+  await sql`
+    ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS salary_rate REAL DEFAULT 0;
+  `
+  await sql`
+    ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS vacation_hours REAL DEFAULT 0;
+  `
+  await sql`
+    ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS vacation_rate REAL DEFAULT 0;
+  `
+  await sql`
+    ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS holiday_pay_hours REAL DEFAULT 0;
+  `
+  await sql`
+    ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS holiday_pay_rate REAL DEFAULT 0;
+  `
+  await sql`
+    ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS floating_holiday_hours REAL DEFAULT 0;
+  `
+  await sql`
+    ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS floating_holiday_rate REAL DEFAULT 0;
+  `
+  await sql`
+    ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS biometric_credit_hours REAL DEFAULT 0;
+  `
+  await sql`
+    ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS biometric_credit_rate REAL DEFAULT 0;
+  `
+  await sql`
+    ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS spousal_biometric_hours REAL DEFAULT 0;
+  `
+  await sql`
+    ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS spousal_biometric_rate REAL DEFAULT 0;
+  `
+  await sql`
+    ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS group_term_life_hours REAL DEFAULT 0;
+  `
+  await sql`
+    ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS group_term_life_rate REAL DEFAULT 0;
+  `
+  await sql`
+    ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS other_earnings_hours REAL DEFAULT 0;
+  `
+  await sql`
+    ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS other_earnings_rate REAL DEFAULT 0;
   `
 
   const serialTables = [

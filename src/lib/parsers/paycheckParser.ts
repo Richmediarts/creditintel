@@ -20,12 +20,29 @@ export interface ParsedPaycheck {
   post_tax_deductions?: number
   net_pay?: number
   salary?: number
+  salary_hours?: number
+  salary_rate?: number
   biometric_credit?: number
+  biometric_credit_hours?: number
+  biometric_credit_rate?: number
   floating_holiday?: number
+  floating_holiday_hours?: number
+  floating_holiday_rate?: number
   holiday_pay?: number
+  holiday_pay_hours?: number
+  holiday_pay_rate?: number
   vacation_pay?: number
+  vacation_hours?: number
+  vacation_rate?: number
   group_term_life?: number
+  group_term_life_hours?: number
+  group_term_life_rate?: number
   spousal_biometric?: number
+  spousal_biometric_hours?: number
+  spousal_biometric_rate?: number
+  other_earnings?: number
+  other_earnings_hours?: number
+  other_earnings_rate?: number
   oasdi?: number
   medicare?: number
   federal_tax?: number
@@ -444,6 +461,80 @@ export function parsePaycheckText(rawText: string): ParsedPaycheck {
       }
     }
   }
+
+  // Pass 6: Earnings hours & rate (and amount when missing). Handles both
+  // same-line entries ("Vacation 0 3,231.87") and multi-line entries where the
+  // label sits on its own line followed by dates/hours/rate/amount/ytd.
+  const EARNINGS_DEFS: Array<{ match: RegExp; amount: string; hours: string; rate: string }> = [
+    { match: /spousal biometric/, amount: 'spousal_biometric', hours: 'spousal_biometric_hours', rate: 'spousal_biometric_rate' },
+    { match: /biometric credit/, amount: 'biometric_credit', hours: 'biometric_credit_hours', rate: 'biometric_credit_rate' },
+    { match: /floating holiday/, amount: 'floating_holiday', hours: 'floating_holiday_hours', rate: 'floating_holiday_rate' },
+    { match: /\bholiday\b/, amount: 'holiday_pay', hours: 'holiday_pay_hours', rate: 'holiday_pay_rate' },
+    { match: /\bvacation\b/, amount: 'vacation_pay', hours: 'vacation_hours', rate: 'vacation_rate' },
+    { match: /group term life/, amount: 'group_term_life', hours: 'group_term_life_hours', rate: 'group_term_life_rate' },
+    { match: /\bsalary\b/, amount: 'salary', hours: 'salary_hours', rate: 'salary_rate' },
+    { match: /pscp|payslip name|other earnings/, amount: 'other_earnings', hours: 'other_earnings_hours', rate: 'other_earnings_rate' },
+  ]
+
+  const earningsTokens = (text: string): { hours: number | null; rate: number | null; amount: number | null; ytd: number | null } => {
+    const stripped = text.replace(/\d{2}\/\d{2}\/\d{4}(\s*[-–]\s*\d{2}\/\d{2}\/\d{4})?/g, ' ')
+    const moneyMatches: string[] = stripped.match(/(\d[\d,]*\.\d{2})/g) || []
+    const allNumMatches: string[] = stripped.match(/(\d[\d,]*(?:\.\d+)?)/g) || []
+    const nums = allNumMatches
+      .filter((t) => !moneyMatches.includes(t))
+      .map((t) => parseFloat(t.replace(/,/g, '')))
+      .filter((n) => !isNaN(n))
+    const amounts = moneyMatches.map((t) => parseFloat(t.replace(/,/g, ''))).filter((n) => !isNaN(n))
+    return {
+      hours: nums.length > 0 ? nums[0] : null,
+      rate: nums.length > 1 ? nums[1] : null,
+      amount: amounts.length > 0 ? amounts[0] : null,
+      ytd: amounts.length > 1 ? amounts[1] : null,
+    }
+  }
+
+  const EARNINGS_SECTION_END = /^\s*(employee taxes|pre tax deductions|post tax deductions|employer paid benefits|taxable wages|earnings\b|payment information|federal\b|state\b)/i
+
+  let inEarnings = false
+  let currentEntry: { def: (typeof EARNINGS_DEFS)[number]; buffer: string[] } | null = null
+
+  const flushEarningsEntry = () => {
+    if (!currentEntry) return
+    const parsed = earningsTokens(currentEntry.buffer.join(' '))
+    const cur = result as unknown as Record<string, number | undefined>
+    if (parsed.hours !== null) cur[currentEntry.def.hours] = parsed.hours
+    if (parsed.rate !== null) cur[currentEntry.def.rate] = parsed.rate
+    if (parsed.amount !== null && cur[currentEntry.def.amount] === undefined) cur[currentEntry.def.amount] = parsed.amount
+    currentEntry = null
+  }
+
+  for (const line of lines) {
+    const lineLower = line.toLowerCase()
+    if (EARNINGS_SECTION_END.test(lineLower)) {
+      if (currentEntry) flushEarningsEntry()
+      if (!lineLower.includes('earnings')) inEarnings = false
+      continue
+    }
+    if (lineLower.includes('hours') && lineLower.includes('rate') && lineLower.includes('amount') && lineLower.includes('description')) {
+      if (currentEntry) flushEarningsEntry()
+      inEarnings = true
+      continue
+    }
+    let def: (typeof EARNINGS_DEFS)[number] | undefined
+    for (const d of EARNINGS_DEFS) {
+      if (d.match.test(lineLower)) { def = d; break }
+    }
+    if (def) {
+      if (currentEntry) flushEarningsEntry()
+      currentEntry = { def, buffer: [line] }
+      inEarnings = true
+      continue
+    }
+    if (inEarnings && currentEntry) {
+      currentEntry.buffer.push(line)
+    }
+  }
+  if (currentEntry) flushEarningsEntry()
 
   // Fallback: find any account number if not yet found
   if (!result.account_number) {

@@ -29,8 +29,14 @@ const EMPTY_FORM: Record<string, string> = {
   retirement_401k: '0', health_insurance: '0', dental_plan: '0', eye_plan: '0',
   health_care_fsa: '0', optional_life: '0', add_insurance: '0', hsa: '0',
   loan_repayment: '0', stock_purchase: '0', spousal_life: '0', dependent_life: '0',
-  salary: '0', vacation_pay: '0', holiday_pay: '0', biometric_credit: '0',
-  spousal_biometric: '0', group_term_life: '0', floating_holiday: '0', other_earnings: '0',
+  salary: '0', salary_hours: '0', salary_rate: '0',
+  vacation_pay: '0', vacation_hours: '0', vacation_rate: '0',
+  holiday_pay: '0', holiday_pay_hours: '0', holiday_pay_rate: '0',
+  biometric_credit: '0', biometric_credit_hours: '0', biometric_credit_rate: '0',
+  spousal_biometric: '0', spousal_biometric_hours: '0', spousal_biometric_rate: '0',
+  group_term_life: '0', group_term_life_hours: '0', group_term_life_rate: '0',
+  floating_holiday: '0', floating_holiday_hours: '0', floating_holiday_rate: '0',
+  other_earnings: '0', other_earnings_hours: '0', other_earnings_rate: '0',
   bank_name: '', account_number: '', deposit_amount: '0',
   bank2_name: '', account2_number: '', deposit2_amount: '0',
   notes: '',
@@ -417,13 +423,29 @@ export default function PaychecksPage() {
 
                 <SectionTitle>Earnings</SectionTitle>
                 <NumberField label="Salary" name="salary" value={form.salary} onChange={setField} />
+                <NumberField label="Salary Hours" name="salary_hours" value={form.salary_hours} onChange={setField} />
+                <NumberField label="Salary Rate" name="salary_rate" value={form.salary_rate} onChange={setField} />
                 <NumberField label="Vacation Pay" name="vacation_pay" value={form.vacation_pay} onChange={setField} />
+                <NumberField label="Vacation Hours" name="vacation_hours" value={form.vacation_hours} onChange={setField} />
+                <NumberField label="Vacation Rate" name="vacation_rate" value={form.vacation_rate} onChange={setField} />
                 <NumberField label="Holiday Pay" name="holiday_pay" value={form.holiday_pay} onChange={setField} />
+                <NumberField label="Holiday Hours" name="holiday_pay_hours" value={form.holiday_pay_hours} onChange={setField} />
+                <NumberField label="Holiday Rate" name="holiday_pay_rate" value={form.holiday_pay_rate} onChange={setField} />
                 <NumberField label="Biometric Credit" name="biometric_credit" value={form.biometric_credit} onChange={setField} />
+                <NumberField label="Biometric Hours" name="biometric_credit_hours" value={form.biometric_credit_hours} onChange={setField} />
+                <NumberField label="Biometric Rate" name="biometric_credit_rate" value={form.biometric_credit_rate} onChange={setField} />
                 <NumberField label="Spousal Biometric" name="spousal_biometric" value={form.spousal_biometric} onChange={setField} />
+                <NumberField label="Spousal Biometric Hours" name="spousal_biometric_hours" value={form.spousal_biometric_hours} onChange={setField} />
+                <NumberField label="Spousal Biometric Rate" name="spousal_biometric_rate" value={form.spousal_biometric_rate} onChange={setField} />
                 <NumberField label="Group Term Life" name="group_term_life" value={form.group_term_life} onChange={setField} />
+                <NumberField label="Group Term Life Hours" name="group_term_life_hours" value={form.group_term_life_hours} onChange={setField} />
+                <NumberField label="Group Term Life Rate" name="group_term_life_rate" value={form.group_term_life_rate} onChange={setField} />
                 <NumberField label="Floating Holiday" name="floating_holiday" value={form.floating_holiday} onChange={setField} />
+                <NumberField label="Floating Holiday Hours" name="floating_holiday_hours" value={form.floating_holiday_hours} onChange={setField} />
+                <NumberField label="Floating Holiday Rate" name="floating_holiday_rate" value={form.floating_holiday_rate} onChange={setField} />
                 <NumberField label="Other Earnings" name="other_earnings" value={form.other_earnings} onChange={setField} />
+                <NumberField label="Other Earnings Hours" name="other_earnings_hours" value={form.other_earnings_hours} onChange={setField} />
+                <NumberField label="Other Earnings Rate" name="other_earnings_rate" value={form.other_earnings_rate} onChange={setField} />
 
                 <SectionTitle>Direct Deposit</SectionTitle>
                 <TextField label="Bank Name" name="bank_name" value={form.bank_name} onChange={setField} />

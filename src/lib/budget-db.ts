@@ -17,13 +17,29 @@ export interface BudgetPaycheck {
   post_tax_deductions?: number
   net_pay?: number
   salary?: number
+  salary_hours?: number
+  salary_rate?: number
   biometric_credit?: number
+  biometric_credit_hours?: number
+  biometric_credit_rate?: number
   floating_holiday?: number
+  floating_holiday_hours?: number
+  floating_holiday_rate?: number
   holiday_pay?: number
+  holiday_pay_hours?: number
+  holiday_pay_rate?: number
   vacation_pay?: number
+  vacation_hours?: number
+  vacation_rate?: number
   group_term_life?: number
+  group_term_life_hours?: number
+  group_term_life_rate?: number
   spousal_biometric?: number
+  spousal_biometric_hours?: number
+  spousal_biometric_rate?: number
   other_earnings?: number
+  other_earnings_hours?: number
+  other_earnings_rate?: number
   oasdi?: number
   medicare?: number
   federal_tax?: number
@@ -92,8 +108,11 @@ const PAYCHECK_COLUMNS = [
   'pay_date', 'pay_period_begin', 'pay_period_end', 'check_date', 'check_number',
   'employee_name', 'employee_id', 'company', 'hours_worked', 'gross_pay',
   'pre_tax_deductions', 'employee_taxes', 'post_tax_deductions', 'net_pay',
-  'salary', 'biometric_credit', 'floating_holiday', 'holiday_pay', 'vacation_pay',
-  'group_term_life', 'spousal_biometric', 'other_earnings', 'oasdi', 'medicare',
+  'salary', 'salary_hours', 'salary_rate', 'biometric_credit', 'biometric_credit_hours', 'biometric_credit_rate',
+  'floating_holiday', 'floating_holiday_hours', 'floating_holiday_rate', 'holiday_pay', 'holiday_pay_hours', 'holiday_pay_rate',
+  'vacation_pay', 'vacation_hours', 'vacation_rate', 'group_term_life', 'group_term_life_hours', 'group_term_life_rate',
+  'spousal_biometric', 'spousal_biometric_hours', 'spousal_biometric_rate', 'other_earnings', 'other_earnings_hours', 'other_earnings_rate',
+  'oasdi', 'medicare',
   'federal_tax', 'state_tax', 'state_name', 'social_security', 'retirement_401k',
   'add_insurance', 'dental_plan', 'eye_plan', 'health_care_fsa', 'health_insurance',
   'optional_life', 'hsa', 'loan_repayment', 'dependent_life', 'stock_purchase',
@@ -266,8 +285,11 @@ export async function getPaycheck(userId: number, id: number): Promise<(BudgetPa
 
 const NUMERIC_COLUMNS = new Set<string>([
   'hours_worked', 'gross_pay', 'pre_tax_deductions', 'employee_taxes', 'post_tax_deductions',
-  'net_pay', 'salary', 'biometric_credit', 'floating_holiday', 'holiday_pay', 'vacation_pay',
-  'group_term_life', 'spousal_biometric', 'other_earnings', 'oasdi', 'medicare', 'federal_tax',
+  'net_pay', 'salary', 'salary_hours', 'salary_rate', 'biometric_credit', 'biometric_credit_hours', 'biometric_credit_rate',
+  'floating_holiday', 'floating_holiday_hours', 'floating_holiday_rate', 'holiday_pay', 'holiday_pay_hours', 'holiday_pay_rate',
+  'vacation_pay', 'vacation_hours', 'vacation_rate', 'group_term_life', 'group_term_life_hours', 'group_term_life_rate',
+  'spousal_biometric', 'spousal_biometric_hours', 'spousal_biometric_rate', 'other_earnings', 'other_earnings_hours', 'other_earnings_rate',
+  'oasdi', 'medicare', 'federal_tax',
   'state_tax', 'social_security', 'retirement_401k', 'add_insurance', 'dental_plan', 'eye_plan',
   'health_care_fsa', 'health_insurance', 'optional_life', 'hsa', 'loan_repayment', 'dependent_life',
   'stock_purchase', 'spousal_life', 'employer_match', 'employer_hsa', 'deposit_amount', 'deposit2_amount',

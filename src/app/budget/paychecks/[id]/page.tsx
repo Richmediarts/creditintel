@@ -19,19 +19,35 @@ interface Paycheck {
   employee_id?: string
   company?: string
   hours_worked?: number
+  salary?: number
+  salary_hours?: number
+  salary_rate?: number
+  vacation_pay?: number
+  vacation_hours?: number
+  vacation_rate?: number
+  holiday_pay?: number
+  holiday_pay_hours?: number
+  holiday_pay_rate?: number
+  biometric_credit?: number
+  biometric_credit_hours?: number
+  biometric_credit_rate?: number
+  spousal_biometric?: number
+  spousal_biometric_hours?: number
+  spousal_biometric_rate?: number
+  group_term_life?: number
+  group_term_life_hours?: number
+  group_term_life_rate?: number
+  floating_holiday?: number
+  floating_holiday_hours?: number
+  floating_holiday_rate?: number
+  other_earnings?: number
+  other_earnings_hours?: number
+  other_earnings_rate?: number
   gross_pay?: number
   pre_tax_deductions?: number
   employee_taxes?: number
   post_tax_deductions?: number
   net_pay?: number
-  salary?: number
-  vacation_pay?: number
-  holiday_pay?: number
-  biometric_credit?: number
-  spousal_biometric?: number
-  group_term_life?: number
-  floating_holiday?: number
-  other_earnings?: number
   oasdi?: number
   medicare?: number
   federal_tax?: number
@@ -62,6 +78,12 @@ interface Paycheck {
 
 const fmt = (n: number | undefined): string =>
   '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+const fmtHours = (n: number | undefined): string =>
+  n === undefined || n === null ? '—' : String(n)
+
+const fmtRate = (n: number | undefined): string =>
+  n === undefined || n === null ? '—' : String(Math.round(n * 10000) / 10000)
 
 function IdCell({ label, val }: { label: string; val?: string }) {
   return (
@@ -120,15 +142,15 @@ export default function PaycheckViewPage() {
   const netPay = pc.net_pay || 0
 
   const earnings = [
-    pc.salary && (pc.salary || 0) > 0 ? { label: 'Salary', amount: pc.salary, ytd: undefined } : null,
-    pc.vacation_pay && (pc.vacation_pay || 0) > 0 ? { label: 'Vacation', amount: pc.vacation_pay, ytd: undefined } : null,
-    pc.holiday_pay && (pc.holiday_pay || 0) > 0 ? { label: 'Holiday', amount: pc.holiday_pay, ytd: undefined } : null,
-    pc.biometric_credit && (pc.biometric_credit || 0) > 0 ? { label: 'Biometric Credit', amount: pc.biometric_credit, ytd: undefined } : null,
-    pc.spousal_biometric && (pc.spousal_biometric || 0) > 0 ? { label: 'Spousal Biometric Credit', amount: pc.spousal_biometric, ytd: undefined } : null,
-    pc.group_term_life && (pc.group_term_life || 0) > 0 ? { label: 'Group Term Life', amount: pc.group_term_life, ytd: undefined } : null,
-    pc.floating_holiday && (pc.floating_holiday || 0) > 0 ? { label: 'Floating Holiday', amount: pc.floating_holiday, ytd: undefined } : null,
-    pc.other_earnings && (pc.other_earnings || 0) > 0 ? { label: 'Other Earnings', amount: pc.other_earnings, ytd: undefined } : null,
-  ].filter(Boolean) as { label: string; amount: number; ytd?: number }[]
+    pc.salary && (pc.salary || 0) > 0 ? { label: 'Salary', amount: pc.salary, ytd: undefined, hours: pc.salary_hours, rate: pc.salary_rate } : null,
+    pc.vacation_pay && (pc.vacation_pay || 0) > 0 ? { label: 'Vacation', amount: pc.vacation_pay, ytd: undefined, hours: pc.vacation_hours, rate: pc.vacation_rate } : null,
+    pc.holiday_pay && (pc.holiday_pay || 0) > 0 ? { label: 'Holiday', amount: pc.holiday_pay, ytd: undefined, hours: pc.holiday_pay_hours, rate: pc.holiday_pay_rate } : null,
+    pc.biometric_credit && (pc.biometric_credit || 0) > 0 ? { label: 'Biometric Credit', amount: pc.biometric_credit, ytd: undefined, hours: pc.biometric_credit_hours, rate: pc.biometric_credit_rate } : null,
+    pc.spousal_biometric && (pc.spousal_biometric || 0) > 0 ? { label: 'Spousal Biometric Credit', amount: pc.spousal_biometric, ytd: undefined, hours: pc.spousal_biometric_hours, rate: pc.spousal_biometric_rate } : null,
+    pc.group_term_life && (pc.group_term_life || 0) > 0 ? { label: 'Group Term Life', amount: pc.group_term_life, ytd: undefined, hours: pc.group_term_life_hours, rate: pc.group_term_life_rate } : null,
+    pc.floating_holiday && (pc.floating_holiday || 0) > 0 ? { label: 'Floating Holiday', amount: pc.floating_holiday, ytd: undefined, hours: pc.floating_holiday_hours, rate: pc.floating_holiday_rate } : null,
+    pc.other_earnings && (pc.other_earnings || 0) > 0 ? { label: 'Other Earnings', amount: pc.other_earnings, ytd: undefined, hours: pc.other_earnings_hours, rate: pc.other_earnings_rate } : null,
+  ].filter(Boolean) as { label: string; amount: number; ytd?: number; hours?: number; rate?: number }[]
 
   const preTax = [
     pc.retirement_401k && (pc.retirement_401k || 0) > 0 ? { label: '401k Savings Plan', amount: pc.retirement_401k } : null,
@@ -258,8 +280,8 @@ export default function PaycheckViewPage() {
                   {earnings.length > 0 ? earnings.map((e) => (
                     <tr key={e.label} className="border-b border-[#d8d3c8]">
                       <td className="py-1.5 pr-2 text-[#1a1814]">{e.label}</td>
-                      <td className="text-right py-1.5 px-2 font-mono text-[#6b6558]">{e.label === 'Salary' ? salaryHours : '—'}</td>
-                      <td className="text-right py-1.5 px-2 font-mono text-[#6b6558]">{e.label === 'Salary' ? '—' : '—'}</td>
+                      <td className="text-right py-1.5 px-2 font-mono text-[#6b6558]">{e.label === 'Salary' && e.hours === undefined ? salaryHours : fmtHours(e.hours)}</td>
+                      <td className="text-right py-1.5 px-2 font-mono text-[#6b6558]">{e.label === 'Salary' ? '—' : fmtRate(e.rate)}</td>
                       <td className="text-right py-1.5 px-2 font-mono font-medium text-[#1a1814]">{fmt(e.amount)}</td>
                     </tr>
                   )) : (

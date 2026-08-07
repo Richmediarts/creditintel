@@ -31,6 +31,10 @@ export async function POST(request: NextRequest) {
         'health_care_fsa', 'health_insurance', 'optional_life', 'hsa', 'loan_repayment',
         'dependent_life', 'stock_purchase', 'spousal_life', 'employer_match', 'employer_hsa',
         'deposit_amount', 'deposit2_amount',
+        'salary_hours', 'salary_rate', 'biometric_credit_hours', 'biometric_credit_rate',
+        'floating_holiday_hours', 'floating_holiday_rate', 'holiday_pay_hours', 'holiday_pay_rate',
+        'vacation_hours', 'vacation_rate', 'group_term_life_hours', 'group_term_life_rate',
+        'spousal_biometric_hours', 'spousal_biometric_rate', 'other_earnings_hours', 'other_earnings_rate',
       ]
 
       const kwargs: Record<string, string | number> = {}
