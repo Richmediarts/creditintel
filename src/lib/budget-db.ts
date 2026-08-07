@@ -272,6 +272,17 @@ function normalizePaycheckDates(row: Record<string, unknown>): Record<string, un
   return row
 }
 
+// @vercel/postgres returns Postgres DATE columns as full ISO strings
+// ("2026-08-07T04:00:00.000Z"), so strip every bill date down to YYYY-MM-DD.
+function normalizeBillDates(row: Record<string, unknown>): Record<string, unknown> {
+  for (const f of ['due_date', 'paid_date']) {
+    if (row[f] !== undefined && row[f] !== null) {
+      row[f] = toDateString(row[f])
+    }
+  }
+  return row
+}
+
 export async function getPaychecks(userId: number): Promise<(BudgetPaycheck & { id: number })[]> {
   const db = getDb()
   const rows = (await db.prepare('SELECT * FROM budget_paychecks WHERE user_id = ? ORDER BY check_date DESC, pay_date DESC').all(userId)) as (BudgetPaycheck & { id: number })[]
@@ -585,12 +596,18 @@ export async function clearBankAccountPlaid(userId: number, id: number): Promise
 // Credit Cards
 export async function getCreditCards(userId: number): Promise<BudgetCreditCard[]> {
   const db = getDb()
-  return (await db.prepare('SELECT * FROM budget_credit_cards WHERE user_id = ? ORDER BY name').all(userId)) as BudgetCreditCard[]
+  return ((await db.prepare('SELECT * FROM budget_credit_cards WHERE user_id = ? ORDER BY name').all(userId)) as BudgetCreditCard[]).map((c) => {
+    const row = c as unknown as Record<string, unknown>
+    if (row.due_date !== undefined && row.due_date !== null && row.due_date !== '') row.due_date = toDateString(row.due_date)
+    return c
+  })
 }
 
 export async function getCreditCard(userId: number, id: number): Promise<BudgetCreditCard | null> {
   const db = getDb()
-  return ((await db.prepare('SELECT * FROM budget_credit_cards WHERE user_id = ? AND id = ?').get(userId, id)) as BudgetCreditCard | undefined) ?? null
+  const row = ((await db.prepare('SELECT * FROM budget_credit_cards WHERE user_id = ? AND id = ?').get(userId, id)) as BudgetCreditCard | undefined) ?? null
+  if (row && row.due_date) row.due_date = toDateString(row.due_date) || row.due_date
+  return row
 }
 
 export async function addCreditCard(userId: number, data: Partial<BudgetCreditCard>): Promise<number> {
@@ -647,35 +664,36 @@ export async function clearCreditCardPlaid(userId: number, id: number): Promise<
 
 export async function getBillsByCreditCard(userId: number, creditCardId: number): Promise<BudgetBill[]> {
   const db = getDb()
-  return (await db.prepare('SELECT * FROM budget_bills WHERE user_id = ? AND credit_card_id = ? ORDER BY due_date').all(userId, creditCardId)) as BudgetBill[]
+  return ((await db.prepare('SELECT * FROM budget_bills WHERE user_id = ? AND credit_card_id = ? ORDER BY due_date').all(userId, creditCardId)) as BudgetBill[]).map((b) => normalizeBillDates(b as unknown as Record<string, unknown>) as unknown as BudgetBill)
 }
 
 // Bills
 export async function getBills(userId: number): Promise<BudgetBill[]> {
   const db = getDb()
-  return (await db.prepare(`
+  return ((await db.prepare(`
     SELECT b.*, COALESCE(b.payee_name, p.name) as payee_name
     FROM budget_bills b
     LEFT JOIN budget_payees p ON b.payee_id = p.id
     WHERE b.user_id = ?
     ORDER BY b.due_date
-  `).all(userId)) as BudgetBill[]
+  `).all(userId)) as BudgetBill[]).map((b) => normalizeBillDates(b as unknown as Record<string, unknown>) as unknown as BudgetBill)
 }
 
 export async function getUnpaidBills(userId: number): Promise<BudgetBill[]> {
   const db = getDb()
-  return (await db.prepare(`
+  return ((await db.prepare(`
     SELECT b.*, COALESCE(b.payee_name, p.name) as payee_name
     FROM budget_bills b
     LEFT JOIN budget_payees p ON b.payee_id = p.id
     WHERE b.user_id = ? AND b.is_paid = 0
     ORDER BY b.due_date
-  `).all(userId)) as BudgetBill[]
+  `).all(userId)) as BudgetBill[]).map((b) => normalizeBillDates(b as unknown as Record<string, unknown>) as unknown as BudgetBill)
 }
 
 export async function getBill(userId: number, id: number): Promise<BudgetBill | null> {
   const db = getDb()
-  return ((await db.prepare('SELECT * FROM budget_bills WHERE user_id = ? AND id = ?').get(userId, id)) as BudgetBill | undefined) ?? null
+  const row = ((await db.prepare('SELECT * FROM budget_bills WHERE user_id = ? AND id = ?').get(userId, id)) as BudgetBill | undefined) ?? null
+  return row ? (normalizeBillDates(row as unknown as Record<string, unknown>) as unknown as BudgetBill) : null
 }
 
 export async function addBill(userId: number, data: Partial<BudgetBill>): Promise<number> {
@@ -784,7 +802,11 @@ export async function deleteBudgetCategory(userId: number, id: number): Promise<
 // Modified Income
 export async function getModifiedIncomes(userId: number): Promise<BudgetModifiedIncome[]> {
   const db = getDb()
-  return (await db.prepare('SELECT * FROM budget_modified_income WHERE user_id = ? ORDER BY entry_date DESC').all(userId)) as BudgetModifiedIncome[]
+  return ((await db.prepare('SELECT * FROM budget_modified_income WHERE user_id = ? ORDER BY entry_date DESC').all(userId)) as BudgetModifiedIncome[]).map((r) => {
+    const row = r as unknown as Record<string, unknown>
+    if (row.entry_date !== undefined && row.entry_date !== null) row.entry_date = toDateString(row.entry_date)
+    return r
+  })
 }
 
 export async function addModifiedIncome(userId: number, data: Partial<BudgetModifiedIncome>): Promise<number> {
@@ -803,7 +825,7 @@ export async function deleteModifiedIncome(userId: number, id: number): Promise<
 // Pay Period History
 export async function getPayPeriodHistory(userId: number) {
   const db = getDb()
-  const paychecks = (await db.prepare('SELECT * FROM budget_paychecks WHERE user_id = ? ORDER BY check_date DESC').all(userId)) as (BudgetPaycheck & { id: number })[]
+  const paychecks = (((await db.prepare('SELECT * FROM budget_paychecks WHERE user_id = ? ORDER BY check_date DESC').all(userId)) as (BudgetPaycheck & { id: number })[]).map((pc) => normalizePaycheckDates(pc as unknown as Record<string, unknown>) as unknown as BudgetPaycheck & { id: number }))
   const periods: Record<string, { income: number; expenses: number; bills: BudgetBill[] }> = {}
 
   for (const pc of paychecks) {
@@ -812,13 +834,13 @@ export async function getPayPeriodHistory(userId: number) {
     const nextPc = paychecks.find(p => p.check_date && p.check_date < periodKey)
     const periodEnd = nextPc ? nextPc.check_date : new Date().toISOString().split('T')[0]
 
-    const bills = (await db.prepare(`
+    const bills = ((await db.prepare(`
       SELECT b.*, COALESCE(b.payee_name, p.name) as payee_name
       FROM budget_bills b
       LEFT JOIN budget_payees p ON b.payee_id = p.id
       WHERE b.user_id = ? AND b.due_date >= ? AND b.due_date <= ?
       ORDER BY b.due_date
-    `).all(userId, periodKey, periodEnd)) as BudgetBill[]
+    `).all(userId, periodKey, periodEnd)) as BudgetBill[]).map((b) => normalizeBillDates(b as unknown as Record<string, unknown>) as unknown as BudgetBill)
 
     const expenses = bills.reduce((s, b) => s + (Number(b.amount) || 0), 0)
     periods[periodKey] = {
@@ -947,13 +969,13 @@ export async function getDebtAccounts(userId: number) {
 // Bills with payees (for interactive budget, reports, etc.)
 export async function getBillsWithPayees(userId: number) {
   const db = getDb()
-  return (await db.prepare(`
+  return ((await db.prepare(`
     SELECT b.*, COALESCE(b.payee_name, p.name) as payee_name
     FROM budget_bills b
     LEFT JOIN budget_payees p ON b.payee_id = p.id
     WHERE b.user_id = ?
     ORDER BY b.due_date
-  `).all(userId)) as (BudgetBill & { payee_name: string })[]
+  `).all(userId)) as (BudgetBill & { payee_name: string })[]).map((b) => normalizeBillDates(b as unknown as Record<string, unknown>) as unknown as BudgetBill & { payee_name: string })
 }
 
 export async function initBudgetDb(): Promise<void> {
