@@ -134,7 +134,7 @@ function getValueAfterLabel(line: string, label: string, ytd = false): number | 
   const idx = lineLower.indexOf(labelLower)
   if (idx === -1) return null
   const afterLabel = line.slice(idx + label.length)
-  const matches = afterLabel.match(/([\d,]+\.\d{2})/g)
+  const matches = afterLabel.match(/([\d,]+\.\d{1,2})(?!\d)/g)
   if (!matches || matches.length === 0) return null
   const ytdIdx = ytd ? 1 : 0
   if (ytdIdx < matches.length) return extractMoney(matches[ytdIdx])
@@ -478,7 +478,7 @@ export function parsePaycheckText(rawText: string): ParsedPaycheck {
 
   const earningsTokens = (text: string): { hours: number | null; rate: number | null; amount: number | null; ytd: number | null } => {
     const stripped = text.replace(/\d{2}\/\d{2}\/\d{4}(\s*[-–]\s*\d{2}\/\d{2}\/\d{4})?/g, ' ')
-    const moneyMatches: string[] = stripped.match(/(\d[\d,]*\.\d{2})/g) || []
+    const moneyMatches: string[] = stripped.match(/(\d[\d,]*\.\d{1,2})(?!\d)/g) || []
     const allNumMatches: string[] = stripped.match(/(\d[\d,]*(?:\.\d+)?)/g) || []
     const nums = allNumMatches
       .filter((t) => !moneyMatches.includes(t))
