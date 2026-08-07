@@ -392,23 +392,29 @@ export async function getBudgetStats(userId: number): Promise<BudgetStats> {
   let billsBeforeNextPay: BudgetStats['bills_before_next_pay'] = []
   let billsBeforeNextPayTotal = 0
   if (nextPaycheck) {
-    billsBeforeNextPay = (await db.prepare(`
+    billsBeforeNextPay = ((await db.prepare(`
       SELECT b.id, COALESCE(b.payee_name, p.name) as payee_name, b.amount, b.due_date
       FROM budget_bills b
       LEFT JOIN budget_payees p ON b.payee_id = p.id
       WHERE b.user_id = ? AND b.is_paid = 0 AND b.due_date <= ?
       ORDER BY b.due_date ASC
-    `).all(userId, nextPaycheck)) as BudgetStats['bills_before_next_pay']
+    `).all(userId, nextPaycheck)) as BudgetStats['bills_before_next_pay']).map((b) => ({
+      ...b,
+      due_date: toDateString(b.due_date) || b.due_date,
+    }))
     billsBeforeNextPayTotal = billsBeforeNextPay.reduce((s, b) => s + (Number(b.amount) || 0), 0)
   }
 
-  const upcomingBills = (await db.prepare(`
+  const upcomingBills = ((await db.prepare(`
     SELECT b.id, COALESCE(b.payee_name, p.name) as payee_name, b.amount, b.due_date, b.is_paid
     FROM budget_bills b
     LEFT JOIN budget_payees p ON b.payee_id = p.id
     WHERE b.user_id = ? AND b.is_paid = 0
     ORDER BY b.due_date ASC LIMIT 5
-  `).all(userId)) as BudgetStats['upcoming_bills']
+  `).all(userId)) as BudgetStats['upcoming_bills']).map((b) => ({
+    ...b,
+    due_date: toDateString(b.due_date) || b.due_date,
+  }))
 
   const totalExpenses = totalExpensesPaid + billsBeforeNextPayTotal
 
