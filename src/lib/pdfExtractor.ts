@@ -35,13 +35,54 @@ export async function extractPdfText(file: File): Promise<string> {
   const pdf = await loadPdf(file)
   try {
     const nativeText = await extractNative(pdf)
-    if (nativeText.replace(/\s+/g, '').trim().length > 80 && !looksMangled(nativeText)) {
+    if (nativeText.replace(/\s+/g, '').trim().length > 80) {
+      if (looksMangled(nativeText)) {
+        // pdfjs mangled the earnings table but native still has the clean
+        // header/summary (which OCR often misses), so combine both.
+        const ocr = (await extractWithOCR(pdf)).rawConcat
+        return nativeHeaderAndSummary(nativeText) + '\n' + ocr
+      }
       return nativeText
     }
   } catch {
     // Native failed, fall through to OCR
   }
   return (await extractWithOCR(pdf)).rawConcat
+}
+
+// Grabs the clean top-of-page header (company/employee/dates) plus the
+// Current/YTD summary rows from the native extraction, including the net-pay
+// value when pdfjs splits it onto its own line.
+function nativeHeaderAndSummary(native: string): string {
+  const lines = native.split('\n')
+  const out: string[] = []
+  let gotCurrent = false
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const lower = line.toLowerCase()
+    const money = line.match(/([\d,]+\.\d{2})/g)
+    if (!gotCurrent && /^\s*current\b/i.test(lower) && money && money.length >= 5) {
+      gotCurrent = true
+      out.push(line)
+      const next = lines[i + 1]
+      if (next && /^\s*[\d,.]+/.test(next) && (next.match(/([\d,]+\.\d{2})/g) || []).length === 1) {
+        out.push(next)
+        i++
+      }
+      continue
+    }
+    if (gotCurrent && /^\s*ytd\b/i.test(lower) && money && money.length >= 5) {
+      out.push(line)
+      const next = lines[i + 1]
+      if (next && /^\s*[\d,.]+/.test(next) && (next.match(/([\d,]+\.\d{2})/g) || []).length === 1) {
+        out.push(next)
+        i++
+      }
+      break
+    }
+    if (!gotCurrent) out.push(line)
+  }
+  return out.join('\n')
 }
 
 export async function extractTextFromPDF(file: File): Promise<ExtractedText> {

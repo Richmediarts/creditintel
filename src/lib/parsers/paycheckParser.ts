@@ -180,6 +180,24 @@ export function parsePaycheckText(rawText: string): ParsedPaycheck {
     }
   }
 
+  // Some extractions put the check date on its own line below the pay period
+  // dates. Fall back to the first date that follows the pay period end.
+  if (!result.check_date && result.pay_period_end) {
+    for (const line of lines) {
+      const dates = line.match(/(\d{2}\/\d{2}\/\d{4})/g)
+      if (dates) {
+        for (const d of dates) {
+          const cd = parseDate(d)
+          if (cd && cd > result.pay_period_end) {
+            result.check_date = cd
+            break
+          }
+        }
+      }
+      if (result.check_date) break
+    }
+  }
+
   // Pass 2: Employee name
   for (const line of lines) {
     const lineLower = line.toLowerCase()
@@ -217,8 +235,18 @@ export function parsePaycheckText(rawText: string): ParsedPaycheck {
   }
 
   if (summaryLine) {
-    const moneyMatches = summaryLine.match(/([\d,]+\.\d{2})/g)
-    if (moneyMatches && moneyMatches.length >= 6) {
+    const summaryIdx = lines.indexOf(summaryLine)
+    let moneyMatches: string[] = (summaryLine.match(/([\d,]+\.\d{2})/g) || []) as string[]
+    // The net-pay value sometimes sits alone on the next line (pdfjs splits
+    // wide rows), so pick it up when the Current line only has five values.
+    if (moneyMatches.length === 5 && summaryIdx >= 0 && summaryIdx + 1 < lines.length) {
+      const nextLine = lines[summaryIdx + 1]
+      const nextMatches = nextLine ? nextLine.match(/([\d,]+\.\d{2})/g) : null
+      if (nextMatches && nextMatches.length === 1 && /^\s*[\d,.]+/.test(nextLine ?? '')) {
+        moneyMatches = moneyMatches.concat(nextMatches)
+      }
+    }
+    if (moneyMatches.length >= 6) {
       result.hours_worked = extractMoney(moneyMatches[0]) ?? 0
       result.gross_pay = extractMoney(moneyMatches[1]) ?? 0
       result.pre_tax_deductions = extractMoney(moneyMatches[2]) ?? 0
@@ -259,8 +287,16 @@ export function parsePaycheckText(rawText: string): ParsedPaycheck {
   }
 
   if (ytdLine) {
-    const moneyMatches = ytdLine.match(/([\d,]+\.\d{2})/g)
-    if (moneyMatches && moneyMatches.length >= 6) {
+    const ytdIdx = lines.indexOf(ytdLine)
+    let moneyMatches: string[] = (ytdLine.match(/([\d,]+\.\d{2})/g) || []) as string[]
+    if (moneyMatches.length === 5 && ytdIdx >= 0 && ytdIdx + 1 < lines.length) {
+      const nextLine = lines[ytdIdx + 1]
+      const nextMatches = nextLine ? nextLine.match(/([\d,]+\.\d{2})/g) : null
+      if (nextMatches && nextMatches.length === 1 && /^\s*[\d,.]+/.test(nextLine ?? '')) {
+        moneyMatches = moneyMatches.concat(nextMatches)
+      }
+    }
+    if (moneyMatches.length >= 6) {
       result.hours_worked_ytd = extractMoney(moneyMatches[0]) ?? 0
       result.gross_pay_ytd = extractMoney(moneyMatches[1]) ?? 0
       result.pre_tax_deductions_ytd = extractMoney(moneyMatches[2]) ?? 0
