@@ -3,7 +3,7 @@ export interface ExtractedText {
   rawConcat: string
 }
 
-export async function extractTextFromPDF(file: File): Promise<ExtractedText> {
+async function loadPdf(file: File): Promise<any> {
   const arrayBuffer = await file.arrayBuffer()
   const pdfjsLib = await import('pdfjs-dist')
 
@@ -14,7 +14,24 @@ export async function extractTextFromPDF(file: File): Promise<ExtractedText> {
   pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl.toString()
 
   const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
-  const pdf = await loadingTask.promise
+  return await loadingTask.promise
+}
+
+export async function extractPdfText(file: File): Promise<string> {
+  const pdf = await loadPdf(file)
+  try {
+    const nativeText = await extractNative(pdf)
+    if (nativeText.replace(/\s+/g, '').trim().length > 80) {
+      return nativeText
+    }
+  } catch {
+    // Native failed, fall through to OCR
+  }
+  return (await extractWithOCR(pdf)).rawConcat
+}
+
+export async function extractTextFromPDF(file: File): Promise<ExtractedText> {
+  const pdf = await loadPdf(file)
 
   // Try native text extraction first (fast path)
   try {

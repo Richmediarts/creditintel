@@ -178,17 +178,22 @@ export default function PaychecksPage() {
     setImporting(true)
     setImportMessage('')
     setParsedData(null)
-    const text = await file.text()
-    setImportText(text)
-    const formData = new FormData()
-    formData.set('raw_text', text)
-    const res = await fetch('/api/budget/paycheck-import', { method: 'POST', body: formData })
-    const data = await res.json()
-    if (res.ok && data.parsed) {
-      setParsedData(data.parsed)
-      setImportMessage('Paystub parsed from file. Review the data below and click Save to import.')
-    } else {
-      setImportMessage(data.error || 'Failed to parse paystub file')
+    try {
+      const { extractPdfText } = await import('@/lib/pdfExtractor')
+      const text = await extractPdfText(file)
+      setImportText(text)
+      const formData = new FormData()
+      formData.set('raw_text', text)
+      const res = await fetch('/api/budget/paycheck-import', { method: 'POST', body: formData })
+      const data = await res.json()
+      if (res.ok && data.parsed) {
+        setParsedData(data.parsed)
+        setImportMessage('Paystub parsed from file. Review the data below and click Save to import.')
+      } else {
+        setImportMessage(data.error || 'Failed to parse paystub file')
+      }
+    } catch {
+      setImportMessage('Failed to read PDF file')
     }
     setImporting(false)
     e.target.value = ''
