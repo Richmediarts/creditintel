@@ -4,10 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Wallet, CreditCard, TrendingUp, CalendarCheck, CalendarDays,
-  Receipt, PiggyBank, PlusCircle, ArrowRight, Banknote,
-  Landmark, WalletCards, CircleDollarSign, Check, X, Trash2,
-  Edit, Calendar, ChevronDown, ChevronUp,
+  Receipt, PlusCircle, ArrowRight, Check, X, Trash2,
+  Edit, CalendarDays,
 } from 'lucide-react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -44,6 +42,66 @@ function dueBadge(dueDate: string) {
   if (d === 0) return { text: 'Due Today', cls: 'bg-amber-500 text-black' }
   if (d <= 7) return { text: `${d} days`, cls: 'bg-amber-500 text-black' }
   return { text: `${d} days`, cls: 'bg-gray-600 text-white' }
+}
+
+function normalizeName(name?: string): string {
+  if (!name) return ''
+  return String(name)
+    .replace(/[\u2018\u2019\u201A\u00B4]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// Spreadsheet layout: sections in order, each with its bill names.
+const SECTIONS: { title: string; bills: string[] }[] = [
+  {
+    title: 'Home & Utilities',
+    bills: ['pennymac', 'brookside hoa fees (yrly)', 'truegreen', 'anthem', 'electric bill'],
+  },
+  {
+    title: 'Transportation',
+    bills: ['bridgecrest - sorento', 'capitalone auto loan', 'progressive', 'sorento fuel', 'jeep fuel'],
+  },
+  {
+    title: 'Food & Personal',
+    bills: ['groceries'],
+  },
+  {
+    title: 'Internet / TV / Cell Phone / Home Security',
+    bills: ['at&t wireless', 'xfinity', 'vivint security', 'security equipment (fortiva)'],
+  },
+  {
+    title: 'Water/Gas/Electricity',
+    bills: ['greystone power', 'gas south', 'paulding county water', 'community waste'],
+  },
+  {
+    title: 'School Debt',
+    bills: ['nelnet - ella', 'nelnet - richard'],
+  },
+  {
+    title: 'Credit Cards',
+    bills: [
+      "ella's discover", "ella's old navy cc", "ella's apple card", "ella's pnc cash rewards",
+      "ella's ally cc", "ella's avant cc", "ella's mission lane cc", "ella's indigo cc",
+      "ella's destiny cc", "ella's prosper", "ella's navy federal", "rich amazon card",
+      "rich's apple card", "mission lane", "rich's quicksilver cap1-9223", "rich's cap1 venture-6873",
+      "rich's secure cap1-5491", "rich's plat2 cap1-5566", "rich's cap1 savor", "rich paypal credit",
+      "pay pal credit", "credit one amex", "rich's indigo", "rich's plat2 cap1-8259",
+      "rich's quicksilver cap1-2266",
+    ],
+  },
+  {
+    title: 'Other Expenses',
+    bills: ['midland - (aph law)', 'klarna k&g (my suit)', "klarna - sam's club (ethans monitor)", 'klarna - walmart', 'klarna - stubhub', 'woodstock - law settlement'],
+  },
+]
+
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return dateStr || '—'
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 const EMPTY_FORM = {
@@ -165,12 +223,137 @@ export default function BillsPage() {
     )
   }
 
+  // Bucket bills into sections. Assigned payees use the spreadsheet's order;
+  // anything unmatched goes into "Other Bills".
+  const byName = new Map<string, Bill>()
+  for (const b of bills) {
+    const key = normalizeName(b.payee_name)
+    const prev = byName.get(key)
+    if (!prev || b.id < prev.id) byName.set(key, b)
+  }
+
+  const unmatched: Bill[] = []
+  const usedIds = new Set<number>()
+  const sectionGroups: { title: string; items: Bill[]; total: number }[] = []
+
+  for (const section of SECTIONS) {
+    const items: Bill[] = []
+    for (const name of section.bills) {
+      const b = byName.get(name)
+      if (b && !usedIds.has(b.id)) {
+        items.push(b)
+        usedIds.add(b.id)
+      }
+    }
+    sectionGroups.push({
+      title: section.title,
+      items: items.sort((a, b) => a.due_date.localeCompare(b.due_date)),
+      total: items.reduce((s, b) => s + (Number(b.amount) || 0), 0),
+    })
+  }
+
+  for (const b of bills) {
+    if (!usedIds.has(b.id)) {
+      unmatched.push(b)
+      usedIds.add(b.id)
+    }
+  }
+  unmatched.sort((a, b) => a.due_date.localeCompare(b.due_date))
+
+  const grandTotal = bills.reduce((s, b) => s + (Number(b.amount) || 0), 0)
+
+  const renderBillRow = (bill: Bill) => {
+    const b = dueBadge(bill.due_date)
+    return (
+      <tr key={bill.id} className={`border-t border-gray-100 dark:border-gray-800 ${bill.is_paid ? 'bg-green-50/40 dark:bg-green-900/10' : ''}`}>
+        <td className="py-2 pr-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              onClick={() => handleTogglePaid(bill)}
+              title={bill.is_paid ? 'Mark unpaid' : 'Mark paid'}
+              className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                bill.is_paid
+                  ? 'border-green-500 bg-green-500 text-white'
+                  : 'border-gray-300 dark:border-gray-600 hover:border-green-500'
+              }`}
+            >
+              {bill.is_paid ? <Check className="w-3 h-3" /> : null}
+            </button>
+            <span className={`text-sm font-medium truncate ${bill.is_paid ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-900 dark:text-white'}`}>
+              {bill.payee_name || 'Unknown Payee'}
+            </span>
+          </div>
+        </td>
+        <td className="py-2 px-2 whitespace-nowrap">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {bill.due_date ? formatDate(bill.due_date) : '—'}
+            </span>
+            {!bill.is_paid && bill.due_date && (
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${b.cls}`}>{b.text}</span>
+            )}
+          </div>
+        </td>
+        <td className="py-2 px-2 text-right whitespace-nowrap">
+          <span className={`text-sm font-semibold tabular-nums ${bill.is_paid ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-900 dark:text-white'}`}>
+            {fmt(bill.amount)}
+          </span>
+        </td>
+        <td className="py-2 pl-2 text-right whitespace-nowrap">
+          <div className="flex items-center justify-end gap-1">
+            <button onClick={() => handleEdit(bill)} className="text-gray-400 hover:text-amber-500 transition-colors p-1" title="Edit bill">
+              <Edit className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={() => handleDelete(bill)} className="text-gray-400 hover:text-red-500 transition-colors p-1" title="Delete bill">
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </td>
+      </tr>
+    )
+  }
+
+  const renderSection = (group: { title: string; items: Bill[]; total: number }) => {
+    if (group.items.length === 0) return null
+    return (
+      <div key={group.title}>
+        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mt-6 mb-1">
+          Category: {group.title}
+        </p>
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-gray-50 dark:bg-gray-800/60 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                <th className="py-2 px-3 font-medium">Payee</th>
+                <th className="py-2 px-3 font-medium">Due Date</th>
+                <th className="py-2 px-3 font-medium text-right">Amount</th>
+                <th className="py-2 px-3 w-14" />
+              </tr>
+            </thead>
+            <tbody>{group.items.map(renderBillRow)}</tbody>
+            <tfoot>
+              <tr className="border-t border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40">
+                <td className="py-2 px-3 text-sm font-bold text-gray-900 dark:text-white" colSpan={2}>
+                  Total
+                </td>
+                <td className="py-2 px-3 text-right text-sm font-bold text-gray-900 dark:text-white tabular-nums">
+                  {fmt(group.total)}
+                </td>
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Bills</h1>
-          <p className="text-sm text-gray-500">Track and manage your monthly bills.</p>
+          <p className="text-sm text-gray-500">Monthly budget bills grouped by category.</p>
         </div>
         {!showForm && (
           <Button onClick={() => { setEditing(null); setForm(EMPTY_FORM); setShowForm(true) }}>
@@ -180,7 +363,7 @@ export default function BillsPage() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-5 flex items-center justify-between gap-3">
             <div>
@@ -200,6 +383,17 @@ export default function BillsPage() {
             </div>
             <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400">
               <Check className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Monthly Total</p>
+              <p className="text-2xl font-bold mt-1 text-gray-900 dark:text-white">{fmt(grandTotal)}</p>
+            </div>
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
+              <CalendarDays className="w-5 h-5" />
             </div>
           </CardContent>
         </Card>
@@ -288,73 +482,47 @@ export default function BillsPage() {
         </Card>
       )}
 
-      {/* Bills list */}
+      {/* Sectioned bill list (spreadsheet layout) */}
       <Card>
         <CardContent className="p-5">
-          <div className="flex items-center justify-between mb-3">
-            <CardTitle className="text-sm">All Bills</CardTitle>
+          <div className="flex items-center justify-between mb-2">
+            <CardTitle className="text-sm">Monthly Budget</CardTitle>
             <span className="text-xs text-gray-400">{bills.length} bill{bills.length !== 1 ? 's' : ''}</span>
           </div>
 
           {bills.length > 0 ? (
-            <div className="space-y-2">
-              {bills.map((bill) => {
-                const b = dueBadge(bill.due_date)
-                return (
-                  <div
-                    key={bill.id}
-                    className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-3 transition-colors ${
-                      bill.is_paid
-                        ? 'border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10'
-                        : 'border-gray-100 dark:border-gray-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <button
-                        onClick={() => handleTogglePaid(bill)}
-                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
-                          bill.is_paid
-                            ? 'border-green-500 bg-green-500 text-white'
-                            : 'border-gray-300 dark:border-gray-600 hover:border-green-500'
-                        }`}
-                      >
-                        {bill.is_paid ? <Check className="w-3.5 h-3.5" /> : null}
-                      </button>
-                      <div className="min-w-0">
-                        <p className={`text-sm font-medium ${bill.is_paid ? 'text-gray-500 dark:text-gray-400 line-through' : 'text-gray-900 dark:text-white'}`}>
-                          {bill.payee_name || 'Unknown Payee'}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <p className="text-xs text-gray-400">{bill.due_date}</p>
-                          {bill.is_recurring ? (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400 font-medium">Recurring</span>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-                      <div className="text-right">
-                        <p className={`text-sm font-semibold ${bill.is_paid ? 'text-gray-500 dark:text-gray-400 line-through' : 'text-gray-900 dark:text-white'}`}>
-                          {fmt(bill.amount)}
-                        </p>
-                        {!bill.is_paid && <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-medium ${b.cls}`}>{b.text}</span>}
-                      </div>
-                      <button
-                        onClick={() => handleEdit(bill)}
-                        className="text-gray-400 hover:text-amber-500 transition-colors p-1"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(bill)}
-                        className="text-gray-400 hover:text-red-500 transition-colors p-1"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+            <div>
+              {sectionGroups.map((g) => renderSection(g))}
+
+              {unmatched.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mt-6 mb-1">
+                    Category: Other Bills
+                  </p>
+                  <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="bg-gray-50 dark:bg-gray-800/60 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                          <th className="py-2 px-3 font-medium">Payee</th>
+                          <th className="py-2 px-3 font-medium">Due Date</th>
+                          <th className="py-2 px-3 font-medium text-right">Amount</th>
+                          <th className="py-2 px-3 w-14" />
+                        </tr>
+                      </thead>
+                      <tbody>{unmatched.map(renderBillRow)}</tbody>
+                      <tfoot>
+                        <tr className="border-t border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40">
+                          <td className="py-2 px-3 text-sm font-bold text-gray-900 dark:text-white" colSpan={2}>Total</td>
+                          <td className="py-2 px-3 text-right text-sm font-bold text-gray-900 dark:text-white tabular-nums">
+                            {fmt(unmatched.reduce((s, b) => s + (Number(b.amount) || 0), 0))}
+                          </td>
+                          <td />
+                        </tr>
+                      </tfoot>
+                    </table>
                   </div>
-                )
-              })}
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-center py-8">
