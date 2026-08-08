@@ -202,16 +202,20 @@ export default function BudgetDashboardPage() {
                   {stats.bills_before_next_pay.map((bill) => {
                     const b = dueBadge(bill.due_date)
                     return (
-                      <div key={bill.id} className="flex items-center justify-between gap-2 rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-2">
+                      <Link
+                        key={bill.id}
+                        href={`/budget/bills?bill=${bill.id}`}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-gray-100 dark:border-gray-700 px-3 py-2 hover:border-blue-500 hover:shadow-sm transition-colors"
+                      >
                         <div>
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">{bill.payee_name || 'Unknown Payee'}</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400">{bill.payee_name || 'Unknown Payee'}</p>
                           <p className="text-xs text-gray-400">{bill.due_date}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-semibold text-gray-900 dark:text-white">{fmt(bill.amount)}</p>
                           <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${b.cls}`}>{b.text}</span>
                         </div>
-                      </div>
+                      </Link>
                     )
                   })}
                 </div>

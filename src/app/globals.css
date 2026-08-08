@@ -42,3 +42,12 @@ body {
 .dark ::-webkit-scrollbar-thumb {
   background: #475569;
 }
+
+/* Highlight a bill row when arriving via /budget/bills?bill=ID */
+.bill-focus-ring {
+  animation: bill-focus-pulse 2.5s ease-out;
+}
+@keyframes bill-focus-pulse {
+  0% { background-color: rgba(59, 130, 246, 0.25); box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.6); }
+  100% { background-color: transparent; box-shadow: inset 0 0 0 2px transparent; }
+}

@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { Suspense, useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   Receipt, PlusCircle, ArrowRight, Check, X, Trash2,
@@ -113,6 +113,18 @@ const EMPTY_FORM = {
 }
 
 export default function BillsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center py-16">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
+      </div>
+    }>
+      <BillsContent />
+    </Suspense>
+  )
+}
+
+function BillsContent() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const [bills, setBills] = useState<Bill[]>([])
@@ -122,6 +134,9 @@ export default function BillsPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const searchParams = useSearchParams()
+  const focusId = searchParams.get('bill')
+  const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map())
 
   const fetchBills = useCallback(async () => {
     const res = await fetch('/api/budget/bills')
@@ -136,6 +151,18 @@ export default function BillsPage() {
     if (!authLoading && !user) { router.push('/login'); return }
     if (user) fetchBills()
   }, [user, authLoading, fetchBills])
+
+  useEffect(() => {
+    if (!loading && focusId) {
+      const el = rowRefs.current.get(Number(focusId))
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.classList.add('bill-focus-ring')
+        const timer = setTimeout(() => el.classList.remove('bill-focus-ring'), 2500)
+        return () => clearTimeout(timer)
+      }
+    }
+  }, [loading, focusId, bills])
 
   const totalUnpaid = bills
     .filter((b) => !b.is_paid)
@@ -264,8 +291,16 @@ export default function BillsPage() {
 
   const renderBillRow = (bill: Bill) => {
     const b = dueBadge(bill.due_date)
+    const isFocused = focusId && Number(focusId) === bill.id
     return (
-      <tr key={bill.id} className={`border-t border-gray-100 dark:border-gray-800 ${bill.is_paid ? 'bg-green-50/40 dark:bg-green-900/10' : ''}`}>
+      <tr
+        key={bill.id}
+        ref={(el) => {
+          if (el) rowRefs.current.set(bill.id, el)
+          else rowRefs.current.delete(bill.id)
+        }}
+        className={`border-t border-gray-100 dark:border-gray-800 ${bill.is_paid ? 'bg-green-50/40 dark:bg-green-900/10' : ''} ${isFocused ? 'bill-focus-ring' : ''}`}
+      >
         <td className="py-2 pr-2">
           <div className="flex items-center gap-2.5 min-w-0">
             <button
