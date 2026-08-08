@@ -137,6 +137,9 @@ function BillsContent() {
   const searchParams = useSearchParams()
   const focusId = searchParams.get('bill')
   const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map())
+  const skipBlurRef = useRef(false)
+  const [inlineEdit, setInlineEdit] = useState<{ id: number; field: 'due_date' | 'amount' } | null>(null)
+  const [inlineValue, setInlineValue] = useState('')
 
   const fetchBills = useCallback(async () => {
     const res = await fetch('/api/budget/bills')
@@ -208,6 +211,52 @@ function BillsContent() {
     })
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const startInlineEdit = (bill: Bill, field: 'due_date' | 'amount') => {
+    setInlineEdit({ id: bill.id, field })
+    setInlineValue(field === 'amount' ? String(bill.amount) : bill.due_date || '')
+  }
+
+  const cancelInlineEdit = () => {
+    setInlineEdit(null)
+    setInlineValue('')
+  }
+
+  const commitInlineEdit = async (bill: Bill, field: 'due_date' | 'amount') => {
+    skipBlurRef.current = true
+    if (!inlineEdit || inlineEdit.id !== bill.id || inlineEdit.field !== field) {
+      cancelInlineEdit()
+      return
+    }
+    const raw = inlineValue.trim()
+    if (!raw) {
+      cancelInlineEdit()
+      return
+    }
+    const value = field === 'amount' ? (parseFloat(raw) || 0) : raw
+    setBills((prev) =>
+      prev.map((b) => (b.id === bill.id ? { ...b, [field]: value } : b))
+    )
+    if (editing && editing.id === bill.id) {
+      setForm((f) => ({ ...f, [field]: String(value) }))
+    }
+    cancelInlineEdit()
+    await fetch(`/api/budget/bills/${bill.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ field, value }),
+    })
+  }
+
+  const handleInlineKeyDown = (e: React.KeyboardEvent, bill: Bill, field: 'due_date' | 'amount') => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commitInlineEdit(bill, field)
+    } else if (e.key === 'Escape') {
+      skipBlurRef.current = true
+      cancelInlineEdit()
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -320,19 +369,50 @@ function BillsContent() {
           </div>
         </td>
         <td className="py-2 px-2 whitespace-nowrap">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500 dark:text-gray-400">
+          {inlineEdit && inlineEdit.id === bill.id && inlineEdit.field === 'due_date' ? (
+            <input
+              type="date"
+              autoFocus
+              value={inlineValue}
+              onChange={(e) => setInlineValue(e.target.value)}
+              onBlur={() => { if (!skipBlurRef.current) commitInlineEdit(bill, 'due_date'); skipBlurRef.current = false }}
+              onKeyDown={(e) => handleInlineKeyDown(e, bill, 'due_date')}
+              className="rounded border border-blue-400 bg-white dark:bg-gray-800 px-2 py-1 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          ) : (
+            <button
+              onClick={() => startInlineEdit(bill, 'due_date')}
+              title="Click to edit due date"
+              className="text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 cursor-text text-left"
+            >
               {bill.due_date ? formatDate(bill.due_date) : '—'}
-            </span>
-            {!bill.is_paid && bill.due_date && (
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${b.cls}`}>{b.text}</span>
-            )}
-          </div>
+            </button>
+          )}
+          {!bill.is_paid && bill.due_date && (
+            <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${b.cls}`}>{b.text}</span>
+          )}
         </td>
         <td className="py-2 px-2 text-right whitespace-nowrap">
-          <span className={`text-sm font-semibold tabular-nums ${bill.is_paid ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-900 dark:text-white'}`}>
-            {fmt(bill.amount)}
-          </span>
+          {inlineEdit && inlineEdit.id === bill.id && inlineEdit.field === 'amount' ? (
+            <input
+              type="number"
+              step="0.01"
+              autoFocus
+              value={inlineValue}
+              onChange={(e) => setInlineValue(e.target.value)}
+              onBlur={() => { if (!skipBlurRef.current) commitInlineEdit(bill, 'amount'); skipBlurRef.current = false }}
+              onKeyDown={(e) => handleInlineKeyDown(e, bill, 'amount')}
+              className="rounded border border-blue-400 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-right font-semibold tabular-nums text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          ) : (
+            <button
+              onClick={() => startInlineEdit(bill, 'amount')}
+              title="Click to edit amount"
+              className={`text-sm font-semibold tabular-nums cursor-text text-right ${bill.is_paid ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400'}`}
+            >
+              {fmt(bill.amount)}
+            </button>
+          )}
         </td>
         <td className="py-2 pl-2 text-right whitespace-nowrap">
           <div className="flex items-center justify-end gap-1">
