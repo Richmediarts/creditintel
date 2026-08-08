@@ -133,6 +133,7 @@ const PAYCHECK_COLUMNS = [
 
 export interface BudgetStats {
   total_bank: number
+  total_loans: number
   total_credit: number
   total_income: number
   total_income_accounts: number
@@ -381,7 +382,8 @@ export async function getNextPaycheckDate(userId: number): Promise<string | null
 export async function getBudgetStats(userId: number): Promise<BudgetStats> {
   const db = getDb()
 
-  const totalBank = (await db.prepare('SELECT COALESCE(SUM(current_balance), 0) as t FROM budget_bank_accounts WHERE user_id = ? AND is_active = 1').get(userId) as { t: number }).t
+  const totalBank = (await db.prepare('SELECT COALESCE(SUM(current_balance), 0) as t FROM budget_bank_accounts WHERE user_id = ? AND is_active = 1 AND account_type != ?').get(userId, 'loan') as { t: number }).t
+  const totalLoans = (await db.prepare("SELECT COALESCE(SUM(current_balance), 0) as t FROM budget_bank_accounts WHERE user_id = ? AND is_active = 1 AND account_type = 'loan'").get(userId) as { t: number }).t
   const totalCredit = (await db.prepare('SELECT COALESCE(SUM(current_balance), 0) as t FROM budget_credit_cards WHERE user_id = ? AND is_active = 1').get(userId) as { t: number }).t
 
   const totalIncomeAccounts = (await db.prepare('SELECT COALESCE(SUM(current_balance), 0) as t FROM budget_bank_accounts WHERE user_id = ? AND is_active = 1 AND is_income_account = 1').get(userId) as { t: number }).t
@@ -485,6 +487,7 @@ export async function getBudgetStats(userId: number): Promise<BudgetStats> {
 
   return {
     total_bank: totalBank,
+    total_loans: totalLoans,
     total_credit: totalCredit,
     total_income: totalIncome,
     total_income_accounts: totalIncomeAccounts,

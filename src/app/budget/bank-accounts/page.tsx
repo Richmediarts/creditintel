@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Wallet, CreditCard, TrendingUp, PlusCircle, ArrowRight,
-  Landmark, WalletCards, Edit, Trash2, DollarSign, Upload, ExternalLink,
+  Landmark, WalletCards, Edit, Trash2, DollarSign, Upload, ExternalLink, Car,
 } from 'lucide-react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -77,7 +77,10 @@ export default function BankAccountsPage() {
     if (user) fetchAccounts()
   }, [user, fetchAccounts])
 
-  const totalBalance = accounts.reduce((sum, a) => sum + (a.current_balance || 0), 0)
+  const totalBalance = accounts.filter(a => a.account_type !== 'loan').reduce((sum, a) => sum + (a.current_balance || 0), 0)
+  const totalLoans = accounts.filter(a => a.account_type === 'loan').reduce((sum, a) => sum + (a.current_balance || 0), 0)
+  const bankAccounts = accounts.filter(a => a.account_type !== 'loan')
+  const loanAccounts = accounts.filter(a => a.account_type === 'loan')
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -142,6 +145,170 @@ export default function BankAccountsPage() {
     if (res.ok) fetchAccounts()
   }
 
+  const accountIcon = (account: BankAccount) => {
+    if (account.account_type === 'savings' || account.account_type === 'money_market') {
+      return <TrendingUp className={`h-5 w-5 ${account.is_income_account ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400'}`} />
+    }
+    if (account.account_type === 'loan') {
+      return <Car className={`h-5 w-5 ${account.is_income_account ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`} />
+    }
+    return <CreditCard className={`h-5 w-5 ${account.is_income_account ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400'}`} />
+  }
+
+  const renderAccountGroups = (groupedAccounts: BankAccount[]) => (
+    <div className="space-y-4">
+      {Object.entries(
+        groupedAccounts.reduce<Record<string, BankAccount[]>>((groups, account) => {
+          const group = account.institution || 'Other'
+          ;(groups[group] ||= []).push(account)
+          return groups
+        }, {})
+      ).map(([groupName, groupAccounts]) => {
+        const groupTotal = groupAccounts.reduce((s, a) => s + (Number(a.current_balance) || 0), 0)
+        const groupWebsite = groupAccounts.find((a) => a.website)?.website || ''
+        return (
+          <div key={groupName}>
+            <div className="flex items-center justify-between mb-2 px-1">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                {groupWebsite ? (
+                  <a
+                    href={normalizeUrl(groupWebsite)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
+                  >
+                    {groupName}
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                ) : (
+                  groupName
+                )}
+              </h3>
+              <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                <span>{groupAccounts.length} account{groupAccounts.length !== 1 ? 's' : ''}</span>
+                <span>Bal: {fmt(groupTotal)}</span>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {groupAccounts.map((account) => (
+                <Card key={account.id} className="hover:shadow-md transition-shadow">
+          <CardContent className="p-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 flex-1 min-w-0">
+              <div className={`p-2.5 rounded-lg ${account.is_income_account ? 'bg-green-100 dark:bg-green-900/40' : 'bg-gray-100 dark:bg-gray-800'}`}>
+                {accountIcon(account)}
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-gray-900 dark:text-white truncate">{account.name}</p>
+                  {account.is_income_account === 1 && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400">
+                      Income
+                    </span>
+                  )}
+                  {account.account_type === 'loan' && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400">
+                      Loan
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {account.institution && (
+                    <span>
+                      {account.website ? (
+                        <a href={normalizeUrl(account.website)} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">{account.institution}</a>
+                      ) : (
+                        account.institution
+                      )}
+                    </span>
+                  )}
+                  {account.institution && account.account_number_last4 && <span className="mx-1">&middot;</span>}
+                  {account.account_number_last4 && <span>****{account.account_number_last4}</span>}
+                  {!account.institution && !account.account_number_last4 && (
+                    <span className="capitalize">{account.account_type}</span>
+                  )}
+                  {account.institution && !account.account_number_last4 && (
+                    <span className="ml-1 capitalize">&middot; {account.account_type}</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Balance / Edit */}
+              {editingId === account.id ? (
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <input
+                    type="text"
+                    value={editInstitution}
+                    onChange={(e) => setEditInstitution(e.target.value)}
+                    placeholder="Institution"
+                    className="w-full sm:w-36 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="text"
+                    value={editWebsite}
+                    onChange={(e) => setEditWebsite(e.target.value)}
+                    placeholder="URL"
+                    className="w-full sm:w-36 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editBalance}
+                    onChange={(e) => setEditBalance(e.target.value)}
+                    className="w-full sm:w-28 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-right text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={() => saveEdit(account.id)}
+                    className="p-1 text-green-600 hover:text-green-700 dark:text-green-400"
+                    title="Save"
+                  >
+                    <Wallet className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    title="Cancel"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <p className={`text-lg font-bold text-right min-w-[100px] ${account.current_balance < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
+                  {fmt(account.current_balance)}
+                </p>
+              )}
+
+              {/* Actions */}
+              {editingId !== account.id && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => startEdit(account)}
+                    className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
+                    title="Edit account"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => deleteAccount(account.id)}
+                    className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded"
+                    title="Delete account"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+
   if (authLoading || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -177,21 +344,36 @@ export default function BankAccountsPage() {
       </Link>
 
       {/* Total Balance */}
-      <Card className="mb-6">
-        <CardContent className="p-5">
-          <div className="flex items-center gap-3">
-            <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-900/40">
-              <DollarSign className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-900/40">
+                <DollarSign className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Total Bank Balance</p>
+                <p className={`text-2xl font-bold ${totalBalance < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
+                  {fmt(totalBalance)}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Balance</p>
-              <p className={`text-2xl font-bold ${totalBalance < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
-                {fmt(totalBalance)}
-              </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-full bg-red-100 dark:bg-red-900/40">
+                <Car className="h-6 w-6 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Total Loan Balance</p>
+                <p className="text-2xl font-bold text-red-600 dark:text-red-400">{fmt(totalLoans)}</p>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Add Form */}
       {showForm && (
@@ -218,6 +400,9 @@ export default function BankAccountsPage() {
                 >
                   <option value="checking">Checking</option>
                   <option value="savings">Savings</option>
+                  <option value="money_market">Money Market</option>
+                  <option value="investment">Investment</option>
+                  <option value="loan">Loan</option>
                 </select>
               </div>
               <div>
@@ -298,156 +483,41 @@ export default function BankAccountsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {Object.entries(
-            accounts.reduce<Record<string, BankAccount[]>>((groups, account) => {
-              const group = account.institution || 'Other'
-              ;(groups[group] ||= []).push(account)
-              return groups
-            }, {})
-          ).map(([groupName, groupAccounts]) => {
-            const groupTotal = groupAccounts.reduce((s, a) => s + (Number(a.current_balance) || 0), 0)
-            const groupWebsite = groupAccounts.find((a) => a.website)?.website || ''
-            return (
-              <div key={groupName}>
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    {groupWebsite ? (
-                      <a
-                        href={normalizeUrl(groupWebsite)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline"
-                      >
-                        {groupName}
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    ) : (
-                      groupName
-                    )}
-                  </h3>
-                  <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                    <span>{groupAccounts.length} account{groupAccounts.length !== 1 ? 's' : ''}</span>
-                    <span>Bal: {fmt(groupTotal)}</span>
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  {groupAccounts.map((account) => (
-                    <Card key={account.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-4 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className={`p-2.5 rounded-lg ${account.is_income_account ? 'bg-green-100 dark:bg-green-900/40' : 'bg-gray-100 dark:bg-gray-800'}`}>
-                    {account.account_type === 'savings' ? (
-                      <TrendingUp className={`h-5 w-5 ${account.is_income_account ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400'}`} />
-                    ) : (
-                      <CreditCard className={`h-5 w-5 ${account.is_income_account ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400'}`} />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-gray-900 dark:text-white truncate">{account.name}</p>
-                      {account.is_income_account === 1 && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400">
-                          Income
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {account.institution && (
-                        <span>
-                          {account.website ? (
-                            <a href={normalizeUrl(account.website)} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">{account.institution}</a>
-                          ) : (
-                            account.institution
-                          )}
-                        </span>
-                      )}
-                      {account.institution && account.account_number_last4 && <span className="mx-1">&middot;</span>}
-                      {account.account_number_last4 && <span>****{account.account_number_last4}</span>}
-                      {!account.institution && !account.account_number_last4 && (
-                        <span className="capitalize">{account.account_type}</span>
-                      )}
-                      {account.institution && !account.account_number_last4 && (
-                        <span className="ml-1 capitalize">&middot; {account.account_type}</span>
-                      )}
-                    </p>
-                  </div>
-                </div>
+        <>
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-3">
+              <Landmark className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Bank Accounts</h2>
+              <span className="text-xs text-gray-500 dark:text-gray-400">({bankAccounts.length})</span>
+            </div>
+            {bankAccounts.length > 0 ? (
+              renderAccountGroups(bankAccounts)
+            ) : (
+              <Card>
+                <CardContent className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                  No bank accounts yet. Add one to get started.
+                </CardContent>
+              </Card>
+            )}
+          </div>
 
-                <div className="flex items-center gap-3">
-                  {/* Balance / Edit */}
-                  {editingId === account.id ? (
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                      <input
-                        type="text"
-                        value={editInstitution}
-                        onChange={(e) => setEditInstitution(e.target.value)}
-                        placeholder="Institution"
-                        className="w-full sm:w-36 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <input
-                        type="text"
-                        value={editWebsite}
-                        onChange={(e) => setEditWebsite(e.target.value)}
-                        placeholder="URL"
-                        className="w-full sm:w-36 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={editBalance}
-                        onChange={(e) => setEditBalance(e.target.value)}
-                        className="w-full sm:w-28 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-right text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                      <button
-                        onClick={() => saveEdit(account.id)}
-                        className="p-1 text-green-600 hover:text-green-700 dark:text-green-400"
-                        title="Save"
-                      >
-                        <Wallet className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => setEditingId(null)}
-                        className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                        title="Cancel"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <p className={`text-lg font-bold text-right min-w-[100px] ${account.current_balance < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
-                      {fmt(account.current_balance)}
-                    </p>
-                  )}
-
-                  {/* Actions */}
-                  {editingId !== account.id && (
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => startEdit(account)}
-                        className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
-                        title="Edit account"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => deleteAccount(account.id)}
-                        className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded"
-                        title="Delete account"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-                </Card>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Car className="h-5 w-5 text-red-600 dark:text-red-400" />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Loans</h2>
+              <span className="text-xs text-gray-500 dark:text-gray-400">({loanAccounts.length})</span>
+            </div>
+            {loanAccounts.length > 0 ? (
+              renderAccountGroups(loanAccounts)
+            ) : (
+              <Card>
+                <CardContent className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                  No loans yet. Add a loan account to track auto, student, or personal loans.
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </>
       )}
     </div>
   )
