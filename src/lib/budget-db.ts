@@ -263,6 +263,12 @@ function toDateString(v: unknown): string | undefined {
   return m ? m[0] : s
 }
 
+function addDaysToDateStr(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T00:00:00Z')
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().split('T')[0]
+}
+
 function normalizePaycheckDates(row: Record<string, unknown>): Record<string, unknown> {
   for (const f of PAYCHECK_DATE_FIELDS) {
     if (row[f] !== undefined && row[f] !== null) {
@@ -430,11 +436,27 @@ export async function getBudgetStats(userId: number): Promise<BudgetStats> {
   const totalExpenses = totalExpensesPaid + billsBeforeNextPayTotal
 
   const biweeklyIncome = lastPaycheckNet
-  const totalBudget = (await db.prepare('SELECT COALESCE(SUM(monthly_limit), 0) as t FROM budget_categories WHERE user_id = ?').get(userId) as { t: number }).t
-  const biweeklyExpenses = totalBudget ? totalBudget / 2 : 0
+
+  // Biweekly period = last paycheck date through next paycheck date
+  let biweeklyExpenses = 0
+  const biweeklyEnd = nextPaycheck || (lastPaycheckDate ? addDaysToDateStr(lastPaycheckDate, 14) : null)
+  if (lastPaycheckDate && biweeklyEnd) {
+    biweeklyExpenses = (await db.prepare(
+      'SELECT COALESCE(SUM(amount), 0) as t FROM budget_bills WHERE user_id = ? AND due_date >= ? AND due_date <= ?'
+    ).get(userId, lastPaycheckDate, biweeklyEnd) as { t: number }).t
+  }
   const biweeklyRemaining = biweeklyIncome - biweeklyExpenses
+
   const monthlyIncome = lastPaycheckNet ? lastPaycheckNet * 26 / 12 : 0
-  const monthlyExpenses = totalBudget
+
+  // Monthly period = last paycheck date through 30 days later
+  let monthlyExpenses = 0
+  const monthlyEnd = lastPaycheckDate ? addDaysToDateStr(lastPaycheckDate, 30) : null
+  if (lastPaycheckDate && monthlyEnd) {
+    monthlyExpenses = (await db.prepare(
+      'SELECT COALESCE(SUM(amount), 0) as t FROM budget_bills WHERE user_id = ? AND due_date >= ? AND due_date <= ?'
+    ).get(userId, lastPaycheckDate, monthlyEnd) as { t: number }).t
+  }
   const monthlyRemaining = monthlyIncome - monthlyExpenses
 
   // Monthly expenses paid/due (30-day window)

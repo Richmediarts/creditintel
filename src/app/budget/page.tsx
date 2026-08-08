@@ -169,7 +169,7 @@ export default function BudgetDashboardPage() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <StatCard title="Income" amount={fmt(stats.biweekly_income)} icon={Wallet} accent="bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400" sub="Last paycheck net" />
-          <StatCard title="Expenses" amount={fmt(stats.biweekly_expenses)} icon={Receipt} accent="bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400" sub="Half of monthly budget" />
+          <StatCard title="Expenses" amount={fmt(stats.biweekly_expenses)} icon={Receipt} accent="bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400" sub="Bills due this pay period" />
           <StatCard title="Remaining" amount={fmt(stats.biweekly_remaining)} icon={PiggyBank} accent="bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-400" negative={stats.biweekly_remaining < 0} sub={stats.next_paycheck_date ? `Next paycheck: ${stats.next_paycheck_date}` : undefined} />
         </div>
       </div>
@@ -181,7 +181,7 @@ export default function BudgetDashboardPage() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <StatCard title="Income" amount={fmt(stats.monthly_income)} icon={Wallet} accent="bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-400" sub="Last paycheck × 2.17" />
-          <StatCard title="Expenses" amount={fmt(stats.monthly_expenses)} icon={Receipt} accent="bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400" sub="Total monthly budget" />
+          <StatCard title="Expenses" amount={fmt(stats.monthly_expenses)} icon={Receipt} accent="bg-orange-100 text-orange-600 dark:bg-orange-900/40 dark:text-orange-400" sub="Bills due next 30 days" />
           <StatCard title="Remaining" amount={fmt(stats.monthly_remaining)} icon={PiggyBank} accent="bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-400" negative={stats.monthly_remaining < 0} sub="30-day rolling window" />
         </div>
       </div>
