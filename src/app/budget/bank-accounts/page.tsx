@@ -24,6 +24,7 @@ interface BankAccount {
   is_active: number
   is_income_account: number
   interest_rate: number
+  last_synced_at?: string | null
 }
 
 const fmt = (n: number): string =>
@@ -43,6 +44,20 @@ function normalizeUrl(url: string): string {
   const trimmed = url.trim()
   if (!trimmed) return ''
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+}
+
+function formatSyncedAt(v: string | null | undefined): string {
+  if (!v) return ''
+  const d = new Date(v)
+  if (isNaN(d.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const mm = pad(d.getMonth() + 1)
+  const dd = pad(d.getDate())
+  const yy = String(d.getFullYear()).slice(-2)
+  let h = d.getHours()
+  const ap = h >= 12 ? 'pm' : 'am'
+  h = h % 12 || 12
+  return `${mm}/${dd}/${yy} ${pad(h)}:${pad(d.getMinutes())}${ap}`
 }
 
 export default function BankAccountsPage() {
@@ -253,6 +268,11 @@ export default function BankAccountsPage() {
                   )}
                   {account.institution && !account.account_number_last4 && (
                     <span className="ml-1 capitalize">&middot; {account.account_type}</span>
+                  )}
+                  {formatSyncedAt(account.last_synced_at) && (
+                    <span className="ml-2 text-xs text-emerald-600 dark:text-emerald-400">
+                      &#183; Last synced {formatSyncedAt(account.last_synced_at)}
+                    </span>
                   )}
                 </p>
               </div>

@@ -183,6 +183,7 @@ export interface BudgetBankAccount {
   interest_rate: number
   plaid_account_id?: string
   plaid_item_id?: number
+  last_synced_at?: string | null
 }
 
 export interface BudgetCreditCard {

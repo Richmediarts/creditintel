@@ -117,7 +117,8 @@ export async function initPostgresSchema() {
       is_income_account INTEGER DEFAULT 0,
       interest_rate REAL DEFAULT 0,
       plaid_account_id TEXT,
-      plaid_item_id INTEGER
+      plaid_item_id INTEGER,
+      last_synced_at TIMESTAMP
     );
   `
   await sql`
@@ -134,7 +135,8 @@ export async function initPostgresSchema() {
       website TEXT,
       due_date TEXT,
       plaid_account_id TEXT,
-      plaid_item_id INTEGER
+      plaid_item_id INTEGER,
+      last_synced_at TIMESTAMP
     );
   `
   await sql`
@@ -222,6 +224,13 @@ export async function initPostgresSchema() {
 
   await sql`
     ALTER TABLE budget_credit_cards ADD COLUMN IF NOT EXISTS institution TEXT;
+  `
+
+  await sql`
+    ALTER TABLE budget_bank_accounts ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMP;
+  `
+  await sql`
+    ALTER TABLE budget_credit_cards ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMP;
   `
 
   await sql`

@@ -66,9 +66,9 @@ export async function POST(request: NextRequest) {
           const balance = acct.balances?.current || 0
           const limitVal = acct.balances?.limit || 0
 
-          const updated = await db.run('UPDATE budget_bank_accounts SET current_balance = ? WHERE user_id = ? AND plaid_account_id = ?', [balance, user.userId, aid])
+          const updated = await db.run('UPDATE budget_bank_accounts SET current_balance = ?, last_synced_at = CURRENT_TIMESTAMP WHERE user_id = ? AND plaid_account_id = ?', [balance, user.userId, aid])
           if (updated.changes === 0) {
-            await db.run('UPDATE budget_credit_cards SET current_balance = ?, credit_limit = ? WHERE user_id = ? AND plaid_account_id = ?', [balance, limitVal, user.userId, aid])
+            await db.run('UPDATE budget_credit_cards SET current_balance = ?, credit_limit = ?, last_synced_at = CURRENT_TIMESTAMP WHERE user_id = ? AND plaid_account_id = ?', [balance, limitVal, user.userId, aid])
           }
         }
         results.push({ item: item.institution_name || '', status: 'ok' })

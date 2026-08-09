@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
     const client = getPlaidClient(config)
     const items = await getPlaidItems(user.userId)
     const totals = { added: 0, modified: 0, removed: 0 }
+    const db = getDb()
 
     for (const item of items) {
       let cursorVal = item.plaid_cursor || ''
@@ -89,6 +90,11 @@ export async function POST(request: NextRequest) {
       }
 
       if (cursorVal) await updatePlaidCursor(user.userId, item.id, cursorVal)
+
+      const localAccounts = await getAccountsByPlaidItem(user.userId, item.id)
+      for (const a of localAccounts) {
+        await db.run('UPDATE budget_bank_accounts SET last_synced_at = CURRENT_TIMESTAMP WHERE user_id = ? AND id = ?', [user.userId, a.id])
+      }
     }
 
     const msg = `Synced: ${totals.added} added, ${totals.modified} modified, ${totals.removed} removed`

@@ -113,7 +113,8 @@ async function initSchema() {
       is_income_account INTEGER DEFAULT 0,
       interest_rate REAL DEFAULT 0,
       plaid_account_id TEXT,
-      plaid_item_id INTEGER
+      plaid_item_id INTEGER,
+      last_synced_at TIMESTAMP
     );
   `
   await sql`
@@ -129,7 +130,8 @@ async function initSchema() {
       website TEXT,
       due_date TEXT,
       plaid_account_id TEXT,
-      plaid_item_id INTEGER
+      plaid_item_id INTEGER,
+      last_synced_at TIMESTAMP
     );
   `
   await sql`
