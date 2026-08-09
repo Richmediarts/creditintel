@@ -64,6 +64,7 @@ export default function InquiriesPage() {
 
   const hardInquiries = allInquiries.filter(i => i.type === 'Hard')
   const unmatchedHard = hardInquiries.filter(i => !isTiedToOpenAccount(i.creditorName, openAccountNames))
+  const tiedToOpen = (name: string) => isTiedToOpenAccount(name, openAccountNames)
   const visibleInquiries = unmatchedOnly ? unmatchedHard : allInquiries
 
   return (
@@ -135,12 +136,16 @@ export default function InquiriesPage() {
                         <Badge variant={inq.type === 'Hard' ? 'warning' : 'default'}>{inq.type}</Badge>
                       </td>
                       <td className="py-2 px-2 text-right">
-                        <Link
-                          href={disputeLink(inq.bureau, inq.creditorName, 'inquiry')}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
-                        >
-                          <FilePen className="w-3.5 h-3.5" /> Dispute
-                        </Link>
+                        {inq.type === 'Hard' && !tiedToOpen(inq.creditorName) ? (
+                          <Link
+                            href={disputeLink(inq.bureau, inq.creditorName, 'inquiry')}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            <FilePen className="w-3.5 h-3.5" /> Dispute
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-gray-400 dark:text-gray-600">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}
