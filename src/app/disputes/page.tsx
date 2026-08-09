@@ -423,6 +423,9 @@ export default function DisputesPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-base font-semibold text-gray-900 dark:text-white">{item.creditorName}</span>
                     <Badge>{item.bureau}</Badge>
+                    {item.derogatoryType && (
+                      <Badge variant="danger" className="text-xs font-medium capitalize">{item.derogatoryType}</Badge>
+                    )}
                     {item.inaccuracies.slice(0, 3).map((inacc, j) => (
                       <Badge key={j} variant="warning" className="text-xs font-medium">{inacc.replace(/_/g, ' ')}</Badge>
                     ))}
