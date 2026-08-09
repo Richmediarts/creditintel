@@ -124,6 +124,12 @@ export function generateAIFindings(
   return findings
 }
 
+const DISPUTABLE_TYPES = new Set(['Charge Off', 'Collection', 'Late Payments'])
+
+export function isDisputableItem(item: DisputeItem): boolean {
+  return !!item.derogatoryType && DISPUTABLE_TYPES.has(item.derogatoryType)
+}
+
 function deriveDerogatoryType(account: Account): string {
   if (account.isCollection) return 'Collection'
   if (account.isChargeOff) return 'Charge Off'

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
 import { useCredit } from '@/lib/store/creditStore'
 import { useRouter } from 'next/navigation'
+import { isDisputableItem } from '@/lib/utils/analysis'
 import type { DisputeTracking, DisputeStatus, Bureau, LetterType, DisputeItem } from '@/types'
 
 const STATUS_LABELS: Record<DisputeStatus, string> = {
@@ -107,7 +108,7 @@ export default function DisputesPage() {
   const [notes, setNotes] = useState('')
   const [letterType, setLetterType] = useState<LetterType>('validation')
 
-  const disputeItems = creditState?.creditData?.disputeItems ?? []
+  const disputeItems = (creditState?.creditData?.disputeItems ?? []).filter(isDisputableItem)
 
   const fetchDisputes = async () => {
     const res = await fetch('/api/disputes')

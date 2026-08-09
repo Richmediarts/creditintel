@@ -9,6 +9,7 @@ import { useCredit } from '@/lib/store/creditStore'
 import { disputeLink } from '@/lib/utils/disputeLetters'
 import { usePrintedDisputes } from '@/lib/usePrintedDisputes'
 import { PrintedBadge } from '@/components/disputes/PrintedBadge'
+import { isDisputableItem } from '@/lib/utils/analysis'
 
 export default function DerogatoryPage() {
   const { state } = useCredit()
@@ -24,7 +25,7 @@ export default function DerogatoryPage() {
     )
   }
 
-  const derogatoryAccounts = creditData.disputeItems
+  const derogatoryAccounts = creditData.disputeItems.filter(isDisputableItem)
 
   return (
     <div className="space-y-6">
