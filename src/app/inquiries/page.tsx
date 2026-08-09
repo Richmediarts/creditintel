@@ -1,16 +1,49 @@
 'use client'
 
-import React from 'react'
-import { ArrowLeft, Search, FilePen } from 'lucide-react'
+import React, { useState } from 'react'
+import { ArrowLeft, Search, FilePen, Eye, EyeOff } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { useCredit } from '@/lib/store/creditStore'
 import { disputeLink } from '@/lib/utils/disputeLetters'
+import type { Bureau, Inquiry } from '@/types'
+
+const GENERIC_WORDS = new Set([
+  'bank', 'banks', 'credit', 'card', 'cards', 'fc', 'fcu', 'na', 'n.a', 'usa', 'us', 'llc', 'inc', 'corp',
+  'company', 'co', 'services', 'service', 'financial', 'finance', 'group', 'holdings', 'the', 'of', 'auto',
+  'motor', 'motors', 'national', 'america', 'american', 'united', 'states',
+])
+
+const SYNONYMS: Record<string, string> = {
+  dept: 'department',
+  co: 'company',
+  svcs: 'services',
+  bankna: 'bank',
+}
+
+function normalizeName(name: string): string {
+  const expanded = name.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim()
+  return expanded.split(' ').map(w => SYNONYMS[w] || w).join(' ')
+}
+
+function isTiedToOpenAccount(inquiryName: string, openAccountNames: string[]): boolean {
+  const tokens = normalizeName(inquiryName).split(' ').filter(t => t && !GENERIC_WORDS.has(t))
+  if (tokens.length === 0) return true
+  for (const accountName of openAccountNames) {
+    const accountTokens = normalizeName(accountName).split(' ').filter(t => t && !GENERIC_WORDS.has(t))
+    const matches = tokens.filter(t => accountTokens.includes(t)).length
+    const minLen = Math.min(tokens.length, accountTokens.length)
+    if (minLen > 0 && matches / minLen >= 0.6) return true
+  }
+  return false
+}
 
 export default function InquiriesPage() {
   const { state } = useCredit()
   const { creditData } = state
+  const [unmatchedOnly, setUnmatchedOnly] = useState(false)
 
   if (!creditData) {
     return (
@@ -22,23 +55,53 @@ export default function InquiriesPage() {
   }
 
   const allInquiries = creditData.reports.flatMap(r =>
-    r.inquiries.map(i => ({ ...i, bureau: r.bureau }))
+    r.inquiries.map(i => ({ ...i, bureau: r.bureau as Bureau }))
   )
+
+  const openAccountNames = creditData.reports.flatMap(r =>
+    r.accounts.filter(a => a.isOpen).map(a => a.creditorName)
+  )
+
+  const hardInquiries = allInquiries.filter(i => i.type === 'Hard')
+  const unmatchedHard = hardInquiries.filter(i => !isTiedToOpenAccount(i.creditorName, openAccountNames))
+  const visibleInquiries = unmatchedOnly ? unmatchedHard : allInquiries
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Link href="/" className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Inquiry Tracker</h1>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Link href="/" className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Inquiry Tracker</h1>
+        </div>
+        <Button variant="secondary" size="sm" onClick={() => setUnmatchedOnly(!unmatchedOnly)}>
+          {unmatchedOnly ? <Eye className="w-4 h-4 mr-1" /> : <EyeOff className="w-4 h-4 mr-1" />}
+          {unmatchedOnly ? 'Show All' : `Unmatched Hard (${unmatchedHard.length})`}
+        </Button>
       </div>
 
-      {allInquiries.length === 0 ? (
+      {unmatchedOnly && (
+        <Card className="border-amber-200 dark:border-amber-800">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
+              <Search className="w-4 h-4" />
+              <span>
+                Showing <strong>{unmatchedHard.length}</strong> hard inquiry{unmatchedHard.length !== 1 ? 'ies' : 'y'} not tied to an open account
+                on your reports. These may warrant a <Link href="/dispute-letters" className="underline">dispute</Link>.
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {visibleInquiries.length === 0 ? (
         <Card>
           <CardContent className="p-6 text-center">
             <Search className="w-12 h-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" />
-            <p className="text-gray-500 dark:text-gray-400">No inquiries found in uploaded reports</p>
+            <p className="text-gray-500 dark:text-gray-400">
+              {unmatchedOnly ? 'Every hard inquiry is tied to an open account' : 'No inquiries found in uploaded reports'}
+            </p>
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Inquiry data is parsed from the inquiries section of each report</p>
           </CardContent>
         </Card>
@@ -46,8 +109,8 @@ export default function InquiriesPage() {
         <Card>
           <CardContent className="p-4">
             <CardTitle className="mb-4">
-              All Inquiries
-              <Badge className="ml-2">{allInquiries.length} total</Badge>
+              {unmatchedOnly ? 'Unmatched Hard Inquiries' : 'All Inquiries'}
+              <Badge className="ml-2">{visibleInquiries.length} total</Badge>
             </CardTitle>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -61,7 +124,7 @@ export default function InquiriesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {allInquiries.map((inq, i) => (
+                  {visibleInquiries.map((inq, i) => (
                     <tr key={i} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
                       <td className="py-2 px-2 font-medium text-gray-900 dark:text-white">{inq.creditorName}</td>
                       <td className="py-2 px-2">
