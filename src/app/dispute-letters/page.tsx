@@ -389,6 +389,11 @@ function DisputeLettersContent() {
                 Also <Link href="/opt-out" className="text-blue-600 dark:text-blue-400 underline">opt out of supplemental agencies</Link>{' '}
                 (SageStream, LexisNexis, Innovis, CoreLogic) alongside your disputes so errors don&apos;t survive in their files.
               </p>
+              <p className="mt-1 text-[10px] text-gray-400 dark:text-gray-500 leading-relaxed">
+                Prefer the phone?{' '}
+                <Link href="/inquiries" className="text-blue-600 dark:text-blue-400 underline">Call the bureau to dispute inquiries</Link>{' '}
+                — official numbers, who to ask for, and a removal script.
+              </p>
             </CardContent>
           </Card>
 

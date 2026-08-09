@@ -10,6 +10,7 @@ import { useCredit } from '@/lib/store/creditStore'
 import { disputeLink } from '@/lib/utils/disputeLetters'
 import { usePrintedDisputes } from '@/lib/usePrintedDisputes'
 import { PrintedBadge } from '@/components/disputes/PrintedBadge'
+import BureauCallCard from '@/components/disputes/BureauCallCard'
 import type { Bureau, Inquiry } from '@/types'
 
 const GENERIC_WORDS = new Set([
@@ -98,6 +99,8 @@ export default function InquiriesPage() {
           </CardContent>
         </Card>
       )}
+
+      <BureauCallCard />
 
       <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
         <CardContent className="p-4">
