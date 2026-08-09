@@ -50,6 +50,9 @@ export default function DerogatoryPage() {
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-medium text-gray-900 dark:text-white">{item.creditorName}</h3>
                       <Badge>{item.bureau}</Badge>
+                      {item.derogatoryType && (
+                        <Badge variant="danger" className="capitalize">{item.derogatoryType}</Badge>
+                      )}
                     </div>
                     <div className="flex gap-1 flex-wrap mt-2">
                       {item.inaccuracies.map((inacc, j) => (

@@ -172,6 +172,7 @@ export interface DisputeItem {
   recommendedAction: string
   estimatedScoreGain?: number
   inquiryDate?: string
+  derogatoryType?: string
 }
 
 export type DisputeStatus = 'printed' | 'sent' | 'pending' | 'resend' | 'complete'

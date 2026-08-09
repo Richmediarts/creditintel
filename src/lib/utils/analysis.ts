@@ -124,6 +124,23 @@ export function generateAIFindings(
   return findings
 }
 
+function deriveDerogatoryType(account: Account): string {
+  if (account.isCollection) return 'Collection'
+  if (account.isChargeOff) return 'Charge Off'
+  if (account.status === 'ChargeOff') return 'Charge Off'
+  if (account.status === 'Collection') return 'Collection'
+  if (account.isLate) return 'Late Payments'
+  if (account.status === 'Derogatory') return 'Derogatory'
+  const remarks = account.remarks?.toLowerCase() || ''
+  if (remarks.includes('settled')) return 'Settled'
+  if (remarks.includes('charge off') || remarks.includes('charged off')) return 'Charge Off'
+  if (remarks.includes('collection')) return 'Collection'
+  if (remarks.includes('foreclosure')) return 'Foreclosure'
+  if (remarks.includes('repossession')) return 'Repossession'
+  if (remarks.includes('bankruptcy')) return 'Bankruptcy'
+  return account.payStatus || 'Derogatory'
+}
+
 export function generateDisputeItems(
   reports: BureauReport[],
   mergedAccounts: MergedAccount[]
@@ -180,6 +197,7 @@ export function generateDisputeItems(
           inaccuracies,
           recommendedAction: 'Dispute with credit bureau',
           estimatedScoreGain: inaccuracies.length * 10,
+          derogatoryType: deriveDerogatoryType(account),
         })
       }
     }
