@@ -23,6 +23,7 @@ function DisputeLettersContent() {
   const [copied, setCopied] = useState(false)
   const [downloadingDocx, setDownloadingDocx] = useState(false)
   const [trackedMessage, setTrackedMessage] = useState('')
+  const [savedMessage, setSavedMessage] = useState('')
   const [letterType, setLetterType] = useState<'dispute' | 'revocation' | 'validation' | 'inquiry'>('validation')
   const [target, setTarget] = useState<ReturnType<typeof resolveDisputeTarget> | null>(null)
 
@@ -111,11 +112,39 @@ function DisputeLettersContent() {
     }
   }
 
+  const saveLetterToLibrary = async () => {
+    if (!letterContent) return
+    const items = letterType === 'dispute'
+      ? disputeItems
+      : disputeItems.length > 0 ? [disputeItems[0]] : []
+    if (items.length === 0) return
+
+    for (const item of items) {
+      await fetch('/api/letters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creditorName: item.creditorName,
+          bureau: item.bureau,
+          letterType,
+          letterText: letterContent,
+        }),
+      })
+    }
+    setSavedMessage(`Saved ${items.length} letter${items.length > 1 ? 's' : ''} to your Letters Library.`)
+  }
+
   const letterTypeLabels: Record<string, string> = {
     dispute: 'CRA_Dispute_and_Deletion_Demand',
     revocation: 'Revocation_of_Authorization',
     validation: 'Validation_Request',
     inquiry: 'Unauthorized_Inquiry_Dispute',
+  }
+  const letterTypeDisplay: Record<string, string> = {
+    dispute: 'CRA Dispute & Deletion Demand',
+    revocation: 'Revocation of Authorization',
+    validation: 'Validation Request',
+    inquiry: 'Inquiry Dispute (Unauthorized Hard Inquiry)',
   }
   const bureauPrefix = selectedBureau !== 'all' ? `${selectedBureau}_` : ''
   const defaultName = `${letterTypeLabels[letterType]}_${bureauPrefix}${new Date().toISOString().split('T')[0]}`
@@ -143,6 +172,7 @@ function DisputeLettersContent() {
 
   const handleDownload = async () => {
     await trackPrinted()
+    await saveLetterToLibrary()
     await downloadBlob(new Blob([letterContent], { type: 'text/plain' }), 'txt', 'text/plain')
   }
 
@@ -150,6 +180,7 @@ function DisputeLettersContent() {
     setDownloadingDocx(true)
     try {
       await trackPrinted()
+      await saveLetterToLibrary()
       const blob = await letterTextToDocx(letterContent)
       await downloadBlob(blob, 'docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     } finally {
@@ -396,6 +427,14 @@ function DisputeLettersContent() {
                   <p className="text-xs font-medium text-green-700 dark:text-emerald-300">{trackedMessage}</p>
                   <Link href="/disputes" className="text-xs text-green-700 dark:text-emerald-300 underline whitespace-nowrap">
                     View Tracker
+                  </Link>
+                </div>
+              )}
+              {savedMessage && (
+                <div className="mb-3 p-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 flex items-center justify-between gap-2">
+                  <p className="text-xs font-medium text-blue-700 dark:text-blue-300">{savedMessage}</p>
+                  <Link href="/letters" className="text-xs text-blue-700 dark:text-blue-300 underline whitespace-nowrap">
+                    View Library
                   </Link>
                 </div>
               )}

@@ -66,8 +66,15 @@ const sections = [
     title: 'Dispute Letters',
     icon: 'Mail',
     path: '/dispute-letters',
-    description: 'Generate formal dispute letters to credit bureaus (Experian, Equifax, TransUnion) under the FCRA. Supports three letter types: Dispute, Revocation of Authorization, and Validation Request.',
-    usage: 'Select a letter type, fill in your name and address, then click "Generate Letter". You can copy the text to clipboard or download as .txt or .docx. Use the bureau tabs to toggle between letters for each bureau.',
+    description: 'Generate formal dispute letters to credit bureaus (Experian, Equifax, TransUnion) under the FCRA. Supports four letter types: Dispute, Revocation of Authorization, Validation Request, and Inquiry Dispute for unauthorized hard inquiries.',
+    usage: 'Select a letter type, fill in your name and address, then click "Generate Letter". You can copy the text to clipboard or download as .txt or .docx. Downloading a letter automatically saves it to your Letters Library and marks it as Printed in the Dispute Tracker.',
+  },
+  {
+    title: 'Letters Library',
+    icon: 'FolderArchive',
+    path: '/letters',
+    description: 'Every letter you save from the Dispute Letter Generator is stored here, organized into folders by Credit Bureau and letter type.',
+    usage: 'Letters are saved automatically whenever you download a letter from the Dispute Letters page. Browse folders per bureau and type, open any letter to view or re-download it, or delete it.',
   },
   {
     title: 'Dispute Tracker',

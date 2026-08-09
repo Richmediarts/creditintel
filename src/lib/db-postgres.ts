@@ -46,6 +46,17 @@ export async function initPostgresSchema() {
     );
   `
   await sql`
+    CREATE TABLE IF NOT EXISTS dispute_letters (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      creditor_name TEXT NOT NULL,
+      bureau TEXT NOT NULL,
+      letter_type TEXT NOT NULL,
+      letter_text TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `
+  await sql`
     CREATE TABLE IF NOT EXISTS fico_scores (
       user_id INTEGER NOT NULL REFERENCES users(id),
       bureau TEXT NOT NULL,
@@ -288,6 +299,7 @@ export async function initPostgresSchema() {
   const serialTables = [
     'users',
     'disputes',
+    'dispute_letters',
     'budget_paychecks',
     'budget_bank_accounts',
     'budget_credit_cards',
