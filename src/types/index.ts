@@ -171,6 +171,7 @@ export interface DisputeItem {
   inaccuracies: ('balance' | 'late_payment' | 'not_my_account' | 'duplicate' | 'obsolete' | 'identity_theft' | 'missing_payment' | 'fcra_violation')[]
   recommendedAction: string
   estimatedScoreGain?: number
+  inquiryDate?: string
 }
 
 export type DisputeStatus = 'printed' | 'sent' | 'pending' | 'resend' | 'complete'

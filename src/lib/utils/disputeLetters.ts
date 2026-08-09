@@ -8,7 +8,7 @@ interface LetterContent {
 }
 
 export type DisputeKind = 'account' | 'inquiry'
-export type DisputeLetterType = 'dispute' | 'revocation' | 'validation'
+export type DisputeLetterType = 'dispute' | 'revocation' | 'validation' | 'inquiry'
 
 export function disputeLink(bureau: Bureau, creditorName: string, kind: DisputeKind): string {
   const q = new URLSearchParams({ bureau, creditor: creditorName, kind })
@@ -48,8 +48,9 @@ export function resolveDisputeTarget(
             inaccuracies: ['fcra_violation'],
             recommendedAction: 'Revoke authorization for this inquiry',
             estimatedScoreGain: 5,
+            inquiryDate: inquiry.date,
           },
-          letterType: 'revocation',
+          letterType: 'inquiry',
         }
       }
     }
@@ -172,6 +173,49 @@ Sincerely,
 ${consumerName}
 ${consumerAddress}`,
     citations: ['FCRA §604', 'FCRA §623(a)', 'Cushman v. TransUnion', 'Metro 2 Guidelines'],
+  }
+}
+
+export function generateInquiryDisputeLetter(
+  bureau: Bureau,
+  creditorName: string,
+  inquiryDate: string,
+  consumerName: string,
+  consumerAddress: string
+): LetterContent {
+  return {
+    subject: `Dispute of Unauthorized Hard Inquiry - ${creditorName} - FCRA 15 U.S.C. §1681b`,
+    body: `To the ${bureau} Consumer Dispute Department:
+
+I am writing to formally dispute the hard inquiry listed below on my ${bureau} credit report pursuant to the Fair Credit Reporting Act (FCRA), 15 U.S.C. §1681b (permissible purposes of consumer reports), and 15 U.S.C. §1681i (procedure in case of disputed accuracy).
+
+THE DISPUTED INQUIRY:
+
+Creditor: ${creditorName}
+Date of Inquiry: ${inquiryDate}
+Type: Hard Inquiry
+
+Under 15 U.S.C. §1681b, a consumer reporting agency may furnish a consumer report only under the specific permissible purposes enumerated in the statute, which include an extension of credit, employment, insurance underwriting, and a few other limited circumstances. A consumer report may not be furnished for any purpose other than one of those permitted by law.
+
+I did not apply for, initiate, or authorize any extension of credit or other transaction with ${creditorName} that would establish a permissible purpose under 15 U.S.C. §1681b to access or publish my consumer report. ${creditorName} never had my permissible purpose to publish my report, and this inquiry never involved any extension of credit by me.
+
+Because this inquiry did not arise from any permissible purpose, its presence on my credit file is inaccurate and violates 15 U.S.C. §1681b(f), which prohibits the use of a consumer report for impermissible purposes, and 15 U.S.C. §1681e, which requires reasonable procedures to assure maximum possible accuracy of the information in consumer reports.
+
+I therefore DEMAND that ${bureau}:
+
+1. DELETE this unauthorized hard inquiry from my credit file
+2. CEASE reporting or furnishing this inquiry to any other party
+3. Notify all users to whom the inquiry was disclosed that it is being removed as unauthorized
+4. PROVIDE written confirmation of deletion within 30 days as required by 15 U.S.C. §1681i
+
+This inquiry is being disputed because ${creditorName} never had my permissible purpose to publish my report and the inquiry never involved any extension of credit. Failure to investigate and remove this unauthorized inquiry will result in escalation to the Consumer Financial Protection Bureau (CFPB), the Federal Trade Commission (FTC), and pursuit of statutory damages under 15 U.S.C. §§1681n-1681o.
+
+This dispute is being sent via Certified Mail Return Receipt Requested.
+
+Sincerely,
+${consumerName}
+${consumerAddress}`,
+    citations: ['FCRA 15 U.S.C. §1681b', 'FCRA 15 U.S.C. §1681b(f)', 'FCRA 15 U.S.C. §1681e', 'FCRA 15 U.S.C. §1681i', 'FCRA 15 U.S.C. §§1681n-1681o'],
   }
 }
 

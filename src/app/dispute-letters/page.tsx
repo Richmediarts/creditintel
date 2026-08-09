@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
 import { useCredit } from '@/lib/store/creditStore'
-import { generateRevocationLetter, generateValidationRequest, generateCombinedDisputeLetter, letterTextToDocx, resolveDisputeTarget } from '@/lib/utils/disputeLetters'
+import { generateRevocationLetter, generateValidationRequest, generateCombinedDisputeLetter, generateInquiryDisputeLetter, letterTextToDocx, resolveDisputeTarget } from '@/lib/utils/disputeLetters'
 
 function DisputeLettersContent() {
   const { user } = useAuth()
@@ -21,7 +21,7 @@ function DisputeLettersContent() {
   const [consumerAddress, setConsumerAddress] = useState('52 BIRCH RIVER XING, DALLAS, GA 30132')
   const [copied, setCopied] = useState(false)
   const [downloadingDocx, setDownloadingDocx] = useState(false)
-  const [letterType, setLetterType] = useState<'dispute' | 'revocation' | 'validation'>('validation')
+  const [letterType, setLetterType] = useState<'dispute' | 'revocation' | 'validation' | 'inquiry'>('validation')
   const [target, setTarget] = useState<ReturnType<typeof resolveDisputeTarget> | null>(null)
 
   useEffect(() => {
@@ -57,6 +57,9 @@ function DisputeLettersContent() {
   let letterContent = ''
   if (letterType === 'dispute') {
     letterContent = generateCombinedDisputeLetter(creditData.reports, disputeItems, consumerName, consumerAddress)
+  } else if (letterType === 'inquiry' && disputeItems.length > 0) {
+    const item = disputeItems[0]
+    letterContent = generateInquiryDisputeLetter(item.bureau, item.creditorName, item.inquiryDate || 'Unknown', consumerName, consumerAddress).body
   } else if (letterType === 'revocation' && disputeItems.length > 0) {
     const item = disputeItems[0]
     letterContent = generateRevocationLetter(item.bureau, item.creditorName, consumerName, consumerAddress).body
@@ -75,6 +78,7 @@ function DisputeLettersContent() {
     dispute: 'CRA_Dispute_and_Deletion_Demand',
     revocation: 'Revocation_of_Authorization',
     validation: 'Validation_Request',
+    inquiry: 'Unauthorized_Inquiry_Dispute',
   }
   const bureauPrefix = selectedBureau !== 'all' ? `${selectedBureau}_` : ''
   const defaultName = `${letterTypeLabels[letterType]}_${bureauPrefix}${new Date().toISOString().split('T')[0]}`
@@ -162,12 +166,13 @@ function DisputeLettersContent() {
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Letter Type</label>
                   <select
                     value={letterType}
-                    onChange={e => setLetterType(e.target.value as 'dispute' | 'revocation' | 'validation')}
+                    onChange={e => setLetterType(e.target.value as 'dispute' | 'revocation' | 'validation' | 'inquiry')}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
                   >
                     <option value="dispute">CRA Dispute & Deletion Demand</option>
                     <option value="revocation">Revocation of Authorization</option>
                     <option value="validation">Validation Request</option>
+                    <option value="inquiry">Inquiry Dispute (Unauthorized Hard Inquiry)</option>
                   </select>
                   {letterType === 'dispute' && (
                     <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -217,6 +222,23 @@ function DisputeLettersContent() {
                       </p>
                       <p className="text-[10px] text-purple-600/70 dark:text-purple-400/70 mt-1 leading-relaxed">
                         <strong>How:</strong> Select the collection account, choose the bureau, send Certified Mail within 30 days of first notice. If they can&apos;t validate, they must delete.
+                      </p>
+                    </div>
+                  )}
+                  {letterType === 'inquiry' && (
+                    <div className="mt-2 p-2 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800">
+                      <p className="text-[11px] font-medium text-red-700 dark:text-red-300">Inquiry Dispute (Unauthorized Hard Inquiry)</p>
+                      <p className="text-[10px] text-red-600/70 dark:text-red-400/70 mt-1 leading-relaxed">
+                        <strong>Order:</strong> Send <strong>anytime</strong> — standalone action when a hard inquiry appears on your report that you never authorized.
+                      </p>
+                      <p className="text-[10px] text-red-600/70 dark:text-red-400/70 mt-1 leading-relaxed">
+                        <strong>When to use:</strong> A company pulled your credit (hard inquiry) but you never applied for credit, opened an account, or otherwise gave them a permissible purpose to access your report.
+                      </p>
+                      <p className="text-[10px] text-red-600/70 dark:text-red-400/70 mt-1 leading-relaxed">
+                        <strong>Why:</strong> FCRA 15 U.S.C. §1681b limits access to consumer reports to specific permissible purposes (e.g., extension of credit). An inquiry with no permissible purpose is a §1681b(f) violation and must be deleted.
+                      </p>
+                      <p className="text-[10px] text-red-600/70 dark:text-red-400/70 mt-1 leading-relaxed">
+                        <strong>How:</strong> Pick a hard inquiry from the Inquiry Tracker (Dispute link), choose this letter type, send to the bureau via Certified Mail. Bureaus typically require the inquiry to be unauthorized to remove it.
                       </p>
                     </div>
                   )}
@@ -295,7 +317,7 @@ function DisputeLettersContent() {
                 <CardTitle>
                   Generated Letter
                   <Badge className="ml-2">
-                    {letterType === 'dispute' ? 'Dispute' : letterType === 'revocation' ? 'Revocation' : 'Validation'}
+                    {letterType === 'dispute' ? 'Dispute' : letterType === 'revocation' ? 'Revocation' : letterType === 'inquiry' ? 'Inquiry Dispute' : 'Validation'}
                   </Badge>
                 </CardTitle>
                 <div className="flex gap-2">
