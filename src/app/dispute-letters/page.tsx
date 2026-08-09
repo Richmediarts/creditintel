@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
 import { useCredit } from '@/lib/store/creditStore'
 import { generateRevocationLetter, generateValidationRequest, generateCombinedDisputeLetter, generateInquiryDisputeLetter, letterTextToDocx, resolveDisputeTarget } from '@/lib/utils/disputeLetters'
+import { usePrintedDisputes } from '@/lib/usePrintedDisputes'
+import { PrintedBadge } from '@/components/disputes/PrintedBadge'
 import type { DisputeItem } from '@/types'
 
 function DisputeLettersContent() {
@@ -26,6 +28,7 @@ function DisputeLettersContent() {
   const [savedMessage, setSavedMessage] = useState('')
   const [letterType, setLetterType] = useState<'dispute' | 'revocation' | 'validation' | 'inquiry'>('validation')
   const [target, setTarget] = useState<ReturnType<typeof resolveDisputeTarget> | null>(null)
+  const { isPrinted } = usePrintedDisputes()
 
   useEffect(() => {
     if (!creditData) return
@@ -460,6 +463,7 @@ function DisputeLettersContent() {
                         <input type="checkbox" defaultChecked className="rounded border-gray-300" />
                         <span className="text-sm text-gray-900 dark:text-white">{item.creditorName}</span>
                         <Badge>{item.bureau}</Badge>
+                        {isPrinted(item.creditorName, item.bureau) && <PrintedBadge />}
                       </div>
                       <div className="flex gap-1">
                         {item.inaccuracies.map((inacc, j) => (

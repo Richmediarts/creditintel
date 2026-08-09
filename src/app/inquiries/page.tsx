@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useCredit } from '@/lib/store/creditStore'
 import { disputeLink } from '@/lib/utils/disputeLetters'
+import { usePrintedDisputes } from '@/lib/usePrintedDisputes'
+import { PrintedBadge } from '@/components/disputes/PrintedBadge'
 import type { Bureau, Inquiry } from '@/types'
 
 const GENERIC_WORDS = new Set([
@@ -44,6 +46,7 @@ export default function InquiriesPage() {
   const { state } = useCredit()
   const { creditData } = state
   const [unmatchedOnly, setUnmatchedOnly] = useState(false)
+  const { isPrinted } = usePrintedDisputes()
 
   if (!creditData) {
     return (
@@ -154,12 +157,16 @@ export default function InquiriesPage() {
                       </td>
                       <td className="py-2 px-2 text-right">
                         {inq.type === 'Hard' && !tiedToOpen(inq.creditorName) ? (
-                          <Link
-                            href={disputeLink(inq.bureau, inq.creditorName, 'inquiry')}
-                            className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
-                          >
-                            <FilePen className="w-3.5 h-3.5" /> Dispute
-                          </Link>
+                          isPrinted(inq.creditorName, inq.bureau) ? (
+                            <PrintedBadge />
+                          ) : (
+                            <Link
+                              href={disputeLink(inq.bureau, inq.creditorName, 'inquiry')}
+                              className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                            >
+                              <FilePen className="w-3.5 h-3.5" /> Dispute
+                            </Link>
+                          )
                         ) : (
                           <span className="text-xs text-gray-400 dark:text-gray-600">—</span>
                         )}

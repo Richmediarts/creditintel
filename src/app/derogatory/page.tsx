@@ -7,10 +7,13 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useCredit } from '@/lib/store/creditStore'
 import { disputeLink } from '@/lib/utils/disputeLetters'
+import { usePrintedDisputes } from '@/lib/usePrintedDisputes'
+import { PrintedBadge } from '@/components/disputes/PrintedBadge'
 
 export default function DerogatoryPage() {
   const { state } = useCredit()
   const { creditData } = state
+  const { isPrinted } = usePrintedDisputes()
 
   if (!creditData) {
     return (
@@ -70,12 +73,16 @@ export default function DerogatoryPage() {
                   <div className="text-xs text-gray-500 dark:text-gray-400">
                     Recommended: {item.recommendedAction}
                   </div>
-                  <Link
-                    href={disputeLink(item.bureau, item.creditorName, 'account')}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline shrink-0"
-                  >
-                    <FilePen className="w-3.5 h-3.5" /> Dispute
-                  </Link>
+                  {isPrinted(item.creditorName, item.bureau) ? (
+                    <PrintedBadge />
+                  ) : (
+                    <Link
+                      href={disputeLink(item.bureau, item.creditorName, 'account')}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline shrink-0"
+                    >
+                      <FilePen className="w-3.5 h-3.5" /> Dispute
+                    </Link>
+                  )}
                 </div>
               </CardContent>
             </Card>

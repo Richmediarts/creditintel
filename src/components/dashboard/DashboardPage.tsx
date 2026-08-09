@@ -7,6 +7,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useCredit } from '@/lib/store/creditStore'
 import { formatCurrency, formatPercentage } from '@/lib/utils/analysis'
+import { usePrintedDisputes } from '@/lib/usePrintedDisputes'
+import { PrintedBadge } from '@/components/disputes/PrintedBadge'
 import type { Bureau, BureauReport } from '@/types'
 import { UploadZone } from '@/components/dashboard/UploadZone'
 
@@ -39,6 +41,7 @@ const bureauGradients: Record<Bureau, string> = {
 export function DashboardPage() {
   const { state } = useCredit()
   const { creditData } = state
+  const { isPrinted } = usePrintedDisputes()
 
   if (!creditData || state.reports.length === 0) {
     return <EmptyState />
@@ -194,7 +197,12 @@ export function DashboardPage() {
                 <tbody>
                   {creditData.disputeItems.slice(0, 8).map((item, i) => (
                     <tr key={i} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">
-                      <td className="py-2 px-2 font-medium text-gray-900 dark:text-white">{item.creditorName}</td>
+                      <td className="py-2 px-2 font-medium text-gray-900 dark:text-white">
+                        <span className="inline-flex items-center gap-1.5">
+                          {item.creditorName}
+                          {isPrinted(item.creditorName, item.bureau) && <PrintedBadge />}
+                        </span>
+                      </td>
                       <td className="py-2 px-2">
                         <Badge variant={item.bureau === 'Experian' ? 'info' : item.bureau === 'Equifax' ? 'success' : 'default'}>
                           {item.bureau}

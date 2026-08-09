@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { useCredit } from '@/lib/store/creditStore'
 import { formatCurrency } from '@/lib/utils/analysis'
 import { disputeLink } from '@/lib/utils/disputeLetters'
+import { usePrintedDisputes } from '@/lib/usePrintedDisputes'
+import { PrintedBadge } from '@/components/disputes/PrintedBadge'
 import { OriginalDocumentViewer } from '@/components/report-viewer/OriginalDocumentViewer'
 import type { Bureau, Account } from '@/types'
 
@@ -25,6 +27,7 @@ function ReportViewerContent() {
   const [selectedBureau, setSelectedBureau] = useState<string>(searchParams.get('bureau') || 'all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const { isPrinted } = usePrintedDisputes()
 
   useEffect(() => {
     const bureauParam = searchParams.get('bureau')
@@ -140,12 +143,16 @@ function ReportViewerContent() {
                     <span>Acct #: <span className="font-medium text-gray-700 dark:text-gray-300">{account.accountNumber || 'N/A'}</span></span>
                   </div>
                 </div>
-                <Link
-                  href={disputeLink(bureau, account.creditorName, 'account')}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline shrink-0 ml-3"
-                >
-                  <FilePen className="w-3.5 h-3.5" /> Dispute
-                </Link>
+                {isPrinted(account.creditorName, bureau) ? (
+                  <PrintedBadge />
+                ) : (
+                  <Link
+                    href={disputeLink(bureau, account.creditorName, 'account')}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline shrink-0 ml-3"
+                  >
+                    <FilePen className="w-3.5 h-3.5" /> Dispute
+                  </Link>
+                )}
               </div>
               {account.paymentHistory.length > 0 && (
                 <div className="mt-3 flex gap-0.5 flex-wrap">
