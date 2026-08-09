@@ -6,6 +6,7 @@ import Link from 'next/link'
 import {
   Wallet, CreditCard, TrendingUp, PlusCircle, ArrowRight,
   Landmark, WalletCards, Edit, Trash2, DollarSign, Upload, ExternalLink, Car,
+  RefreshCw, Loader2,
 } from 'lucide-react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -57,6 +58,9 @@ export default function BankAccountsPage() {
   const [editInstitution, setEditInstitution] = useState('')
   const [editWebsite, setEditWebsite] = useState('')
   const [saving, setSaving] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [syncMessage, setSyncMessage] = useState('')
+  const [error, setError] = useState('')
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -143,6 +147,27 @@ export default function BankAccountsPage() {
     if (!confirm('Delete this account?')) return
     const res = await fetch(`/api/budget/bank-accounts/${id}`, { method: 'DELETE' })
     if (res.ok) fetchAccounts()
+  }
+
+  const handleSync = async () => {
+    setSyncing(true)
+    setSyncMessage('')
+    setError('')
+    try {
+      const res = await fetch('/api/budget/plaid/sync-balances', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        const ok = data.results?.filter((r: { status: string }) => r.status === 'ok').length || 0
+        const fail = data.results?.filter((r: { status: string }) => r.status !== 'ok').length || 0
+        setSyncMessage(`Synced ${ok} institution${ok !== 1 ? 's' : ''}${fail ? ` (${fail} failed)` : ''}`)
+        await fetchAccounts()
+      } else {
+        setError(data.error || 'Sync failed')
+      }
+    } catch {
+      setError('Sync failed')
+    }
+    setSyncing(false)
   }
 
   const accountIcon = (account: BankAccount) => {
@@ -326,6 +351,11 @@ export default function BankAccountsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <PlaidLinkButton onConnected={fetchAccounts} />
+          <Button onClick={handleSync} disabled={syncing} variant="secondary" size="sm">
+            {syncing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+            <span className="hidden sm:inline">{syncing ? 'Syncing...' : 'Sync Balances'}</span>
+            <span className="sm:hidden">{syncing ? '...' : 'Sync'}</span>
+          </Button>
           <Link href="/budget/import-statement">
             <Button variant="secondary" size="sm"><Upload className="h-4 w-4 mr-1" /> Import</Button>
           </Link>
@@ -335,6 +365,17 @@ export default function BankAccountsPage() {
           </Button>
         </div>
       </div>
+
+      {syncMessage && (
+        <div className="mb-4 rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
+          {syncMessage}
+        </div>
+      )}
+      {error && (
+        <div className="mb-4 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
+          {error}
+        </div>
+      )}
 
       <Link
         href="/budget"
