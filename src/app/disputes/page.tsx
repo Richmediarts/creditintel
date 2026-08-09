@@ -230,6 +230,24 @@ export default function DisputesPage() {
         <Button onClick={() => setShowAdd(true)}><Plus className="w-4 h-4 mr-2" /> Track Dispute</Button>
       </div>
 
+      {/* Warning note about open accounts */}
+      <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <div className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+              <p className="font-semibold text-amber-700 dark:text-amber-300 mb-1">Careful: Do not dispute Open Accounts</p>
+              <p>
+                Only dispute items that are <strong>inaccurate</strong>, <strong>not yours</strong>, or <strong>obsolete</strong>. Open accounts that you are
+                actively using are <strong>helping your credit</strong> — disputing them can backfire. If a bureau can&apos;t verify an open account
+                within 30 days, it may <strong>remove it from your report</strong>, which can <strong>lower your credit score</strong> by removing positive
+                payment history, reducing your available credit, and raising your utilization ratio.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Reminders */}
       {(reminders.overdue.length > 0 || reminders.dueSoon.length > 0) && (
         <div id="reminders" className="space-y-2">
