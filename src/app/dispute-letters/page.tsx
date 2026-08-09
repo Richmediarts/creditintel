@@ -1,7 +1,7 @@
 'use client'
 
 import React, { Suspense, useState, useEffect } from 'react'
-import { ArrowLeft, Copy, Check, Download, X, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Copy, Check, Download, X, AlertTriangle, FolderArchive, Printer } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
@@ -420,6 +420,37 @@ function DisputeLettersContent() {
                 Prefer the phone?{' '}
                 <Link href="/inquiries" className="text-blue-600 dark:text-blue-400 underline">Call the bureau to dispute inquiries</Link>{' '}
                 — official numbers, who to ask for, and a removal script.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-t-4 border-t-green-500">
+            <CardContent className="p-4">
+              <CardTitle className="mb-3">Saved &amp; Printed Letters</CardTitle>
+              <div className="space-y-2">
+                <Link
+                  href="/letters"
+                  className="flex items-center justify-between p-2.5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <FolderArchive className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                    <span className="text-sm font-medium text-blue-700 dark:text-blue-300">View Saved Letters</span>
+                  </div>
+                  <span className="text-xs text-blue-600 dark:text-blue-400">Letters Library →</span>
+                </Link>
+                <Link
+                  href="/disputes"
+                  className="flex items-center justify-between p-2.5 rounded-lg bg-green-50 dark:bg-emerald-900/20 border border-green-200 dark:border-emerald-800 hover:bg-green-100 dark:hover:bg-emerald-900/40 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <Printer className="w-4 h-4 text-green-600 dark:text-emerald-400 shrink-0" />
+                    <span className="text-sm font-medium text-green-700 dark:text-emerald-300">View Printed Letters</span>
+                  </div>
+                  <span className="text-xs text-green-600 dark:text-emerald-400">Dispute Tracker →</span>
+                </Link>
+              </div>
+              <p className="mt-2 text-[10px] text-gray-400 dark:text-gray-500 leading-relaxed">
+                Saved letters open in the Letters Library. Printed letters are tracked by creditor + bureau in the Dispute Tracker with a green badge.
               </p>
             </CardContent>
           </Card>
