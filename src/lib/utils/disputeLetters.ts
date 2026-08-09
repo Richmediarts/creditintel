@@ -331,20 +331,39 @@ function line(text: string) {
 export async function letterTextToDocx(letterText: string): Promise<Blob> {
   const lines = letterText.split('\n')
   const children: Paragraph[] = []
+  let inSignature = false
 
   for (const raw of lines) {
     const t = raw.trim()
     if (!t && children.length === 0) continue
     if (!t) { children.push(new Paragraph({ spacing: { before: 240, after: 0 }, children: [] })); continue }
 
-    // Title line (all caps, first line)
-    if (children.length === 0 || t === t.toUpperCase() && t.length > 5) {
-      const isShortHeader = t.length < 60
-      if (isShortHeader) {
-        children.push(heading(t, children.length < 3 ? HeadingLevel.HEADING_1 : HeadingLevel.HEADING_2,
-          children.length < 3 ? AlignmentType.CENTER : AlignmentType.LEFT))
+    const isAllCaps = t === t.toUpperCase()
+
+    if (t.startsWith('Sincerely')) inSignature = true
+
+    // Signature block — name + address render as normal body text
+    if (inSignature) {
+      if (t.match(/^\d+\.\s/)) {
+        children.push(new Paragraph({
+          numbering: { reference: 'numbered-list', level: 0 },
+          spacing: { before: 60, after: 60 },
+          children: [new TextRun({ text: t.replace(/^\d+\.\s*/, ''), font: FONT, size: FONT_SIZE })],
+        }))
         continue
       }
+      if (t.startsWith('- ') || t.startsWith('-')) {
+        children.push(bullet(t.replace(/^-\s*/, '')))
+        continue
+      }
+      children.push(body(t))
+      continue
+    }
+
+    // Title: only the very first line, if all caps and reasonably short
+    if (children.length === 0 && isAllCaps && t.length < 60) {
+      children.push(heading(t, HeadingLevel.HEADING_1, AlignmentType.CENTER))
+      continue
     }
 
     // Section header like "--- Experian ---"
@@ -369,8 +388,8 @@ export async function letterTextToDocx(letterText: string): Promise<Blob> {
       continue
     }
 
-    // Bold header lines (all caps, short)
-    if (t === t.toUpperCase() && t.length > 3 && t.length < 60) {
+    // Bold header lines (all caps, short) — bold body text, not headings
+    if (isAllCaps && t.length > 3 && t.length < 60) {
       children.push(body(t, { bold: true, spacing: { before: 200, after: 80 } }))
       continue
     }
