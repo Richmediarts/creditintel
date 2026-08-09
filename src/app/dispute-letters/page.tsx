@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
 import { useCredit } from '@/lib/store/creditStore'
 import { generateRevocationLetter, generateValidationRequest, generateCombinedDisputeLetter, generateInquiryDisputeLetter, letterTextToDocx, resolveDisputeTarget } from '@/lib/utils/disputeLetters'
+import type { DisputeItem } from '@/types'
 
 function DisputeLettersContent() {
   const { user } = useAuth()
@@ -21,6 +22,7 @@ function DisputeLettersContent() {
   const [consumerAddress, setConsumerAddress] = useState('52 BIRCH RIVER XING, DALLAS, GA 30132')
   const [copied, setCopied] = useState(false)
   const [downloadingDocx, setDownloadingDocx] = useState(false)
+  const [trackedMessage, setTrackedMessage] = useState('')
   const [letterType, setLetterType] = useState<'dispute' | 'revocation' | 'validation' | 'inquiry'>('validation')
   const [target, setTarget] = useState<ReturnType<typeof resolveDisputeTarget> | null>(null)
 
@@ -74,6 +76,41 @@ function DisputeLettersContent() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const trackPrinted = async () => {
+    if (disputeItems.length === 0 || letterType === 'dispute') return
+    const item = disputeItems[0]
+
+    const listRes = await fetch('/api/disputes')
+    if (listRes.ok) {
+      const { disputes } = await listRes.json()
+      const already = disputes.find((d: { creditorName: string; bureau: string }) =>
+        d.creditorName === item.creditorName && d.bureau === item.bureau
+      )
+      if (already) {
+        setTrackedMessage(`"${item.creditorName}" is already in the Dispute Tracker.`)
+        return
+      }
+    }
+
+    const res = await fetch('/api/disputes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        creditorName: item.creditorName,
+        bureau: item.bureau,
+        inaccuracies: item.inaccuracies,
+        letterType,
+        notes: `Printed via Dispute Letter Generator (${new Date().toLocaleString()})`,
+      }),
+    })
+    if (res.ok) {
+      setTrackedMessage(`Marked "${item.creditorName}" as Printed in the Dispute Tracker.`)
+    } else {
+      const err = await res.json().catch(() => null)
+      setTrackedMessage(err?.error ? `Could not track: ${err.error}` : '')
+    }
+  }
+
   const letterTypeLabels: Record<string, string> = {
     dispute: 'CRA_Dispute_and_Deletion_Demand',
     revocation: 'Revocation_of_Authorization',
@@ -104,11 +141,15 @@ function DisputeLettersContent() {
     URL.revokeObjectURL(url)
   }
 
-  const handleDownload = () => downloadBlob(new Blob([letterContent], { type: 'text/plain' }), 'txt', 'text/plain')
+  const handleDownload = async () => {
+    await trackPrinted()
+    await downloadBlob(new Blob([letterContent], { type: 'text/plain' }), 'txt', 'text/plain')
+  }
 
   const handleDownloadDocx = async () => {
     setDownloadingDocx(true)
     try {
+      await trackPrinted()
       const blob = await letterTextToDocx(letterContent)
       await downloadBlob(blob, 'docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     } finally {
@@ -333,6 +374,14 @@ function DisputeLettersContent() {
                   </Button>
                 </div>
               </div>
+              {trackedMessage && (
+                <div className="mb-3 p-2.5 rounded-lg bg-green-50 dark:bg-emerald-900/30 border border-green-200 dark:border-emerald-800 flex items-center justify-between gap-2">
+                  <p className="text-xs font-medium text-green-700 dark:text-emerald-300">{trackedMessage}</p>
+                  <Link href="/disputes" className="text-xs text-green-700 dark:text-emerald-300 underline whitespace-nowrap">
+                    View Tracker
+                  </Link>
+                </div>
+              )}
               <pre className="whitespace-pre-wrap font-mono text-xs text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 rounded-lg p-4 max-h-[600px] overflow-y-auto border border-gray-200 dark:border-gray-700">
                 {letterContent || 'Select dispute items and generate a letter...'}
               </pre>

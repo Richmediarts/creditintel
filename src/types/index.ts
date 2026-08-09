@@ -176,7 +176,7 @@ export interface DisputeItem {
 
 export type DisputeStatus = 'printed' | 'sent' | 'pending' | 'resend' | 'complete'
 
-export type LetterType = 'validation' | 'dispute' | 'revocation'
+export type LetterType = 'validation' | 'dispute' | 'revocation' | 'inquiry'
 
 export interface DisputeTracking {
   id: number

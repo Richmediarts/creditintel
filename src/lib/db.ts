@@ -128,6 +128,7 @@ const LETTER_TYPE_WAITING_DAYS: Record<string, number> = {
   validation: 30,
   dispute: 30,
   revocation: 15,
+  inquiry: 30,
 }
 
 export function getLetterTypeWaitingDays(letterType: string): number {

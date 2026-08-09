@@ -39,6 +39,7 @@ const LETTER_TYPES: { value: LetterType; label: string; waitDays: number }[] = [
   { value: 'validation', label: 'Validation Request', waitDays: 30 },
   { value: 'dispute', label: 'CRA Dispute & Deletion Demand', waitDays: 30 },
   { value: 'revocation', label: 'Revocation of Authorization', waitDays: 15 },
+  { value: 'inquiry', label: 'Inquiry Dispute (Unauthorized Hard Inquiry)', waitDays: 30 },
 ]
 
 const STATUS_ORDER: DisputeStatus[] = ['printed', 'sent', 'pending', 'resend', 'complete']
