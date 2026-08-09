@@ -1,11 +1,12 @@
 'use client'
 
 import React from 'react'
-import { ArrowLeft, Search } from 'lucide-react'
+import { ArrowLeft, Search, FilePen } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useCredit } from '@/lib/store/creditStore'
+import { disputeLink } from '@/lib/utils/disputeLetters'
 
 export default function InquiriesPage() {
   const { state } = useCredit()
@@ -56,6 +57,7 @@ export default function InquiriesPage() {
                     <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Bureau</th>
                     <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Date</th>
                     <th className="text-left py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Type</th>
+                    <th className="text-right py-2 px-2 text-gray-600 dark:text-gray-400 font-medium">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -68,6 +70,14 @@ export default function InquiriesPage() {
                       <td className="py-2 px-2 text-gray-700 dark:text-gray-300">{inq.date}</td>
                       <td className="py-2 px-2">
                         <Badge variant={inq.type === 'Hard' ? 'warning' : 'default'}>{inq.type}</Badge>
+                      </td>
+                      <td className="py-2 px-2 text-right">
+                        <Link
+                          href={disputeLink(inq.bureau, inq.creditorName, 'inquiry')}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          <FilePen className="w-3.5 h-3.5" /> Dispute
+                        </Link>
                       </td>
                     </tr>
                   ))}

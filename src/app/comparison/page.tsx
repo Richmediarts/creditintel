@@ -1,12 +1,13 @@
 'use client'
 
 import React from 'react'
-import { ArrowLeft, GitCompare } from 'lucide-react'
+import { ArrowLeft, GitCompare, FilePen } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import { useCredit } from '@/lib/store/creditStore'
+import { disputeLink } from '@/lib/utils/disputeLetters'
 import type { BureauReport, Account, Inquiry } from '@/types'
 
 function formatBalance(n: number): string {
@@ -44,10 +45,18 @@ function AccountRow({ name, balance, badges }: { name: string; balance: string; 
   )
 }
 
-function DerogItem({ name, detail }: { name: React.ReactNode; detail?: string }) {
+function DerogItem({ name, detail, bureau, creditor }: { name: React.ReactNode; detail?: string; bureau: string; creditor: string }) {
   return (
     <div className="py-1.5 border-b border-gray-100 last:border-b-0 text-sm">
-      <div className="font-medium">{name}</div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="font-medium min-w-0">{name}</div>
+        <Link
+          href={disputeLink(bureau as BureauReport['bureau'], creditor, 'account')}
+          className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:underline shrink-0"
+        >
+          <FilePen className="w-3 h-3" /> Dispute
+        </Link>
+      </div>
       {detail && <div className="text-xs text-gray-500 mt-0.5">{detail}</div>}
     </div>
   )
@@ -133,6 +142,8 @@ function BureauColumn({ report }: { report: BureauReport }) {
                 key={acc.id}
                 name={<>{acc.creditorName} {getAccountBadges(acc)}</>}
                 detail={details.length > 0 ? details.join(' • ') : undefined}
+                bureau={report.bureau}
+                creditor={acc.creditorName}
               />
             )
           })}
@@ -147,7 +158,15 @@ function BureauColumn({ report }: { report: BureauReport }) {
       ) : (
         <div className="text-xs text-gray-500 max-h-72 overflow-y-auto">
           {hardInquiries.map((inq, i) => (
-            <div key={i}>{inq.creditorName} ({inq.date})</div>
+            <div key={i} className="flex items-center justify-between gap-2 py-0.5">
+              <span>{inq.creditorName} ({inq.date})</span>
+              <Link
+                href={disputeLink(report.bureau, inq.creditorName, 'inquiry')}
+                className="inline-flex items-center gap-0.5 text-blue-600 hover:underline shrink-0"
+              >
+                <FilePen className="w-3 h-3" /> Dispute
+              </Link>
+            </div>
           ))}
         </div>
       )}
@@ -257,7 +276,11 @@ export default function ComparisonPage() {
                         return (
                           <td key={r.bureau} className="text-center py-2 px-1 text-xs text-gray-800 dark:text-gray-200">
                             {cos.length === 0 ? <span className="text-gray-400 dark:text-gray-500">None</span> : cos.map(co => (
-                              <div key={co.id}>{co.creditorName}{co.balance > 0 ? ` (${formatBalance(co.balance)})` : ''}</div>
+                              <div key={co.id}>
+                                <Link href={disputeLink(r.bureau, co.creditorName, 'account')} className="hover:underline text-blue-600 dark:text-blue-400">
+                                  {co.creditorName}{co.balance > 0 ? ` (${formatBalance(co.balance)})` : ''}
+                                </Link>
+                              </div>
                             ))}
                           </td>
                         )
@@ -269,7 +292,10 @@ export default function ComparisonPage() {
                         const settled = r.accounts.filter(a => (a.remarks || '').toLowerCase().includes('less than full') || (a.remarks || '').toLowerCase().includes('settled'))
                         return (
                           <td key={r.bureau} className="text-center py-2 px-1 text-gray-800 dark:text-gray-200">
-                            {settled.length === 0 ? <span className="text-gray-400 dark:text-gray-500">-</span> : settled.map(s => s.creditorName).join(', ')}
+                            {settled.length === 0 ? <span className="text-gray-400 dark:text-gray-500">-</span> : settled.flatMap((s, idx) => [
+                              <Link key={s.id} href={disputeLink(r.bureau, s.creditorName, 'account')} className="hover:underline text-blue-600 dark:text-blue-400">{s.creditorName}</Link>,
+                              idx < settled.length - 1 ? <span key={`sep-${s.id}`}>, </span> : null,
+                            ])}
                           </td>
                         )
                       })}
@@ -280,7 +306,10 @@ export default function ComparisonPage() {
                         const lates = r.accounts.filter(a => a.isLate && !a.isChargeOff && !a.isCollection)
                         return (
                           <td key={r.bureau} className="text-center py-2 px-1 text-gray-800 dark:text-gray-200">
-                            {lates.length === 0 ? <span className="text-gray-400 dark:text-gray-500">-</span> : lates.map(l => l.creditorName).join(', ')}
+                            {lates.length === 0 ? <span className="text-gray-400 dark:text-gray-500">-</span> : lates.flatMap((l, idx) => [
+                              <Link key={l.id} href={disputeLink(r.bureau, l.creditorName, 'account')} className="hover:underline text-blue-600 dark:text-blue-400">{l.creditorName}</Link>,
+                              idx < lates.length - 1 ? <span key={`sep-${l.id}`}>, </span> : null,
+                            ])}
                           </td>
                         )
                       })}

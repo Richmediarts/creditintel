@@ -1,11 +1,12 @@
 'use client'
 
 import React from 'react'
-import { ArrowLeft, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, FilePen } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useCredit } from '@/lib/store/creditStore'
+import { disputeLink } from '@/lib/utils/disputeLetters'
 
 export default function DerogatoryPage() {
   const { state } = useCredit()
@@ -62,8 +63,16 @@ export default function DerogatoryPage() {
                     </p>
                   </div>
                 </div>
-                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  Recommended: {item.recommendedAction}
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    Recommended: {item.recommendedAction}
+                  </div>
+                  <Link
+                    href={disputeLink(item.bureau, item.creditorName, 'account')}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline shrink-0"
+                  >
+                    <FilePen className="w-3.5 h-3.5" /> Dispute
+                  </Link>
                 </div>
               </CardContent>
             </Card>

@@ -1,17 +1,19 @@
 'use client'
 
-import React, { useState } from 'react'
-import { ArrowLeft, Copy, Check, Download } from 'lucide-react'
+import React, { Suspense, useState, useEffect } from 'react'
+import { ArrowLeft, Copy, Check, Download, X } from 'lucide-react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
 import { useCredit } from '@/lib/store/creditStore'
-import { generateRevocationLetter, generateValidationRequest, generateCombinedDisputeLetter, letterTextToDocx } from '@/lib/utils/disputeLetters'
+import { generateRevocationLetter, generateValidationRequest, generateCombinedDisputeLetter, letterTextToDocx, resolveDisputeTarget } from '@/lib/utils/disputeLetters'
 
-export default function DisputeLettersPage() {
+function DisputeLettersContent() {
   const { user } = useAuth()
+  const searchParams = useSearchParams()
   const { state } = useCredit()
   const { creditData } = state
   const [selectedBureau, setSelectedBureau] = useState<string>('all')
@@ -20,6 +22,21 @@ export default function DisputeLettersPage() {
   const [copied, setCopied] = useState(false)
   const [downloadingDocx, setDownloadingDocx] = useState(false)
   const [letterType, setLetterType] = useState<'dispute' | 'revocation' | 'validation'>('validation')
+  const [target, setTarget] = useState<ReturnType<typeof resolveDisputeTarget> | null>(null)
+
+  useEffect(() => {
+    if (!creditData) return
+    const resolved = resolveDisputeTarget(creditData, {
+      bureau: searchParams.get('bureau'),
+      creditor: searchParams.get('creditor'),
+      kind: searchParams.get('kind'),
+    })
+    setTarget(resolved)
+    if (resolved) {
+      setSelectedBureau(resolved.item.bureau)
+      setLetterType(resolved.letterType)
+    }
+  }, [creditData, searchParams])
 
   if (!creditData) {
     return (
@@ -31,9 +48,11 @@ export default function DisputeLettersPage() {
   }
 
   const bureaus = creditData.reports.map(r => r.bureau)
-  const disputeItems = selectedBureau === 'all'
-    ? creditData.disputeItems
-    : creditData.disputeItems.filter(d => d.bureau === selectedBureau)
+  const disputeItems = target
+    ? [target.item]
+    : selectedBureau === 'all'
+      ? creditData.disputeItems
+      : creditData.disputeItems.filter(d => d.bureau === selectedBureau)
 
   let letterContent = ''
   if (letterType === 'dispute') {
@@ -101,6 +120,19 @@ export default function DisputeLettersPage() {
         </Link>
         <h1 className="text-xl font-bold text-gray-900 dark:text-white">Dispute Letter Generator</h1>
       </div>
+
+      {target && (
+        <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800">
+          <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300">
+            <span className="font-medium">Disputing:</span>
+            <span className="font-semibold">{target.item.creditorName}</span>
+            <Badge>{target.item.bureau}</Badge>
+          </div>
+          <Link href="/dispute-letters" className="inline-flex items-center gap-1 text-xs text-blue-700 dark:text-blue-400 hover:underline">
+            <X className="w-3 h-3" /> Clear
+          </Link>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 space-y-4">
@@ -314,5 +346,13 @@ export default function DisputeLettersPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function DisputeLettersPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-20 text-gray-500"><p>Loading...</p></div>}>
+      <DisputeLettersContent />
+    </Suspense>
   )
 }

@@ -1,13 +1,14 @@
 'use client'
 
 import React, { Suspense, useState, useEffect } from 'react'
-import { ArrowLeft, Search, FileText } from 'lucide-react'
+import { ArrowLeft, Search, FileText, FilePen } from 'lucide-react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { useCredit } from '@/lib/store/creditStore'
 import { formatCurrency } from '@/lib/utils/analysis'
+import { disputeLink } from '@/lib/utils/disputeLetters'
 import { OriginalDocumentViewer } from '@/components/report-viewer/OriginalDocumentViewer'
 import type { Bureau, Account } from '@/types'
 
@@ -121,7 +122,7 @@ function ReportViewerContent() {
         {accounts.map(({ bureau, account }) => (
           <Card key={account.id} className={`border-l-4 ${bureauColors[bureau] || 'border-l-gray-300'}`}>
             <CardContent className="p-4">
-              <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-medium text-gray-900 dark:text-white truncate">{account.creditorName}</h3>
@@ -139,6 +140,12 @@ function ReportViewerContent() {
                     <span>Acct #: <span className="font-medium text-gray-700 dark:text-gray-300">{account.accountNumber || 'N/A'}</span></span>
                   </div>
                 </div>
+                <Link
+                  href={disputeLink(bureau, account.creditorName, 'account')}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline shrink-0 ml-3"
+                >
+                  <FilePen className="w-3.5 h-3.5" /> Dispute
+                </Link>
               </div>
               {account.paymentHistory.length > 0 && (
                 <div className="mt-3 flex gap-0.5 flex-wrap">

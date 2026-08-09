@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, FilePen } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -57,11 +57,19 @@ export default function SummaryPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Link href="/" className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-          <ArrowLeft className="w-5 h-5" />
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Link href="/" className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Credit Summary</h1>
+        </div>
+        <Link
+          href="/dispute-letters"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+        >
+          <FilePen className="w-4 h-4" /> Dispute Letters
         </Link>
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Credit Summary</h1>
       </div>
 
       {/* Global Summary */}

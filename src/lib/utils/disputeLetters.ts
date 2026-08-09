@@ -1,10 +1,97 @@
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx'
-import type { Bureau, DisputeItem, BureauReport } from '@/types'
+import type { Bureau, DisputeItem, BureauReport, CreditData } from '@/types'
 
 interface LetterContent {
   subject: string
   body: string
   citations: string[]
+}
+
+export type DisputeKind = 'account' | 'inquiry'
+export type DisputeLetterType = 'dispute' | 'revocation' | 'validation'
+
+export function disputeLink(bureau: Bureau, creditorName: string, kind: DisputeKind): string {
+  const q = new URLSearchParams({ bureau, creditor: creditorName, kind })
+  return `/dispute-letters?${q.toString()}`
+}
+
+const DISPUTE_REASONS: Record<string, string> = {
+  balance: 'Incorrect Balance',
+  late_payment: 'Incorrect Late Payment',
+  not_my_account: 'Not My Account',
+  duplicate: 'Duplicate',
+  obsolete: 'Obsolete',
+  identity_theft: 'Identity Theft',
+  missing_payment: 'Missing Payment',
+  fcra_violation: 'FCRA Violation - Inconsistent Reporting',
+}
+
+export function resolveDisputeTarget(
+  creditData: CreditData,
+  params: { bureau?: string | null; creditor?: string | null; kind?: string | null }
+): { item: DisputeItem; letterType: DisputeLetterType } | null {
+  const creditor = params.creditor
+  if (!creditor) return null
+  const kind: DisputeKind = params.kind === 'inquiry' ? 'inquiry' : 'account'
+
+  if (kind === 'inquiry') {
+    for (const report of creditData.reports) {
+      if (params.bureau && report.bureau !== params.bureau) continue
+      const inquiry = report.inquiries.find(i => i.creditorName === creditor)
+      if (inquiry) {
+        return {
+          item: {
+            accountId: `inquiry-${report.bureau}-${inquiry.creditorName}`,
+            creditorName: inquiry.creditorName,
+            bureau: report.bureau,
+            reasons: ['Unauthorized Inquiry'],
+            inaccuracies: ['fcra_violation'],
+            recommendedAction: 'Revoke authorization for this inquiry',
+            estimatedScoreGain: 5,
+          },
+          letterType: 'revocation',
+        }
+      }
+    }
+    return null
+  }
+
+  const existing = creditData.disputeItems.find(d =>
+    d.creditorName === creditor && (!params.bureau || d.bureau === params.bureau)
+  )
+  if (existing) {
+    return {
+      item: existing,
+      letterType: existing.recommendedAction.toLowerCase().includes('validation') ? 'validation' : 'dispute',
+    }
+  }
+
+  for (const report of creditData.reports) {
+    if (params.bureau && report.bureau !== params.bureau) continue
+    const account = report.accounts.find(a => a.creditorName === creditor)
+    if (account) {
+      const inaccuracies: DisputeItem['inaccuracies'] = []
+      if (account.isChargeOff && account.balance > 0) inaccuracies.push('balance')
+      if (account.isLate) inaccuracies.push('late_payment')
+      if (account.isCollection) inaccuracies.push('not_my_account')
+      if (account.estimatedRemovalDate && new Date(account.estimatedRemovalDate) < new Date()) inaccuracies.push('obsolete')
+      if (inaccuracies.length === 0) inaccuracies.push('fcra_violation')
+
+      return {
+        item: {
+          accountId: account.id,
+          creditorName: account.creditorName,
+          bureau: report.bureau,
+          reasons: inaccuracies.map(i => DISPUTE_REASONS[i]),
+          inaccuracies,
+          recommendedAction: account.isCollection ? 'Request validation from collection agency' : 'Dispute with credit bureau',
+          estimatedScoreGain: inaccuracies.length * 10,
+        },
+        letterType: account.isCollection ? 'validation' : 'dispute',
+      }
+    }
+  }
+  return null
 }
 
 export function generateCRADisputeLetter(
