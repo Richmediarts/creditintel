@@ -84,6 +84,13 @@ const sections = [
     usage: 'Create a new dispute record by providing the bureau, creditor name, account number, and reason. Update the status as the dispute progresses.',
   },
   {
+    title: 'Opt-Out Center',
+    icon: 'Shield',
+    path: '/opt-out',
+    description: 'Opt out of supplemental consumer reporting agencies and data brokers (SageStream, LexisNexis, Innovis, CoreLogic) that compile files from the same accounts and inquiries you dispute.',
+    usage: 'Do this once per company alongside any disputes so errors do not survive in supplemental files. Each entry includes the online opt-out link, phone number, and mailing address.',
+  },
+  {
     title: 'FICO Scores',
     icon: 'Activity',
     path: '/fico-scores',

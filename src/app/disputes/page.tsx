@@ -243,6 +243,13 @@ export default function DisputesPage() {
                 within 30 days, it may <strong>remove it from your report</strong>, which can <strong>lower your credit score</strong> by removing positive
                 payment history, reducing your available credit, and raising your utilization ratio.
               </p>
+              <p className="mt-2 text-xs">
+                Alongside your disputes,{' '}
+                <Link href="/opt-out" className="text-amber-700 dark:text-amber-300 underline font-medium">
+                  opt out of supplemental agencies
+                </Link>{' '}
+                (SageStream, LexisNexis, Innovis, CoreLogic) so the same errors don&apos;t survive in their files.
+              </p>
             </div>
           </div>
         </CardContent>

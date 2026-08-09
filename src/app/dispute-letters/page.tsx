@@ -385,6 +385,10 @@ function DisputeLettersContent() {
               <p className="mt-3 text-[10px] text-gray-400 dark:text-gray-500 leading-relaxed">
                 Send all letters via <strong>Certified Mail Return Receipt Requested</strong> via USPS for proof of delivery.
               </p>
+              <p className="mt-2 text-[10px] text-gray-400 dark:text-gray-500 leading-relaxed">
+                Also <Link href="/opt-out" className="text-blue-600 dark:text-blue-400 underline">opt out of supplemental agencies</Link>{' '}
+                (SageStream, LexisNexis, Innovis, CoreLogic) alongside your disputes so errors don&apos;t survive in their files.
+              </p>
             </CardContent>
           </Card>
 

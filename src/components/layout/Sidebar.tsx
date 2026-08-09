@@ -35,6 +35,7 @@ const navItems = [
   { href: '/ai-analysis', label: 'AI Analysis', icon: Brain },
   { href: '/dispute-letters', label: 'Dispute Letters', icon: Mail },
   { href: '/disputes', label: 'Dispute Tracker', icon: Gavel },
+  { href: '/opt-out', label: 'Opt-Out Center', icon: Shield },
   { href: '/letters', label: 'Letters Library', icon: FolderArchive },
   { href: '/fico-scores', label: 'FICO® Scores', icon: Activity },
   { href: '/score-simulator', label: 'Score Simulator', icon: TrendingUp },
