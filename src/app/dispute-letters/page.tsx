@@ -28,6 +28,7 @@ function DisputeLettersContent() {
   const [savedMessage, setSavedMessage] = useState('')
   const [letterType, setLetterType] = useState<'dispute' | 'revocation' | 'validation' | 'inquiry'>('validation')
   const [target, setTarget] = useState<ReturnType<typeof resolveDisputeTarget> | null>(null)
+  const [checkedKeys, setCheckedKeys] = useState<Set<string>>(new Set())
   const { isPrinted } = usePrintedDisputes()
 
   useEffect(() => {
@@ -44,6 +45,18 @@ function DisputeLettersContent() {
     }
   }, [creditData, searchParams])
 
+  const itemKey = (item: DisputeItem) => `${item.creditorName}|${item.bureau}`
+
+  useEffect(() => {
+    if (!creditData) return
+    const items = target
+      ? [target.item]
+      : selectedBureau === 'all'
+        ? creditData.disputeItems
+        : creditData.disputeItems.filter(d => d.bureau === selectedBureau)
+    setCheckedKeys(new Set(items.map(item => itemKey(item))))
+  }, [creditData, selectedBureau, target])
+
   if (!creditData) {
     return (
       <div className="text-center py-20 text-gray-500 dark:text-gray-400">
@@ -59,18 +72,29 @@ function DisputeLettersContent() {
     : selectedBureau === 'all'
       ? creditData.disputeItems
       : creditData.disputeItems.filter(d => d.bureau === selectedBureau)
+  const checkedItems = disputeItems.filter(item => checkedKeys.has(itemKey(item)))
+
+  const toggleChecked = (item: DisputeItem) => {
+    const key = itemKey(item)
+    setCheckedKeys(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
 
   let letterContent = ''
   if (letterType === 'dispute') {
-    letterContent = generateCombinedDisputeLetter(creditData.reports, disputeItems, consumerName, consumerAddress)
-  } else if (letterType === 'inquiry' && disputeItems.length > 0) {
-    const item = disputeItems[0]
+    letterContent = generateCombinedDisputeLetter(creditData.reports, checkedItems, consumerName, consumerAddress)
+  } else if (letterType === 'inquiry' && checkedItems.length > 0) {
+    const item = checkedItems[0]
     letterContent = generateInquiryDisputeLetter(item.bureau, item.creditorName, item.inquiryDate || 'Unknown', consumerName, consumerAddress).body
-  } else if (letterType === 'revocation' && disputeItems.length > 0) {
-    const item = disputeItems[0]
+  } else if (letterType === 'revocation' && checkedItems.length > 0) {
+    const item = checkedItems[0]
     letterContent = generateRevocationLetter(item.bureau, item.creditorName, consumerName, consumerAddress).body
-  } else if (letterType === 'validation' && disputeItems.length > 0) {
-    const item = disputeItems[0]
+  } else if (letterType === 'validation' && checkedItems.length > 0) {
+    const item = checkedItems[0]
     letterContent = generateValidationRequest(item.bureau, item.creditorName, consumerName, consumerAddress).body
   }
 
@@ -81,45 +105,48 @@ function DisputeLettersContent() {
   }
 
   const trackPrinted = async () => {
-    if (disputeItems.length === 0 || letterType === 'dispute') return
-    const item = disputeItems[0]
+    if (checkedItems.length === 0) return
 
     const listRes = await fetch('/api/disputes')
-    if (listRes.ok) {
-      const { disputes } = await listRes.json()
-      const already = disputes.find((d: { creditorName: string; bureau: string }) =>
-        d.creditorName === item.creditorName && d.bureau === item.bureau
-      )
+    const existing: { creditorName: string; bureau: string }[] = listRes.ok ? (await listRes.json()).disputes : []
+
+    let tracked = 0
+    let alreadyCount = 0
+    for (const item of checkedItems) {
+      const already = existing.find(d => d.creditorName === item.creditorName && d.bureau === item.bureau)
       if (already) {
-        setTrackedMessage(`"${item.creditorName}" is already in the Dispute Tracker.`)
-        return
+        alreadyCount++
+        continue
       }
+
+      const res = await fetch('/api/disputes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creditorName: item.creditorName,
+          bureau: item.bureau,
+          inaccuracies: item.inaccuracies,
+          letterType,
+          notes: `Printed via Dispute Letter Generator (${new Date().toLocaleString()})`,
+        }),
+      })
+      if (res.ok) tracked++
     }
 
-    const res = await fetch('/api/disputes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        creditorName: item.creditorName,
-        bureau: item.bureau,
-        inaccuracies: item.inaccuracies,
-        letterType,
-        notes: `Printed via Dispute Letter Generator (${new Date().toLocaleString()})`,
-      }),
-    })
-    if (res.ok) {
-      setTrackedMessage(`Marked "${item.creditorName}" as Printed in the Dispute Tracker.`)
-    } else {
-      const err = await res.json().catch(() => null)
-      setTrackedMessage(err?.error ? `Could not track: ${err.error}` : '')
+    if (tracked > 0 && alreadyCount > 0) {
+      setTrackedMessage(`Marked ${tracked} item${tracked > 1 ? 's' : ''} as Printed in the Dispute Tracker (${alreadyCount} already tracked).`)
+    } else if (tracked > 0) {
+      setTrackedMessage(`Marked ${tracked} item${tracked > 1 ? 's' : ''} as Printed in the Dispute Tracker.`)
+    } else if (alreadyCount > 0) {
+      setTrackedMessage(`${alreadyCount} item${alreadyCount > 1 ? 's' : ''} already in the Dispute Tracker — no new items added.`)
     }
   }
 
   const saveLetterToLibrary = async () => {
     if (!letterContent) return
     const items = letterType === 'dispute'
-      ? disputeItems
-      : disputeItems.length > 0 ? [disputeItems[0]] : []
+      ? checkedItems
+      : checkedItems.length > 0 ? [checkedItems[0]] : []
     if (items.length === 0) return
 
     for (const item of items) {
@@ -150,7 +177,7 @@ function DisputeLettersContent() {
     inquiry: 'Inquiry Dispute (Unauthorized Hard Inquiry)',
   }
   const bureauPrefix = selectedBureau !== 'all' ? `${selectedBureau}_` : ''
-  const primaryItem = disputeItems.length > 0 ? disputeItems[0].creditorName.replace(/[^a-z0-9]/gi, '_') : ''
+  const primaryItem = checkedItems.length > 0 ? checkedItems[0].creditorName.replace(/[^a-z0-9]/gi, '_') : ''
   const itemSuffix = primaryItem ? `${primaryItem}_` : ''
   const defaultName = `${letterTypeLabels[letterType]}_${bureauPrefix}${itemSuffix}${new Date().toISOString().split('T')[0]}`
 
@@ -469,7 +496,12 @@ function DisputeLettersContent() {
                   {disputeItems.map((item, i) => (
                     <div key={i} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-900 rounded-lg">
                       <div className="flex items-center gap-2">
-                        <input type="checkbox" defaultChecked className="rounded border-gray-300" />
+                        <input
+                          type="checkbox"
+                          checked={checkedKeys.has(itemKey(item))}
+                          onChange={() => toggleChecked(item)}
+                          className="rounded border-gray-300"
+                        />
                         <span className="text-sm text-gray-900 dark:text-white">{item.creditorName}</span>
                         <Badge>{item.bureau}</Badge>
                         {isPrinted(item.creditorName, item.bureau) && <PrintedBadge />}
