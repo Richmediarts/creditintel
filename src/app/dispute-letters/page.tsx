@@ -147,7 +147,9 @@ function DisputeLettersContent() {
     inquiry: 'Inquiry Dispute (Unauthorized Hard Inquiry)',
   }
   const bureauPrefix = selectedBureau !== 'all' ? `${selectedBureau}_` : ''
-  const defaultName = `${letterTypeLabels[letterType]}_${bureauPrefix}${new Date().toISOString().split('T')[0]}`
+  const primaryItem = disputeItems.length > 0 ? disputeItems[0].creditorName.replace(/[^a-z0-9]/gi, '_') : ''
+  const itemSuffix = primaryItem ? `${primaryItem}_` : ''
+  const defaultName = `${letterTypeLabels[letterType]}_${bureauPrefix}${itemSuffix}${new Date().toISOString().split('T')[0]}`
 
   const downloadBlob = async (blob: Blob, ext: string, mime: string) => {
     if ('showSaveFilePicker' in window) {
