@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useCredit } from '@/lib/store/creditStore'
 import type { Bureau, FicoScores, BureauReport } from '@/types'
 import UtilizationSimulator from '@/components/UtilizationSimulator'
+import AddCreditSimulator from '@/components/AddCreditSimulator'
 
 const BUREAUS: Bureau[] = ['Experian', 'Equifax', 'TransUnion']
 
@@ -256,6 +257,8 @@ export default function ScoreSimulatorPage() {
           </CardContent>
         </Card>
       )}
+
+      <AddCreditSimulator reports={reports} scores={scores} scoresLoading={scoresLoading} />
 
       {!hasScores && !scoresLoading && (
         <Card>
