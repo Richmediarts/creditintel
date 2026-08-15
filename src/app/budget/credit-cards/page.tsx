@@ -47,13 +47,97 @@ function normalizeUrl(url: string): string {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
 }
 
-// Institution logo mapping (domain for Clearbit logo API)
+// Institution brand theme (card gradient + text colors + favicon domain)
+interface CardTheme {
+  gradient: string
+  text: string
+  subtext: string
+  chip: string
+  cardNo: string
+}
+
+const DEFAULT_THEME: CardTheme = {
+  gradient: 'bg-gradient-to-br from-slate-700 via-gray-800 to-slate-950',
+  text: 'text-white',
+  subtext: 'text-white/70',
+  chip: 'from-yellow-300 to-amber-500',
+  cardNo: 'text-white',
+}
+
+const INSTITUTION_THEMES: Record<string, CardTheme> = {
+  'apple card': {
+    gradient: 'bg-gradient-to-br from-gray-100 via-white to-gray-300',
+    text: 'text-gray-900',
+    subtext: 'text-gray-500',
+    chip: 'from-zinc-400 to-zinc-600',
+    cardNo: 'text-gray-900',
+  },
+  'capital one': {
+    gradient: 'bg-gradient-to-br from-blue-900 via-blue-800 to-blue-950',
+    text: 'text-white',
+    subtext: 'text-blue-100/70',
+    chip: 'from-yellow-300 to-amber-500',
+    cardNo: 'text-white',
+  },
+  'credit one': {
+    gradient: 'bg-gradient-to-br from-fuchsia-700 via-purple-800 to-purple-950',
+    text: 'text-white',
+    subtext: 'text-fuchsia-100/70',
+    chip: 'from-amber-300 to-yellow-500',
+    cardNo: 'text-white',
+  },
+  'concora credit': {
+    gradient: 'bg-gradient-to-br from-teal-600 via-teal-700 to-emerald-900',
+    text: 'text-white',
+    subtext: 'text-teal-100/70',
+    chip: 'from-yellow-300 to-amber-500',
+    cardNo: 'text-white',
+  },
+  'mission lane': {
+    gradient: 'bg-gradient-to-br from-sky-600 via-blue-700 to-blue-950',
+    text: 'text-white',
+    subtext: 'text-sky-100/70',
+    chip: 'from-yellow-300 to-amber-500',
+    cardNo: 'text-white',
+  },
+  'navy federal credit union': {
+    gradient: 'bg-gradient-to-br from-slate-800 via-blue-900 to-slate-950',
+    text: 'text-white',
+    subtext: 'text-blue-100/70',
+    chip: 'from-amber-300 to-yellow-500',
+    cardNo: 'text-white',
+  },
+  'onemain financial': {
+    gradient: 'bg-gradient-to-br from-orange-500 via-red-600 to-red-800',
+    text: 'text-white',
+    subtext: 'text-orange-100/70',
+    chip: 'from-yellow-300 to-amber-500',
+    cardNo: 'text-white',
+  },
+  'synchrony': {
+    gradient: 'bg-gradient-to-br from-yellow-500 via-amber-600 to-orange-700',
+    text: 'text-white',
+    subtext: 'text-yellow-100/70',
+    chip: 'from-white/80 to-gray-200',
+    cardNo: 'text-white',
+  },
+  'paypal': {
+    gradient: 'bg-gradient-to-br from-blue-900 via-sky-900 to-slate-950',
+    text: 'text-white',
+    subtext: 'text-sky-100/70',
+    chip: 'from-amber-300 to-yellow-500',
+    cardNo: 'text-white',
+  },
+}
+
+// Institution favicon domain (Google s2 favicon service; Clearbit API is discontinued)
 const INSTITUTION_DOMAINS: Record<string, string> = {
   'capital one': 'capitalone.com',
   'mission lane': 'missionlane.com',
   'creditone': 'creditonebank.com',
   'credit one': 'creditonebank.com',
   'pnc': 'pnc.com',
+  'navy federal credit union': 'navyfederal.org',
   'navy federal': 'navyfederal.org',
   'first tech': 'firsttechfed.com',
   'american express': 'americanexpress.com',
@@ -68,21 +152,19 @@ const INSTITUTION_DOMAINS: Record<string, string> = {
   'goldman sachs': 'goldmansachs.com',
   'apple card': 'apple.com',
   'amazon': 'amazon.com',
+  'synchrony': 'synchrony.com',
+  'concora credit': 'concoracredit.myfinanceservice.com',
+  'onemain financial': 'onemainfinancial.com',
   'paypal': 'paypal.com',
-  'indigo': 'indigo.com',
+  'indigo': 'index.html',
   'petal': 'petalcard.com',
   'deserve': 'deserve.com',
   'jasper': 'jasper.com',
-  'tomocredit': 'tomo.credit',
   'brex': 'brex.com',
   'ramp': 'ramp.com',
-  'stripe': 'stripe.com',
   'mercury': 'mercury.com',
-  'silicon valley bank': 'svb.com',
-  'first republic': 'firstrepublic.com',
   'charles schwab': 'schwab.com',
   'fidelity': 'fidelity.com',
-  'vanguard': 'vanguard.com',
   'ally': 'ally.com',
   'sofi': 'sofi.com',
   'marcus': 'marcus.com',
@@ -91,102 +173,39 @@ const INSTITUTION_DOMAINS: Record<string, string> = {
   'td bank': 'tdbank.com',
   'us bank': 'usbank.com',
   'truist': 'truist.com',
-  'bb&t': 'truist.com',
-  'suntrust': 'truist.com',
-  'regions': 'regions.com',
-  'fifth third': '53.com',
-  'keybank': 'key.com',
-  'huntington': 'huntington.com',
-  'citizens': 'citizensbank.com',
-  'webster': 'websterbank.com',
-  'people\'s united': 'peoples.com',
-  'mtb': 'mtb.com',
-  'synovus': 'synovus.com',
-  'zions': 'zionsbank.com',
-  'comerica': 'comerica.com',
-  'east west bank': 'eastwestbank.com',
-  'cathay': 'cathaybank.com',
-  'first horizon': 'firsthorizon.com',
-  'prosperity': 'prosperitybankusa.com',
-  'cadence': 'cadencebank.com',
-  'southstate': 'southstatebank.com',
-  'valley': 'valley.com',
-  'western alliance': 'westernalliancebancorp.com',
-  'bank united': 'bankunited.com',
-  'live oak': 'liveoakbank.com',
-  'cross river': 'crossriverbank.com',
-  'column': 'column.com',
-  'piermont': 'piermontbank.com',
-  'lead bank': 'leadbk.com',
-  'community federal': 'communityfed.com',
-  'unity': 'unitybank.com',
-  'pathward': 'pathward.com',
-  'meta bank': 'metabank.com',
-  'republic bank': 'republicbank.com',
-  'customers bank': 'customersbank.com',
-  'axos': 'axosbank.com',
-  'nbkc': 'nbkcbank.com',
+  'chime': 'chime.com',
+  'current': 'current.com',
+  'varomoney': 'varo.com',
   'green dot': 'greendot.com',
   'netspend': 'netspend.com',
-  'rushcard': 'rushcard.com',
-  'walmart moneycard': 'walmartmoneycard.com',
-  'bluebird': 'bluebird.com',
-  'serve': 'serve.com',
-  'go2bank': 'go2bank.com',
-  'current': 'current.com',
-  'chime': 'chime.com',
-  'varomoney': 'varo.com',
-  'dave': 'dave.com',
-  'brigit': 'brigit.com',
-  'earnin': 'earnin.com',
-  'moneylion': 'moneylion.com',
-  'albert': 'albert.com',
-  'klover': 'klover.app',
-  'cleo': 'meetcleo.com',
-  'branch': 'branchapp.com',
-  'dailypay': 'dailypay.com',
-  'payactiv': 'payactiv.com',
-  'even': 'even.com',
-  'flexwage': 'flexwage.com',
-  'instant': 'instant.co',
-  'rain': 'rain.in',
-  'zayzoon': 'zayzoon.com',
-  'payfare': 'payfare.com',
-  'i2c': 'i2cinc.com',
-  'marqeta': 'marqeta.com',
-  'galileo': 'galileo-ft.com',
-  'unit': 'unit.co',
-  'treasury prime': 'treasuryprime.com',
-  'synapse': 'synapsefi.com',
-  'solid': 'solidfi.com',
-  'moov': 'moov.io',
-  'dwolla': 'dwolla.com',
-  'plaid': 'plaid.com',
-  'square': 'squareup.com',
-  'shopify': 'shopify.com',
-  'toast': 'toasttab.com',
-  'clover': 'clover.com',
-  'lightspeed': 'lightspeedhq.com',
-  'revel': 'revelsystems.com',
-  'touchbistro': 'touchbistro.com',
-  'upserve': 'upserve.com',
   'cash app': 'cash.app',
-  'square cash': 'cash.app',
-  'zelle': 'zellepay.com',
-  'google pay': 'pay.google.com',
-  'apple pay': 'apple.com',
-  'samsung pay': 'samsung.com',
+  'walmart moneycard': 'walmartmoneycard.com',
+}
+
+function getCardTheme(institution: string, name: string): CardTheme {
+  const key = (institution || name || '').toLowerCase().trim()
+  return INSTITUTION_THEMES[key] || DEFAULT_THEME
+}
+
+function getLogoDomain(name: string): string {
+  const key = name.toLowerCase().trim()
+  const domain = INSTITUTION_DOMAINS[key]
+  if (domain) return domain
+  return key.replace(/[^a-z0-9.]/g, '').replace(/^\.+/, '') + '.com'
 }
 
 function getInstitutionLogoUrl(name: string): string {
-  const key = name.toLowerCase().trim()
-  const domain = INSTITUTION_DOMAINS[key]
-  if (domain) {
-    return `https://logo.clearbit.com/${domain}?size=64`
-  }
-  // Fallback: try to guess domain from name
-  const guessed = key.replace(/[^a-z0-9]/g, '').toLowerCase()
-  return `https://logo.clearbit.com/${guessed}.com?size=64`
+  return `https://www.google.com/s2/favicons?domain=${getLogoDomain(name)}&sz=128`
+}
+
+function fallbackInitialSvg(name: string): string {
+  const letter = (name.trim().charAt(0) || 'C').toUpperCase()
+  return `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" rx="24" fill="#ffffff"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="system-ui" font-size="64" font-weight="bold" fill="#334155">${letter}</text></svg>`)}`
+}
+
+const logoOnError = (e: React.SyntheticEvent<HTMLImageElement>, name: string) => {
+  e.currentTarget.onerror = null
+  e.currentTarget.src = fallbackInitialSvg(name)
 }
 
 export default function CreditCardsPage() {
@@ -545,10 +564,10 @@ export default function CreditCardsPage() {
           </div>
 
           {cards.length > 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {Object.entries(
                 cards.reduce<Record<string, CreditCardType[]>>((groups, card) => {
-                  const group = card.institution || 'Other'
+                  const group = card.institution || card.name || 'Other'
                   ;(groups[group] ||= []).push(card)
                   return groups
                 }, {})
@@ -561,7 +580,7 @@ export default function CreditCardsPage() {
 
                 return (
                   <div key={groupName}>
-                    <div className="flex items-center justify-between mb-2 px-1">
+                    <div className="flex items-center justify-between mb-3 px-1">
                       <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                         {groupWebsite ? (
                           <a
@@ -581,130 +600,161 @@ export default function CreditCardsPage() {
                         <span>{groupCards.length} card{groupCards.length !== 1 ? 's' : ''}</span>
                         <span>Bal: {fmt(groupBalance)}</span>
                         {groupLimit > 0 && <span>Util: {groupUtil.toFixed(0)}%</span>}
+                        <span className="text-green-600 dark:text-green-400 hidden sm:inline">Avail: {fmt(groupAvail)}</span>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                    {groupCards.map((card) => {
-                      const limit = Number(card.credit_limit) || 0
-                      const balance = Number(card.current_balance) || 0
-                      const available = limit - balance
-                      const util = limit > 0 ? (balance / limit) * 100 : 0
-                      const utilColor = util > 30 ? 'text-red-500' : util > 10 ? 'text-amber-500' : 'text-green-500'
-                      const utilBg = util > 30 ? 'bg-red-500' : util > 10 ? 'bg-amber-500' : 'bg-green-500'
 
-                      return (
-                        <div
-                          key={card.id}
-                          className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 flex flex-col md:flex-row md:items-center gap-4"
-                        >
-                          <div className="flex items-center gap-3 min-w-0 md:w-1/3">
-                            <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-1">
-                              <img
-                                src={getInstitutionLogoUrl(card.institution || card.name)}
-                                alt={`${card.name} logo`}
-                                className="w-8 h-8 object-contain rounded"
-                                onError={(e) => {
-                                  e.currentTarget.onerror = null
-                                  e.currentTarget.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="#3b82f6"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="system-ui" font-size="18" font-weight="bold" fill="white">${card.name.trim().charAt(0).toUpperCase()}</text></svg>`)}`
-                                }}
-                              />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{card.name}</p>
-                                {card.plaid_account_id && (
-                                  <span title="Plaid connected"><Plug className="w-3 h-3 text-green-500 shrink-0" /></span>
-                                )}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {groupCards.map((card) => {
+                        const limit = Number(card.credit_limit) || 0
+                        const balance = Number(card.current_balance) || 0
+                        const available = limit - balance
+                        const util = limit > 0 ? (balance / limit) * 100 : 0
+                        const utilColor = util > 30 ? 'text-red-500' : util > 10 ? 'text-amber-500' : 'text-green-500'
+                        const utilBg = util > 30 ? 'bg-red-500' : util > 10 ? 'bg-amber-500' : 'bg-green-500'
+                        const theme = getCardTheme(card.institution || '', card.name)
+                        const logoUrl = getInstitutionLogoUrl(card.institution || card.name)
+                        const cardholder = user?.name || card.name
+                        const numDisplay = `••••  ••••  ••••  ${card.last_four ? card.last_four.padStart(4, '•') : '••••'}`
+
+                        return (
+                          <div key={card.id} className="flex flex-col">
+                            {/* Card mockup */}
+                            <div className="rounded-2xl p-[1px] bg-gradient-to-br from-white/50 dark:from-white/15 via-transparent to-black/10 shadow-inner">
+                              <div className={`relative overflow-hidden rounded-[15px] p-4 sm:p-5 aspect-[85/54] flex flex-col justify-between bg-gradient-to-br ${theme.gradient} shadow-lg`}>
+                                {/* Watermark logo */}
+                                <img
+                                  src={logoUrl}
+                                  alt=""
+                                  aria-hidden
+                                  onError={(e) => logoOnError(e, card.institution || card.name)}
+                                  className="absolute -right-8 -bottom-10 w-40 h-40 object-contain opacity-25 pointer-events-none select-none -scale-x-100"
+                                />
+                                {/* Sheen */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-black/15 pointer-events-none" />
+
+                                <div className="relative z-[1] flex items-start justify-between gap-3">
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className="h-9 w-9 shrink-0 rounded-lg bg-white/95 dark:bg-white/90 p-1 border border-black/5 shadow-sm">
+                                      <img
+                                        src={logoUrl}
+                                        alt={`${card.name} logo`}
+                                        onError={(e) => logoOnError(e, card.institution || card.name)}
+                                        className="w-full h-full object-contain rounded"
+                                      />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className={`text-sm font-semibold truncate ${theme.text}`}>{groupName}</p>
+                                      <p className={`text-[11px] truncate ${theme.subtext}`}>{card.name}</p>
+                                    </div>
+                                  </div>
+                                  {card.plaid_account_id && (
+                                    <span title="Plaid connected"><Plug className="w-4 h-4 text-green-400 shrink-0" /></span>
+                                  )}
+                                </div>
+
+                                <div>
+                                  <div className={`h-7 w-11 rounded-md bg-gradient-to-br ${theme.chip} border border-black/10 shadow-inner`} />
+                                  <p className={`mt-2.5 font-mono tracking-[0.18em] text-sm sm:text-base ${theme.cardNo}`}>{numDisplay}</p>
+                                </div>
+
+                                <div className="relative z-[1] flex items-end justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className={`text-[9px] uppercase tracking-wider ${theme.subtext}`}>Cardholder</p>
+                                    <p className={`text-xs font-semibold truncate ${theme.text}`}>{cardholder}</p>
+                                    <p className={`text-[10px] mt-0.5 ${theme.subtext}`}>{card.due_date ? `Due ${card.due_date}` : ''}</p>
+                                  </div>
+                                  <div className="text-right shrink-0">
+                                    <p className={`text-[9px] uppercase tracking-wider ${theme.subtext}`}>APR</p>
+                                    <p className={`text-xs font-bold ${theme.text}`}>{card.interest_rate ? `${Number(card.interest_rate).toFixed(2)}%` : '—'}</p>
+                                  </div>
+                                </div>
                               </div>
-                              <p className="text-xs text-gray-400">
-                                {card.institution ? (
-                                  <span>
+                            </div>
+
+                            {/* Detail footer */}
+                            <div className="mt-3 rounded-xl border border-gray-200 dark:border-gray-700 p-3 flex-1">
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2">
+                                <div>
+                                  <p className="text-[10px] text-gray-400">Balance</p>
+                                  <p className={`text-sm font-bold truncate ${balance > 0 ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>{fmt(balance)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-gray-400">Limit</p>
+                                  <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{fmt(limit)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-[10px] text-gray-400">Available</p>
+                                  <p className={`text-sm font-semibold truncate ${available > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>{fmt(available)}</p>
+                                </div>
+                                <div className="col-span-2 sm:col-span-1">
+                                  <p className="text-[10px] text-gray-400">Utilization</p>
+                                  <div className="flex items-center gap-2">
+                                    <p className={`text-sm font-bold ${utilColor}`}>{util.toFixed(1)}%</p>
+                                    <div className="flex-1 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                                      <div className={`h-full rounded-full ${utilBg}`} style={{ width: `${Math.min(util, 100)}%` }} />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-800 flex flex-wrap items-center justify-between gap-2">
+                                {urlEditingId === card.id && card.website ? (
+                                  <div className="flex items-center gap-1.5 flex-1 min-w-[200px]">
+                                    <input
+                                      type="text"
+                                      value={editWebsite}
+                                      onChange={(e) => setEditWebsite(e.target.value)}
+                                      placeholder="capitalone.com"
+                                      autoFocus
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') saveCardUrl(card.id)
+                                        if (e.key === 'Escape') setUrlEditingId(null)
+                                      }}
+                                      className="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                    <button onClick={() => saveCardUrl(card.id)} className="text-xs text-green-600 hover:underline">Save</button>
+                                    <button onClick={() => setUrlEditingId(null)} className="text-xs text-gray-500 hover:underline">Cancel</button>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-gray-400 truncate">
                                     {card.website ? (
-                                      <a href={normalizeUrl(card.website)} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">{card.institution}</a>
-                                    ) : (
-                                      card.institution
-                                    )}
-                                    {' · '}
+                                      <a href={normalizeUrl(card.website)} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1">
+                                        Manage online <ExternalLink className="w-3 h-3" />
+                                      </a>
+                                    ) : 'No website linked'}
                                   </span>
-                                ) : ''}
-                                **** {card.last_four || '????'}{card.due_date ? ` · Due ${card.due_date}` : ''}
-                              </p>
-                              {urlEditingId === card.id && (
-                                <div className="mt-1 flex items-center gap-1.5">
-                                  <input
-                                    type="text"
-                                    value={editWebsite}
-                                    onChange={(e) => setEditWebsite(e.target.value)}
-                                    placeholder="capitalone.com"
-                                    autoFocus
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') saveCardUrl(card.id)
-                                      if (e.key === 'Escape') setUrlEditingId(null)
-                                    }}
-                                    className="w-44 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  />
-                                  <button onClick={() => saveCardUrl(card.id)} className="text-xs text-green-600 hover:underline">Save</button>
-                                  <button onClick={() => setUrlEditingId(null)} className="text-xs text-gray-500 hover:underline">Cancel</button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                                )}
 
-                          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:w-2/3">
-                            <div>
-                              <p className="text-xs text-gray-400">Balance</p>
-                              <p className="text-sm font-semibold text-gray-900 dark:text-white">{fmt(balance)}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-400">Limit</p>
-                              <p className="text-sm font-semibold text-gray-900 dark:text-white">{fmt(limit)}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-400">Available</p>
-                              <p className={`text-sm font-semibold ${available > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>{fmt(available)}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-400">APR</p>
-                              <p className="text-sm font-semibold text-gray-900 dark:text-white">{card.interest_rate ? `${Number(card.interest_rate)}%` : '—'}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-400">Utilization</p>
-                              <div className="flex items-center gap-2">
-                                <p className={`text-sm font-bold ${utilColor}`}>{util.toFixed(1)}%</p>
-                                <div className="flex-1 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                                  <div className={`h-full rounded-full ${utilBg}`} style={{ width: `${Math.min(util, 100)}%` }} />
+                                <div className="flex items-center gap-1 ml-auto shrink-0">
+                                  <button
+                                    onClick={() => {
+                                      setUrlEditingId(urlEditingId === card.id ? null : card.id)
+                                      setEditWebsite(card.website || '')
+                                    }}
+                                    title="Edit institution URL"
+                                    className="p-1.5 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                  >
+                                    <Link2 className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => startEdit(card)}
+                                    className="p-1.5 rounded-lg text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(card)}
+                                    className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
                                 </div>
                               </div>
                             </div>
                           </div>
-
-                          <div className="flex items-center gap-2 md:ml-auto shrink-0">
-                            <button
-                              onClick={() => {
-                                setUrlEditingId(urlEditingId === card.id ? null : card.id)
-                                setEditWebsite(card.website || '')
-                              }}
-                              title="Edit institution URL"
-                              className="p-1.5 rounded-lg text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                            >
-                              <Link2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => startEdit(card)}
-                              className="p-1.5 rounded-lg text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(card)}
-                              className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
                     </div>
                   </div>
                 )
