@@ -194,7 +194,15 @@ function getLogoDomain(name: string): string {
   return key.replace(/[^a-z0-9.]/g, '').replace(/^\.+/, '') + '.com'
 }
 
+const LOCAL_LOGO_OVERRIDES: Record<string, string> = {
+  'concora credit': '/card-logos/concora.png',
+  'concora': '/card-logos/concora.png',
+}
+
 function getInstitutionLogoUrl(name: string): string {
+  const key = name.toLowerCase().trim()
+  const local = LOCAL_LOGO_OVERRIDES[key]
+  if (local) return local
   return `https://www.google.com/s2/favicons?domain=${getLogoDomain(name)}&sz=128`
 }
 
