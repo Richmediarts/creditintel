@@ -643,7 +643,7 @@ export default function CreditCardsPage() {
 
                                 <div className="relative z-[1] flex items-start justify-between gap-3">
                                   <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className="h-9 w-9 shrink-0 rounded-lg bg-white/95 dark:bg-white/90 p-1 border border-black/5 shadow-sm">
+                                    <div className="h-11 w-11 shrink-0 rounded-lg bg-white/95 dark:bg-white/90 p-1 border border-black/5 shadow-sm">
                                       <img
                                         src={logoUrl}
                                         alt={`${card.name} logo`}
@@ -652,8 +652,8 @@ export default function CreditCardsPage() {
                                       />
                                     </div>
                                     <div className="min-w-0">
-                                      <p className={`text-sm font-semibold truncate ${theme.text}`}>{groupName}</p>
-                                      <p className={`text-[11px] truncate ${theme.subtext}`}>{card.name}</p>
+                                      <p className={`text-lg font-bold truncate ${theme.text}`}>{groupName}</p>
+                                      <p className={`text-sm truncate ${theme.subtext}`}>{card.name}</p>
                                     </div>
                                   </div>
                                   {card.plaid_account_id && (
@@ -662,19 +662,19 @@ export default function CreditCardsPage() {
                                 </div>
 
                                 <div>
-                                  <div className={`h-7 w-11 rounded-md bg-gradient-to-br ${theme.chip} border border-black/10 shadow-inner`} />
-                                  <p className={`mt-2.5 font-mono tracking-[0.18em] text-sm sm:text-base ${theme.cardNo}`}>{numDisplay}</p>
+                                  <div className={`h-8 w-12 rounded-md bg-gradient-to-br ${theme.chip} border border-black/10 shadow-inner`} />
+                                  <p className={`mt-3 font-mono tracking-[0.18em] text-base sm:text-xl font-semibold ${theme.cardNo}`}>{numDisplay}</p>
                                 </div>
 
                                 <div className="relative z-[1] flex items-end justify-between gap-3">
                                   <div className="min-w-0">
-                                    <p className={`text-[9px] uppercase tracking-wider ${theme.subtext}`}>Cardholder</p>
-                                    <p className={`text-xs font-semibold truncate ${theme.text}`}>{cardholder}</p>
-                                    <p className={`text-[10px] mt-0.5 ${theme.subtext}`}>{card.due_date ? `Due ${card.due_date}` : ''}</p>
+                                    <p className={`text-[10px] uppercase tracking-wider ${theme.subtext}`}>Cardholder</p>
+                                    <p className={`text-base font-semibold truncate ${theme.text}`}>{cardholder}</p>
+                                    <p className={`text-sm mt-0.5 ${theme.subtext}`}>{card.due_date ? `Due ${card.due_date}` : ''}</p>
                                   </div>
                                   <div className="text-right shrink-0">
-                                    <p className={`text-[9px] uppercase tracking-wider ${theme.subtext}`}>APR</p>
-                                    <p className={`text-xs font-bold ${theme.text}`}>{card.interest_rate ? `${Number(card.interest_rate).toFixed(2)}%` : '—'}</p>
+                                    <p className={`text-[10px] uppercase tracking-wider ${theme.subtext}`}>APR</p>
+                                    <p className={`text-lg font-bold ${theme.text}`}>{card.interest_rate ? `${Number(card.interest_rate).toFixed(2)}%` : '—'}</p>
                                   </div>
                                 </div>
                               </div>
@@ -684,22 +684,22 @@ export default function CreditCardsPage() {
                             <div className="mt-3 rounded-xl border border-gray-200 dark:border-gray-700 p-3 flex-1">
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2">
                                 <div>
-                                  <p className="text-[10px] text-gray-400">Balance</p>
-                                  <p className={`text-sm font-bold truncate ${balance > 0 ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>{fmt(balance)}</p>
+                                  <p className="text-xs text-gray-400">Balance</p>
+                                  <p className={`text-xl font-bold truncate ${balance > 0 ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>{fmt(balance)}</p>
                                 </div>
                                 <div>
-                                  <p className="text-[10px] text-gray-400">Limit</p>
-                                  <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{fmt(limit)}</p>
+                                  <p className="text-xs text-gray-400">Limit</p>
+                                  <p className="text-xl font-bold text-gray-900 dark:text-white truncate">{fmt(limit)}</p>
                                 </div>
                                 <div>
-                                  <p className="text-[10px] text-gray-400">Available</p>
-                                  <p className={`text-sm font-semibold truncate ${available > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>{fmt(available)}</p>
+                                  <p className="text-xs text-gray-400">Available</p>
+                                  <p className={`text-xl font-bold truncate ${available > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>{fmt(available)}</p>
                                 </div>
                                 <div className="col-span-2 sm:col-span-1">
-                                  <p className="text-[10px] text-gray-400">Utilization</p>
+                                  <p className="text-xs text-gray-400">Utilization</p>
                                   <div className="flex items-center gap-2">
-                                    <p className={`text-sm font-bold ${utilColor}`}>{util.toFixed(1)}%</p>
-                                    <div className="flex-1 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                                    <p className={`text-xl font-bold ${utilColor}`}>{util.toFixed(1)}%</p>
+                                    <div className="flex-1 h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
                                       <div className={`h-full rounded-full ${utilBg}`} style={{ width: `${Math.min(util, 100)}%` }} />
                                     </div>
                                   </div>
