@@ -11,6 +11,8 @@ export default function LoginPage() {
   const router = useRouter()
   const { user, loading: authLoading, login } = useAuth()
   const { darkMode, toggleDarkMode } = useTheme()
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -28,6 +30,22 @@ export default function LoginPage() {
     e.preventDefault()
     setError('')
     setSubmitting(true)
+    if (mode === 'signup') {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        await login(email, password)
+        router.push('/')
+        return
+      }
+      setError(data.error || 'Registration failed')
+      setSubmitting(false)
+      return
+    }
     const err = await login(email, password)
     if (err) {
       setError(err)
@@ -54,7 +72,9 @@ export default function LoginPage() {
             <FileText className="w-7 h-7 text-white" />
           </div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">RETTEEE CreditIntel</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Sign in to your account</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            {mode === 'signin' ? 'Sign in to your account' : 'Create a new account'}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -62,6 +82,20 @@ export default function LoginPage() {
             <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               {error}
+            </div>
+          )}
+
+          {mode === 'signup' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Full Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-base text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Your name"
+                required
+              />
             </div>
           )}
 
@@ -84,27 +118,55 @@ export default function LoginPage() {
               value={password}
               onChange={e => setPassword(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-base text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Enter your password"
+              placeholder={mode === 'signup' ? 'At least 6 characters' : 'Enter your password'}
               required
             />
           </div>
 
-          <div className="flex items-center justify-between text-sm">
-            <Link href="/forgot-password" className="py-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
-              Forgot password?
-            </Link>
-            <span className="text-gray-400 dark:text-gray-500">
-              Forgot email? Ask your admin
-            </span>
-          </div>
+          {mode === 'signin' && (
+            <div className="flex items-center justify-between text-sm">
+              <Link href="/forgot-password" className="py-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
+                Forgot password?
+              </Link>
+              <span className="text-gray-400 dark:text-gray-500">
+                Forgot email? Ask your admin
+              </span>
+            </div>
+          )}
 
           <button
             type="submit"
             disabled={submitting}
             className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-base font-medium rounded-lg transition-colors"
           >
-            {submitting ? 'Signing in...' : 'Sign In'}
+            {submitting ? (mode === 'signup' ? 'Creating account...' : 'Signing in...') : mode === 'signup' ? 'Create Account' : 'Sign In'}
           </button>
+
+          <div className="text-center text-sm pt-1">
+            {mode === 'signin' ? (
+              <p className="text-gray-500 dark:text-gray-400">
+                Don&apos;t have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => { setMode('signup'); setError('') }}
+                  className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+                >
+                  Sign up
+                </button>
+              </p>
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400">
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => { setMode('signin'); setError('') }}
+                  className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+                >
+                  Sign in
+                </button>
+              </p>
+            )}
+          </div>
         </form>
       </div>
     </div>
