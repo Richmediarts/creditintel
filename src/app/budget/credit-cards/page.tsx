@@ -626,24 +626,24 @@ export default function CreditCardsPage() {
                         const numDisplay = `••••  ••••  ••••  ${card.last_four ? card.last_four.padStart(4, '•') : '••••'}`
 
                         return (
-                          <div key={card.id} className="flex flex-col w-[350px] max-w-full">
+                          <div key={card.id} className="flex flex-col w-[400px] max-w-full">
                             {/* Card mockup */}
-                            <div className="rounded-2xl p-[1px] bg-gradient-to-br from-white/50 dark:from-white/15 via-transparent to-black/10 shadow-inner max-w-[350px] mx-auto lg:mx-0">
-                              <div className={`relative overflow-hidden rounded-[15px] p-4 sm:p-5 aspect-[350/222] flex flex-col justify-between bg-gradient-to-br ${theme.gradient} shadow-lg`}>
+                            <div className="rounded-2xl p-[1px] bg-gradient-to-br from-white/50 dark:from-white/15 via-transparent to-black/10 shadow-inner max-w-[400px] mx-auto lg:mx-0">
+                              <div className={`relative overflow-hidden rounded-[15px] p-4 sm:p-5 aspect-[400/253] flex flex-col justify-between bg-gradient-to-br ${theme.gradient} shadow-lg`}>
                                 {/* Watermark logo */}
                                 <img
                                   src={logoUrl}
                                   alt=""
                                   aria-hidden
                                   onError={(e) => logoOnError(e, card.institution || card.name)}
-                                  className="absolute -right-8 -bottom-10 w-44 h-44 object-contain opacity-25 pointer-events-none select-none -scale-x-100"
+                                  className="absolute -right-8 -bottom-10 w-48 h-48 object-contain opacity-25 pointer-events-none select-none -scale-x-100"
                                 />
                                 {/* Sheen */}
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-black/15 pointer-events-none" />
 
                                 <div className="relative z-[1] flex items-start justify-between gap-3">
                                   <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className="h-12 w-12 shrink-0 rounded-lg bg-white/95 dark:bg-white/90 p-1 border border-black/5 shadow-sm">
+                                    <div className="h-14 w-14 shrink-0 rounded-lg bg-white/95 dark:bg-white/90 p-1 border border-black/5 shadow-sm">
                                       <img
                                         src={logoUrl}
                                         alt={`${card.name} logo`}
@@ -652,8 +652,8 @@ export default function CreditCardsPage() {
                                       />
                                     </div>
                                     <div className="min-w-0">
-                                      <p className={`text-xl font-bold truncate ${theme.text}`}>{groupName}</p>
-                                      <p className={`text-base truncate ${theme.subtext}`}>{card.name}</p>
+                                      <p className={`text-2xl font-bold truncate ${theme.text}`}>{groupName}</p>
+                                      <p className={`text-lg truncate ${theme.subtext}`}>{card.name}</p>
                                     </div>
                                   </div>
                                   {card.plaid_account_id && (
@@ -662,18 +662,18 @@ export default function CreditCardsPage() {
                                 </div>
 
                                 <div>
-                                  <div className={`h-9 w-14 rounded-md bg-gradient-to-br ${theme.chip} border border-black/10 shadow-inner`} />
-                                  <p className={`mt-3 font-mono tracking-[0.18em] text-xl sm:text-2xl font-semibold ${theme.cardNo}`}>{numDisplay}</p>
+                                  <div className={`h-10 w-16 rounded-md bg-gradient-to-br ${theme.chip} border border-black/10 shadow-inner`} />
+                                  <p className={`mt-3 font-mono tracking-[0.15em] text-xl sm:text-2xl font-semibold ${theme.cardNo}`}>{numDisplay}</p>
                                 </div>
 
                                 <div className="relative z-[1] flex items-end justify-between gap-3">
                                   <div className="min-w-0">
-                                    <p className={`text-[11px] uppercase tracking-wider ${theme.subtext}`}>Cardholder</p>
-                                    <p className={`text-lg font-semibold truncate ${theme.text}`}>{cardholder}</p>
+                                    <p className={`text-xs uppercase tracking-wider ${theme.subtext}`}>Cardholder</p>
+                                    <p className={`text-xl font-semibold truncate ${theme.text}`}>{cardholder}</p>
                                     <p className={`text-base mt-0.5 ${theme.subtext}`}>{card.due_date ? `Due ${card.due_date}` : ''}</p>
                                   </div>
                                   <div className="text-right shrink-0">
-                                    <p className={`text-[11px] uppercase tracking-wider ${theme.subtext}`}>APR</p>
+                                    <p className={`text-xs uppercase tracking-wider ${theme.subtext}`}>APR</p>
                                     <p className={`text-xl font-bold ${theme.text}`}>{card.interest_rate ? `${Number(card.interest_rate).toFixed(2)}%` : '—'}</p>
                                   </div>
                                 </div>
