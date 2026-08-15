@@ -612,7 +612,7 @@ export default function CreditCardsPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="flex flex-wrap gap-4">
                       {groupCards.map((card) => {
                         const limit = Number(card.credit_limit) || 0
                         const balance = Number(card.current_balance) || 0
@@ -626,9 +626,9 @@ export default function CreditCardsPage() {
                         const numDisplay = `••••  ••••  ••••  ${card.last_four ? card.last_four.padStart(4, '•') : '••••'}`
 
                         return (
-                          <div key={card.id} className="flex flex-col">
+                          <div key={card.id} className="flex flex-col w-[290px] max-w-full">
                             {/* Card mockup */}
-                            <div className="rounded-2xl p-[1px] bg-gradient-to-br from-white/50 dark:from-white/15 via-transparent to-black/10 shadow-inner">
+                            <div className="rounded-2xl p-[1px] bg-gradient-to-br from-white/50 dark:from-white/15 via-transparent to-black/10 shadow-inner max-w-[290px] mx-auto lg:mx-0">
                               <div className={`relative overflow-hidden rounded-[15px] p-4 sm:p-5 aspect-[68/43] flex flex-col justify-between bg-gradient-to-br ${theme.gradient} shadow-lg`}>
                                 {/* Watermark logo */}
                                 <img
