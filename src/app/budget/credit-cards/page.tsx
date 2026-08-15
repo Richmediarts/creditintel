@@ -629,7 +629,7 @@ export default function CreditCardsPage() {
                           <div key={card.id} className="flex flex-col">
                             {/* Card mockup */}
                             <div className="rounded-2xl p-[1px] bg-gradient-to-br from-white/50 dark:from-white/15 via-transparent to-black/10 shadow-inner">
-                              <div className={`relative overflow-hidden rounded-[15px] p-4 sm:p-5 aspect-[85/54] flex flex-col justify-between bg-gradient-to-br ${theme.gradient} shadow-lg`}>
+                              <div className={`relative overflow-hidden rounded-[15px] p-4 sm:p-5 aspect-[68/43] flex flex-col justify-between bg-gradient-to-br ${theme.gradient} shadow-lg`}>
                                 {/* Watermark logo */}
                                 <img
                                   src={logoUrl}
