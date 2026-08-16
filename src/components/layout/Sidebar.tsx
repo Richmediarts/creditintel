@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { useCredit } from '@/lib/store/creditStore'
 import { useAuth } from '@/lib/auth-context'
+import { useTheme } from '@/lib/theme-context'
 import { Badge } from '@/components/ui/badge'
 
 interface SidebarProps {
@@ -223,6 +224,7 @@ export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mob
 
 export function Header({ setMobileOpen }: { setMobileOpen: (v: boolean) => void }) {
   const { user } = useAuth()
+  const { darkMode, toggleDarkMode } = useTheme()
 
   return (
     <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30">
@@ -231,6 +233,14 @@ export function Header({ setMobileOpen }: { setMobileOpen: (v: boolean) => void 
       </button>
       <div className="flex-1" />
       <div className="flex items-center gap-3">
+        <button
+          onClick={toggleDarkMode}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          <span className="hidden sm:inline">{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
+        </button>
         <span className="text-sm text-gray-500 dark:text-gray-400">
           {user ? `${user.name} — Credit Intelligence Dashboard` : 'Credit Intelligence Dashboard'}
         </span>
