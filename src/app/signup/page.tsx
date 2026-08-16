@@ -2,10 +2,11 @@
 
 import { Sun, Moon } from 'lucide-react'
 import { FileText } from 'lucide-react'
+import Link from 'next/link'
 import { useTheme } from '@/lib/theme-context'
 import AuthForm from '@/components/auth/AuthForm'
 
-export default function LoginPage() {
+export default function SignupPage() {
   const { darkMode, toggleDarkMode } = useTheme()
 
   return (
@@ -25,11 +26,11 @@ export default function LoginPage() {
           </div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">RETTEEE CreditIntel</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Sign in to your account
+            Create a new account
           </p>
         </div>
 
-        <AuthForm initialMode="signin" />
+        <AuthForm initialMode="signup" />
       </div>
     </div>
   )
