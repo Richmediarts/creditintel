@@ -626,9 +626,9 @@ export default function CreditCardsPage() {
                         const numDisplay = `••••  ••••  ••••  ${card.last_four ? card.last_four.padStart(4, '•') : '••••'}`
 
                         return (
-                          <div key={card.id} className="flex flex-col w-[400px] max-w-full">
+                          <div key={card.id} className="flex flex-col w-[500px] max-w-full">
                             {/* Card mockup */}
-                            <div className="rounded-2xl p-[1px] bg-gradient-to-br from-white/50 dark:from-white/15 via-transparent to-black/10 shadow-inner max-w-[400px] mx-auto lg:mx-0">
+                            <div className="rounded-2xl p-[1px] bg-gradient-to-br from-white/50 dark:from-white/15 via-transparent to-black/10 shadow-inner max-w-[500px] mx-auto lg:mx-0">
                               <div className={`relative overflow-hidden rounded-[15px] p-4 sm:p-5 aspect-[400/253] flex flex-col justify-between bg-gradient-to-br ${theme.gradient} shadow-lg`}>
                                 {/* Watermark logo */}
                                 <img
@@ -682,20 +682,20 @@ export default function CreditCardsPage() {
 
                             {/* Detail footer */}
                             <div className="mt-3 rounded-xl border border-gray-200 dark:border-gray-700 p-3 flex-1">
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-2">
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-x-3 gap-y-2">
                                 <div>
                                   <p className="text-xs text-gray-400">Balance</p>
-                                  <p className={`text-xl font-bold truncate ${balance > 0 ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>{fmt(balance)}</p>
+                                  <p className={`text-xl font-bold ${balance > 0 ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>{fmt(balance)}</p>
                                 </div>
                                 <div>
                                   <p className="text-xs text-gray-400">Limit</p>
-                                  <p className="text-xl font-bold text-gray-900 dark:text-white truncate">{fmt(limit)}</p>
+                                  <p className="text-xl font-bold text-gray-900 dark:text-white">{fmt(limit)}</p>
                                 </div>
                                 <div>
                                   <p className="text-xs text-gray-400">Available</p>
-                                  <p className={`text-xl font-bold truncate ${available > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>{fmt(available)}</p>
+                                  <p className={`text-xl font-bold ${available > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>{fmt(available)}</p>
                                 </div>
-                                <div className="col-span-2 sm:col-span-1">
+                                <div className="col-span-2 md:col-span-1">
                                   <p className="text-xs text-gray-400">Utilization</p>
                                   <div className="flex items-center gap-2">
                                     <p className={`text-xl font-bold ${utilColor}`}>{util.toFixed(1)}%</p>
