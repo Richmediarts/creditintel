@@ -7,6 +7,8 @@ export interface JwtPayload {
   userId: number
   email: string
   role: 'admin' | 'member'
+  isExample?: boolean
+  profileUserId?: number
 }
 
 export async function hashPassword(password: string): Promise<string> {

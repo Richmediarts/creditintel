@@ -14,14 +14,17 @@ export async function GET(request: NextRequest) {
   }
 
   const db = getDb()
-  const user = await db.get('SELECT id, name, email, role, address, created_at FROM users WHERE id = ?', [payload.userId])
+  const identityId = payload.profileUserId || payload.userId
+  const user = await db.get('SELECT id, name, email, role, address, is_example, created_at FROM users WHERE id = ?', [identityId])
 
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 401 })
   }
 
+  const isExample = !!payload.isExample || !!user.is_example
+
   return NextResponse.json({
-    user: { id: user.id, name: user.name, email: user.email, role: user.role, address: user.address || '', createdAt: user.created_at },
+    user: { id: user.id, name: user.name, email: user.email, role: isExample ? 'member' : user.role, address: user.address || '', createdAt: user.created_at, isExample },
   })
 }
 
@@ -34,6 +37,10 @@ export async function PATCH(request: NextRequest) {
   const payload = verifyToken(token)
   if (!payload) {
     return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+  }
+
+  if (payload.isExample) {
+    return NextResponse.json({ error: 'This is a read-only example account. Account settings are locked.' }, { status: 403 })
   }
 
   const db = getDb()

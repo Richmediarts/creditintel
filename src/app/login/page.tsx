@@ -134,6 +134,14 @@ export default function LoginPage() {
             </div>
           )}
 
+          {mode === 'signin' && (
+            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3">
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                <strong>Try the demo:</strong> sign in with <strong>example@retteewealth.me</strong> / <strong>example123</strong> to explore the score simulator and budget pages (read-only, mirrors the admin data). Editing, deleting, and account settings are locked.
+              </p>
+            </div>
+          )}
+
           <button
             type="submit"
             disabled={submitting}

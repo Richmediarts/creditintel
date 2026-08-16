@@ -20,3 +20,30 @@ export async function ensureAdminAccount(): Promise<void> {
     }
   }
 }
+
+export async function ensureExampleAccount(): Promise<void> {
+  const db = getDb()
+  const exampleEmail = process.env.EXAMPLE_USER_EMAIL || 'example@retteewealth.me'
+  const examplePassword = process.env.EXAMPLE_USER_PASSWORD || 'example123'
+  const exampleName = process.env.EXAMPLE_USER_NAME || 'Example'
+  const admin = await db.prepare('SELECT id FROM users WHERE role = ? ORDER BY id ASC LIMIT 1').get('admin')
+
+  const existing = await db.prepare('SELECT id, is_example, mirror_user_id FROM users WHERE email = ?').get(exampleEmail.toLowerCase().trim())
+  if (existing) {
+    if (admin && (existing.mirror_user_id || null) !== admin.id) {
+      await db.prepare('UPDATE users SET is_example = 1, mirror_user_id = ? WHERE id = ?').run(admin.id, existing.id)
+    }
+    return
+  }
+
+  if (!admin) return
+  const hash = bcrypt.hashSync(examplePassword, 12)
+  await db.prepare(`
+    INSERT INTO users (name, email, password_hash, role, address, is_example, mirror_user_id)
+    VALUES (?, ?, ?, 'member', ?, 1, ?)
+  `).run(
+    exampleName, exampleEmail.toLowerCase().trim(), hash, 'Set up with Example User',
+    admin.id
+  )
+  console.log(`Example account created: ${exampleEmail}`)
+}

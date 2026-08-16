@@ -207,6 +207,7 @@ export interface User {
   role: 'admin' | 'member'
   address?: string
   createdAt: string
+  isExample?: boolean
 }
 
 export interface FicoScoreEntry {

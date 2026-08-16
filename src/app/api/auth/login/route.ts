@@ -22,10 +22,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 })
     }
 
-    const token = signToken({ userId: user.id, email: user.email, role: user.role })
+    const isExample = !!user.is_example
+    let tokenUserId = user.id
+    let tokenRole: 'admin' | 'member' = user.role === 'admin' ? 'admin' : 'member'
+    if (isExample) {
+      tokenUserId = user.mirror_user_id || 1
+      tokenRole = 'member'
+    }
+
+    const token = signToken({
+      userId: tokenUserId,
+      email: user.email,
+      role: tokenRole,
+      ...(isExample ? { isExample: true, profileUserId: user.id } : {}),
+    })
 
     const response = NextResponse.json({
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      user: { id: user.id, name: user.name, email: user.email, role: tokenRole, isExample },
     })
 
     response.cookies.set('credit-dashboard-token', token, {

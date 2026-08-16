@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { UserPlus, Trash2, ShieldOff, Edit2, X, Check } from 'lucide-react'
+import { UserPlus, Trash2, ShieldOff, Edit2, X, Check, Lock } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -251,23 +251,36 @@ export default function AdminUsersPage() {
                             {u.address && <p className="text-[10px] text-gray-400 mt-0.5">{u.address}</p>}
                           </div>
                           <Badge variant={u.role === 'admin' ? 'info' : 'default'}>{u.role}</Badge>
+                          {(u as { is_example?: number }).is_example ? (
+                            <Badge variant="info" className="!bg-amber-100 !text-amber-700 dark:!bg-amber-900/40 dark:!text-amber-300">
+                              <Lock className="w-3 h-3 mr-1" /> Example
+                            </Badge>
+                          ) : null}
                         </div>
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => startEdit(u)}
-                            className="text-gray-400 hover:text-blue-500 transition-colors"
-                            title="Edit user"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          {u.id !== currentUser.id && (
-                            <button
-                              onClick={() => handleDelete(u.id)}
-                              className="text-gray-400 hover:text-red-500 transition-colors"
-                              title="Remove user"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                          {(u as { is_example?: number }).is_example ? (
+                            <span className="text-[10px] text-gray-400" title="This example account is locked and cannot be edited or deleted">
+                              Locked
+                            </span>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => startEdit(u)}
+                                className="text-gray-400 hover:text-blue-500 transition-colors"
+                                title="Edit user"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              {u.id !== currentUser.id && (
+                                <button
+                                  onClick={() => handleDelete(u.id)}
+                                  className="text-gray-400 hover:text-red-500 transition-colors"
+                                  title="Remove user"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>

@@ -25,6 +25,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!authLoading && !user) { router.push('/login'); return }
     if (user) {
+      if (user.isExample) { router.push('/'); return }
       setName(user.name)
       setAddress(user.address || '')
       setEmail(user.email)

@@ -11,7 +11,9 @@ export async function initPostgresSchema() {
       address TEXT DEFAULT '',
       created_at TIMESTAMP DEFAULT NOW(),
       reset_token TEXT,
-      reset_token_expiry TIMESTAMP
+      reset_token_expiry TIMESTAMP,
+      is_example INTEGER NOT NULL DEFAULT 0,
+      mirror_user_id INTEGER
     );
   `
   await sql`
@@ -294,6 +296,13 @@ export async function initPostgresSchema() {
   `
   await sql`
     ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS raw_text TEXT;
+  `
+
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_example INTEGER NOT NULL DEFAULT 0;
+  `
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS mirror_user_id INTEGER;
   `
 
   const serialTables = [

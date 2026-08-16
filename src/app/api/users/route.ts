@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   }
 
   const db = getDb()
-  const users = await db.all('SELECT id, name, email, role, address, created_at FROM users ORDER BY created_at ASC', [])
+  const users = await db.all('SELECT id, name, email, role, address, is_example, created_at FROM users ORDER BY created_at ASC', [])
   return NextResponse.json({ users })
 }
 

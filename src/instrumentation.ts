@@ -14,4 +14,11 @@ export async function register() {
   } catch (e) {
     console.error('Failed to ensure admin account:', e)
   }
+
+  try {
+    const { ensureExampleAccount } = await import('@/lib/setup')
+    await ensureExampleAccount()
+  } catch (e) {
+    console.error('Failed to ensure example account:', e)
+  }
 }

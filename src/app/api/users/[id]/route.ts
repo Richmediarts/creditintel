@@ -22,6 +22,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
   }
+  if (user.is_example) {
+    return NextResponse.json({ error: 'The example account is locked and cannot be edited' }, { status: 403 })
+  }
 
   try {
     const body = await request.json()
@@ -82,6 +85,9 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   const user = await db.get('SELECT * FROM users WHERE id = ?', [Number(id)])
   if (!user) {
     return NextResponse.json({ error: 'User not found' }, { status: 404 })
+  }
+  if (user.is_example) {
+    return NextResponse.json({ error: 'The example account is locked and cannot be deleted' }, { status: 403 })
   }
   if (user.id === admin.userId) {
     return NextResponse.json({ error: 'Cannot delete yourself' }, { status: 400 })
