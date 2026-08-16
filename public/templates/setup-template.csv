@@ -1,16 +1,3 @@
-# RETTEEE CreditIntel Setup Template
-# Fill in one row per entry. The "type" column tells the app where each row goes.
-# Do not change the header row (first line starting with "type,").
-#
-# Supported types:
-# category     -> name, amount (monthly limit), notes
-# payee        -> name, category, notes, website
-# bank_account -> name, institution, last4, balance, account_type, website, notes
-# credit_card  -> name, institution, last4, balance, limit, apr, due_date, website, notes
-# bill         -> name, amount, due_date, category, is_recurring, recurrence_type, is_paid, notes
-# paycheck     -> name, check_date, net_pay, company, notes
-#
-# Example rows (delete or edit them before importing):
 type,name,amount,institution,last4,balance,limit,apr,due_date,account_type,is_recurring,recurrence_type,is_paid,category,company,website,notes,check_date,net_pay
 category,Home & Utilities,2400,,,,,,,,,,,,,,,,
 category,Transportation,1500,,,,,,,,,,,,,,,,
@@ -21,3 +8,18 @@ credit_card,Quicksilver Capital One,,,,1200,3000,24.99,2026-09-05,,,,,,,,,,
 bill,Electric Bill,145,,,,,,2026-08-15,,1,monthly,0,Home & Utilities,,,,,
 bill,Groceries,400,,,,,,2026-08-20,,1,monthly,0,Food & Personal,,,,,
 paycheck,Builders FirstSource,,,,,,,,,,,,,,,,2026-07-24,3399.99
+#
+# RETTEEE CreditIntel Setup Template
+# Delete or edit the example rows above, then upload this file in Getting Started.
+#
+# The "type" column tells the app where each row goes:
+#   category     -> name, amount (monthly limit), notes
+#   payee        -> name, category, notes, website
+#   bank_account -> name, institution, last4, balance, account_type, website, notes
+#   credit_card  -> name, institution, last4, balance, limit, apr, due_date, website, notes
+#   bill         -> name, amount, due_date, category, is_recurring, recurrence_type, is_paid, notes
+#   paycheck     -> name, check_date, net_pay, company, notes
+#
+# Leave unused columns blank. For bills, the "category" column links the bill
+# to a matching category (it is created if missing). Rows starting with "#"
+# are ignored. Only one data row set is imported per column layout.

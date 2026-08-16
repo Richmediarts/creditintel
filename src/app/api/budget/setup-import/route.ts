@@ -121,6 +121,8 @@ export async function POST(request: NextRequest) {
 
     for (const row of dataRows) {
       if (row.length === 0 || row.every((c) => !String(c).trim())) continue
+      const type0 = String(row[0] || '').trim()
+      if (type0.startsWith('#')) continue
       const get = (name: string): string => {
         const idx = col[name]
         return idx === undefined ? '' : str(row[idx])
