@@ -2,20 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { FileText, AlertCircle, Sun, Moon } from 'lucide-react'
+import { FileText, Sun, Moon } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useTheme } from '@/lib/theme-context'
 import { DashboardPage } from '@/components/dashboard/DashboardPage'
+import AuthForm from '@/components/auth/AuthForm'
 
 function LoginForm() {
   const router = useRouter()
-  const { login } = useAuth()
   const { darkMode, toggleDarkMode } = useTheme()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
   const [checkingSetup, setCheckingSetup] = useState(true)
 
   useEffect(() => {
@@ -27,17 +22,6 @@ function LoginForm() {
       })
       .catch(() => setCheckingSetup(false))
   }, [router])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setSubmitting(true)
-    const err = await login(email, password)
-    if (err) {
-      setError(err)
-      setSubmitting(false)
-    }
-  }
 
   if (checkingSetup) return null
 
@@ -60,55 +44,7 @@ function LoginForm() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Sign in to your account</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              {error}
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-base text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="you@example.com"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-base text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Enter your password"
-              required
-            />
-          </div>
-
-          <div className="flex items-center justify-between text-sm">
-            <Link href="/forgot-password" className="py-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">
-              Forgot password?
-            </Link>
-            <span className="text-gray-400 dark:text-gray-500">
-              Forgot email? Ask your admin
-            </span>
-          </div>
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-base font-medium rounded-lg transition-colors"
-          >
-            {submitting ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
+        <AuthForm initialMode="signin" />
       </div>
     </div>
   )
