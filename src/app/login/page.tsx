@@ -39,7 +39,7 @@ export default function LoginPage() {
       const data = await res.json()
       if (res.ok) {
         await login(email, password)
-        router.push('/')
+        router.push('/getting-started')
         return
       }
       setError(data.error || 'Registration failed')
@@ -155,16 +155,27 @@ export default function LoginPage() {
                 </button>
               </p>
             ) : (
-              <p className="text-gray-500 dark:text-gray-400">
-                Already have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => { setMode('signin'); setError('') }}
-                  className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
-                >
-                  Sign in
-                </button>
-              </p>
+              <>
+                <p className="text-gray-500 dark:text-gray-400">
+                  Already have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={() => { setMode('signin'); setError('') }}
+                    className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium"
+                  >
+                    Sign in
+                  </button>
+                </p>
+                <div className="mt-5 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 text-left">
+                  <p className="text-sm font-semibold text-blue-800 dark:text-blue-200 mb-2">New here? Here&apos;s how to get started</p>
+                  <ol className="list-decimal pl-4 text-xs text-blue-700 dark:text-blue-300 space-y-1 leading-relaxed">
+                    <li>Create your account, then use the <strong>Getting Started</strong> guide to set everything up.</li>
+                    <li>Upload your credit reports (free at annualcreditreport.com) to unlock the credit tools.</li>
+                    <li>Add your bank accounts, credit cards, bills, and categories—manually or via the spreadsheet template.</li>
+                    <li>Add paychecks so the budget knows your income and pay periods.</li>
+                  </ol>
+                </div>
+              </>
             )}
           </div>
         </form>

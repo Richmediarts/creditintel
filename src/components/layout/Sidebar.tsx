@@ -9,7 +9,7 @@ import {
   Sun, Moon, Menu, X, ChevronLeft, ChevronRight,
   Gavel, Shield, LogIn, LogOut, User, Activity, HelpCircle,
   Wallet, Banknote, Receipt, Landmark, CreditCard, Users, Tag,
-  PieChart, Target, FileUp, Plug, FolderArchive,
+  PieChart, Target, FileUp, Plug, FolderArchive, ListChecks,
 } from 'lucide-react'
 import { useCredit } from '@/lib/store/creditStore'
 import { useAuth } from '@/lib/auth-context'
@@ -41,6 +41,7 @@ const navItems = [
   { href: '/score-simulator', label: 'Score Simulator', icon: TrendingUp },
   { href: '/export', label: 'Export Center', icon: Download },
   { href: '/help', label: 'Help Guide', icon: HelpCircle },
+  { href: '/getting-started', label: 'Getting Started', icon: ListChecks },
 ]
 
 const budgetItems = [
