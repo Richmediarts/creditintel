@@ -852,7 +852,7 @@ export async function deleteModifiedIncome(userId: number, id: number): Promise<
 export async function getPayPeriodHistory(userId: number) {
   const db = getDb()
   const paychecks = (((await db.prepare('SELECT * FROM budget_paychecks WHERE user_id = ? ORDER BY check_date DESC').all(userId)) as (BudgetPaycheck & { id: number })[]).map((pc) => normalizePaycheckDates(pc as unknown as Record<string, unknown>) as unknown as BudgetPaycheck & { id: number }))
-  const periods: Record<string, { income: number; expenses: number; bills: BudgetBill[] }> = {}
+  const periods: Record<string, { income: number; expenses: number; dueExpenses: number; bills: BudgetBill[] }> = {}
 
   for (const pc of paychecks) {
     if (!pc.check_date) continue
@@ -868,10 +868,12 @@ export async function getPayPeriodHistory(userId: number) {
       ORDER BY b.due_date
     `).all(userId, periodKey, periodEnd)) as BudgetBill[]).map((b) => normalizeBillDates(b as unknown as Record<string, unknown>) as unknown as BudgetBill)
 
-    const expenses = bills.reduce((s, b) => s + (Number(b.amount) || 0), 0)
+    const expenses = bills.reduce((s, b) => s + (b.is_paid ? (Number(b.amount) || 0) : 0), 0)
+    const dueExpenses = bills.reduce((s, b) => s + (!b.is_paid ? (Number(b.amount) || 0) : 0), 0)
     periods[periodKey] = {
       income: pc.net_pay || 0,
       expenses,
+      dueExpenses,
       bills
     }
   }
