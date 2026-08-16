@@ -359,8 +359,9 @@ export default function InteractiveBudgetPage() {
   }
 
   const LF = filter.toLowerCase()
-  let totalInc = 0
-  let totalExp = 0
+  const totalInc = periods.reduce((s, p) => s + p.income.reduce((x, i) => x + (i.act || 0), 0), 0)
+  const totalExp = periods.reduce((s, p) => s + p.expenses.reduce((x, i) => x + (i.act || 0), 0), 0)
+  const netBal = totalInc - totalExp
 
   return (
     <div className="space-y-6">
@@ -388,7 +389,7 @@ export default function InteractiveBudgetPage() {
           <CardContent className="p-5 flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Income</p>
-              <p className="text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400" id="stat-total-income">$0.00</p>
+              <p className="text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400" id="stat-total-income">{fmt(totalInc)}</p>
             </div>
             <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400">
               <ArrowUpCircle className="w-5 h-5" />
@@ -399,7 +400,7 @@ export default function InteractiveBudgetPage() {
           <CardContent className="p-5 flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Expenses</p>
-              <p className="text-2xl font-bold mt-1 text-red-600 dark:text-red-400" id="stat-total-expenses">$0.00</p>
+              <p className="text-2xl font-bold mt-1 text-red-600 dark:text-red-400" id="stat-total-expenses">{fmt(totalExp)}</p>
             </div>
             <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400">
               <ArrowDownCircle className="w-5 h-5" />
@@ -410,7 +411,7 @@ export default function InteractiveBudgetPage() {
           <CardContent className="p-5 flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Net Balance</p>
-              <p className="text-2xl font-bold mt-1" id="stat-net-balance">$0.00</p>
+              <p className={`text-2xl font-bold mt-1 ${netBal >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`} id="stat-net-balance">{fmt(netBal)}</p>
             </div>
             <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
               <DollarSign className="w-5 h-5" />
@@ -444,8 +445,6 @@ export default function InteractiveBudgetPage() {
         const pIncAct = period.income.reduce((s, i) => s + i.act, 0)
         const pExpEst = period.expenses.reduce((s, i) => s + i.est, 0)
         const pExpAct = period.expenses.reduce((s, i) => s + i.act, 0)
-        totalInc += pIncAct
-        totalExp += pExpAct
 
         const filteredInc = period.income.filter((i) => !LF || i.label.toLowerCase().includes(LF))
         const filteredExp = period.expenses.filter((i) => !LF || i.label.toLowerCase().includes(LF))
@@ -722,24 +721,6 @@ export default function InteractiveBudgetPage() {
           </div>
         </div>
       )}
-
-      {/* Inject dynamic net balance color */}
-      <script dangerouslySetInnerHTML={{ __html: `
-        (function() {
-          var totalInc = ${totalInc};
-          var totalExp = ${totalExp};
-          var bal = totalInc - totalExp;
-          var el = document.getElementById('stat-net-balance');
-          if (el) {
-            el.textContent = '${fmt(totalInc - totalExp)}';
-            el.className = 'text-2xl font-bold mt-1 ' + (bal >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400');
-          }
-          var incEl = document.getElementById('stat-total-income');
-          if (incEl) incEl.textContent = '${fmt(totalInc)}';
-          var expEl = document.getElementById('stat-total-expenses');
-          if (expEl) expEl.textContent = '${fmt(totalExp)}';
-        })();
-      ` }} />
     </div>
   )
 }
