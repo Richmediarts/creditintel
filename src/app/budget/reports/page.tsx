@@ -231,7 +231,13 @@ export default function PayPeriodReportsPage() {
                                             <Clock className="w-4 h-4 text-amber-500 shrink-0" />
                                           )}
                                           <div className="min-w-0">
-                                            <p className="text-gray-800 dark:text-gray-200 truncate">{b.payee_name || 'Bill'}</p>
+                                            <Link
+                                              href={`/budget/bills?bill=${b.id}`}
+                                              className="inline-block max-w-full text-gray-800 dark:text-gray-200 truncate hover:text-blue-600 dark:hover:text-blue-400"
+                                              title="Open bill to mark paid or edit"
+                                            >
+                                              {b.payee_name || 'Bill'}
+                                            </Link>
                                             <p className={`text-xs ${b.is_paid ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
                                               {b.is_paid ? 'Paid' : 'Due'} · {shortDate(b.due_date)}{b.paid_date ? ` (paid ${shortDate(b.paid_date)})` : ''}
                                             </p>
