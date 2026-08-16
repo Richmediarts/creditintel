@@ -155,6 +155,8 @@ export default function InteractiveBudgetPage() {
   const [dateModalPeriodId, setDateModalPeriodId] = useState<number | null>(null)
   const [dateStart, setDateStart] = useState('')
   const [dateEnd, setDateEnd] = useState('')
+  const [openBillsFor, setOpenBillsFor] = useState<number | null>(null)
+  const billsMenuRef = useRef<HTMLDivElement>(null)
   const filterRef = useRef<HTMLInputElement>(null)
 
   const fetchData = useCallback(async () => {
@@ -234,12 +236,27 @@ export default function InteractiveBudgetPage() {
     if (!bill) return
     persist(periods.map((p) => {
       if (p.id !== pid) return p
+      const exists = p.expenses.some((x) => x.label.toLowerCase() === (bill.payee_name || 'unknown').toLowerCase())
+      if (exists) return p
       return {
         ...p,
         expenses: [...p.expenses, { id: genId(), label: bill.payee_name || 'Unknown', est: bill.amount || 0, act: 0 }],
       }
     }))
   }, [periods, bills, persist])
+
+  const addAllBillItems = useCallback((pid: number, billList: Bill[]) => {
+    persist(periods.map((p) => {
+      if (p.id !== pid) return p
+      const existingLabels = new Set(p.expenses.map((x) => x.label.toLowerCase()))
+      const toAdd = billList
+        .filter((b) => !existingLabels.has((b.payee_name || 'unknown').toLowerCase()))
+        .map((b) => ({ id: genId(), label: b.payee_name || 'Unknown', est: b.amount || 0, act: 0 }))
+      if (toAdd.length === 0) return p
+      return { ...p, expenses: [...p.expenses, ...toAdd] }
+    }))
+    setOpenBillsFor(null)
+  }, [periods, persist])
 
   const addPeriod = useCallback(() => {
     const newP: Period = {
@@ -305,6 +322,17 @@ export default function InteractiveBudgetPage() {
     }
     setDateModalPeriodId(null)
   }, [dateModalPeriodId, periods, persist])
+
+  useEffect(() => {
+    if (openBillsFor === null) return
+    const onClick = (e: MouseEvent) => {
+      if (billsMenuRef.current && !billsMenuRef.current.contains(e.target as Node)) {
+        setOpenBillsFor(null)
+      }
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [openBillsFor])
 
   const handleKeyNav = (e: React.KeyboardEvent<HTMLInputElement>, el: HTMLInputElement) => {
     if (e.key === 'Enter') {
@@ -548,20 +576,34 @@ export default function InteractiveBudgetPage() {
                     </h3>
                     <div className="flex items-center gap-2">
                       {periodBills.length > 0 && (
-                        <div className="relative group">
-                          <button className="text-xs text-blue-600 dark:text-blue-400 hover:underline">Bills ▾</button>
-                          <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10 hidden group-hover:block min-w-[200px] max-h-[300px] overflow-y-auto">
-                            {periodBills.map((b) => (
+                        <div className="relative" ref={billsMenuRef}>
+                          <button
+                            onClick={() => setOpenBillsFor(openBillsFor === period.id ? null : period.id)}
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+                          >
+                            Bills ▾
+                            <span className="rounded-full bg-blue-100 dark:bg-blue-900/40 px-1.5 text-[10px]">{periodBills.length}</span>
+                          </button>
+                          {openBillsFor === period.id && (
+                            <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20 min-w-[220px] max-h-[300px] overflow-y-auto">
                               <button
-                                key={b.id}
-                                onClick={() => addBillItem(period.id, b.id)}
-                                className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between gap-2"
+                                onClick={() => addAllBillItems(period.id, periodBills)}
+                                className="w-full text-left px-3 py-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700"
                               >
-                                <span className="truncate">{b.payee_name || 'Unknown'}</span>
-                                <span className="text-gray-400 shrink-0">{b.due_date ? b.due_date.slice(5) : ''} {fmt(b.amount)}</span>
+                                + Add All ({periodBills.length}) Bills
                               </button>
-                            ))}
-                          </div>
+                              {periodBills.map((b) => (
+                                <button
+                                  key={b.id}
+                                  onClick={() => { addBillItem(period.id, b.id); }}
+                                  className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between gap-2"
+                                >
+                                  <span className="truncate">{b.payee_name || 'Unknown'}</span>
+                                  <span className="text-gray-400 shrink-0">{b.due_date ? b.due_date.slice(5) : ''} {fmt(b.amount)}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       )}
                       <button onClick={() => addItem(period.id, 'expenses')} className="text-xs text-red-600 dark:text-red-400 hover:underline">+ Add</button>
