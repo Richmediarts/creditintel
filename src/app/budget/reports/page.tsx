@@ -27,6 +27,8 @@ interface PeriodData {
   expenses: number
   dueExpenses: number
   bills: BudgetBill[]
+  periodBegin: string
+  periodEnd: string
 }
 
 interface PayPeriodHistory {
@@ -88,7 +90,7 @@ export default function PayPeriodReportsPage() {
     const p = periods[key]
     const net = p.income - p.expenses
     return {
-      period: shortDate(key),
+      period: shortDate(key) + '\n' + shortDate(p.periodEnd),
       income: Number(p.income || 0).toFixed(2),
       'Bills Paid': Number(p.expenses || 0).toFixed(2),
       'Bills Due': Number(p.dueExpenses || 0).toFixed(2),
@@ -202,7 +204,10 @@ export default function PayPeriodReportsPage() {
                             <td className="py-2 pr-3 font-medium text-gray-900 dark:text-white">
                               <span className="inline-flex items-center gap-1">
                                 {isOpen ? <ChevronUp className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
-                                {shortDate(key)}
+                                <span className="flex flex-col">
+                                  <span>{shortDate(key)}</span>
+                                  <span className="text-xs font-normal text-gray-400">Pay period {shortDate(p.periodBegin)} – {shortDate(p.periodEnd)}</span>
+                                </span>
                               </span>
                             </td>
                             <td className="py-2 pr-3 text-right text-gray-700 dark:text-gray-300">{fmt(p.income)}</td>

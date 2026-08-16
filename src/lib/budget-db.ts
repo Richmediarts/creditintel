@@ -849,16 +849,29 @@ export async function deleteModifiedIncome(userId: number, id: number): Promise<
 }
 
 // Pay Period History
+function addDays(iso: string, days: number): string {
+  const d = new Date(iso + 'T00:00:00')
+  if (isNaN(d.getTime())) return iso
+  d.setDate(d.getDate() + days)
+  return d.toISOString().split('T')[0]
+}
+
 export async function getPayPeriodHistory(userId: number) {
   const db = getDb()
   const paychecks = (((await db.prepare('SELECT * FROM budget_paychecks WHERE user_id = ? ORDER BY check_date DESC').all(userId)) as (BudgetPaycheck & { id: number })[]).map((pc) => normalizePaycheckDates(pc as unknown as Record<string, unknown>) as unknown as BudgetPaycheck & { id: number }))
-  const periods: Record<string, { income: number; expenses: number; dueExpenses: number; bills: BudgetBill[] }> = {}
+  const periods: Record<string, { income: number; expenses: number; dueExpenses: number; bills: BudgetBill[]; periodBegin: string; periodEnd: string }> = {}
 
   for (const pc of paychecks) {
     if (!pc.check_date) continue
     const periodKey = pc.check_date
-    const nextPc = paychecks.find(p => p.check_date && p.check_date < periodKey)
-    const periodEnd = nextPc ? nextPc.check_date : new Date().toISOString().split('T')[0]
+
+    // The pay period this paycheck covers: prefer the stored pay-period dates,
+    // otherwise fall back to the paycheck date and the following 14 days.
+    let periodBegin = pc.pay_period_begin || pc.check_date
+    let periodEnd = pc.pay_period_end || addDays(periodKey, 13)
+    // Extend the expense window through the NEXT two-week period
+    // (pay period end + 14 days) so bills due shortly after payday are captured.
+    const windowEnd = addDays(periodEnd, 14)
 
     const bills = ((await db.prepare(`
       SELECT b.*, COALESCE(b.payee_name, p.name) as payee_name
@@ -866,7 +879,7 @@ export async function getPayPeriodHistory(userId: number) {
       LEFT JOIN budget_payees p ON b.payee_id = p.id
       WHERE b.user_id = ? AND b.due_date >= ? AND b.due_date <= ?
       ORDER BY b.due_date
-    `).all(userId, periodKey, periodEnd)) as BudgetBill[]).map((b) => normalizeBillDates(b as unknown as Record<string, unknown>) as unknown as BudgetBill)
+    `).all(userId, periodBegin, windowEnd)) as BudgetBill[]).map((b) => normalizeBillDates(b as unknown as Record<string, unknown>) as unknown as BudgetBill)
 
     const expenses = bills.reduce((s, b) => s + (b.is_paid ? (Number(b.amount) || 0) : 0), 0)
     const dueExpenses = bills.reduce((s, b) => s + (!b.is_paid ? (Number(b.amount) || 0) : 0), 0)
@@ -874,7 +887,9 @@ export async function getPayPeriodHistory(userId: number) {
       income: pc.net_pay || 0,
       expenses,
       dueExpenses,
-      bills
+      bills,
+      periodBegin,
+      periodEnd,
     }
   }
 
