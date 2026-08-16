@@ -49,10 +49,12 @@ export default function PayPeriodReportsPage() {
   const router = useRouter()
   const [data, setData] = useState<PayPeriodHistory | null>(null)
   const [loading, setLoading] = useState(true)
+  const [group, setGroup] = useState<'weekly' | 'biweekly' | 'monthly'>('biweekly')
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  const fetchData = useCallback(async () => {
-    const res = await fetch('/api/budget/pay-period-history')
+  const fetchData = useCallback(async (g: string) => {
+    setLoading(true)
+    const res = await fetch(`/api/budget/pay-period-history?group=${g}`)
     if (res.ok) {
       const json = await res.json()
       setData(json)
@@ -62,8 +64,8 @@ export default function PayPeriodReportsPage() {
 
   useEffect(() => {
     if (!authLoading && !user) { router.push('/login'); return }
-    if (user) fetchData()
-  }, [user, authLoading, fetchData])
+    if (user) fetchData(group)
+  }, [user, authLoading, fetchData, group])
 
   const toggleExpanded = (key: string) => {
     setExpanded((prev) => {
@@ -112,6 +114,23 @@ export default function PayPeriodReportsPage() {
         <Link href="/budget">
           <Button variant="secondary" size="sm"><ArrowLeft className="w-4 h-4 mr-2" /> Back to Dashboard</Button>
         </Link>
+      </div>
+
+      {/* Grouping filter */}
+      <div className="flex items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-700 p-1 w-fit">
+        {(['weekly', 'biweekly', 'monthly'] as const).map((g) => (
+          <button
+            key={g}
+            onClick={() => setGroup(g)}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium capitalize transition-colors ${
+              group === g
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+          >
+            {g}
+          </button>
+        ))}
       </div>
 
       {sortedKeys.length === 0 ? (

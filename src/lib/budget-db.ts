@@ -856,40 +856,102 @@ function addDays(iso: string, days: number): string {
   return d.toISOString().split('T')[0]
 }
 
-export async function getPayPeriodHistory(userId: number) {
+export type PayPeriodGroup = 'weekly' | 'biweekly' | 'monthly'
+
+export async function getPayPeriodHistory(userId: number, group: PayPeriodGroup = 'biweekly') {
   const db = getDb()
-  const paychecks = (((await db.prepare('SELECT * FROM budget_paychecks WHERE user_id = ? ORDER BY check_date DESC').all(userId)) as (BudgetPaycheck & { id: number })[]).map((pc) => normalizePaycheckDates(pc as unknown as Record<string, unknown>) as unknown as BudgetPaycheck & { id: number }))
+  const paychecks = (((await db.prepare('SELECT * FROM budget_paychecks WHERE user_id = ? ORDER BY check_date ASC').all(userId)) as (BudgetPaycheck & { id: number })[]).map((pc) => normalizePaycheckDates(pc as unknown as Record<string, unknown>) as unknown as BudgetPaycheck & { id: number })).filter((pc) => pc.check_date)
   const periods: Record<string, { income: number; expenses: number; dueExpenses: number; bills: BudgetBill[]; periodBegin: string; periodEnd: string }> = {}
 
+  if (paychecks.length === 0) return periods
+
+  if (group === 'biweekly') {
+    // Biweekly: one period per paycheck, with a window covering the pay
+    // period plus the NEXT two-week period so bills due shortly after
+    // payday are captured.
+    for (const pc of paychecks) {
+      const periodKey = pc.check_date as string
+      let periodBegin = pc.pay_period_begin || periodKey
+      let periodEnd = pc.pay_period_end || addDays(periodKey, 13)
+      const windowEnd = addDays(periodEnd, 14)
+
+      const bills = ((await db.prepare(`
+        SELECT b.*, COALESCE(b.payee_name, p.name) as payee_name
+        FROM budget_bills b
+        LEFT JOIN budget_payees p ON b.payee_id = p.id
+        WHERE b.user_id = ? AND b.due_date >= ? AND b.due_date <= ?
+        ORDER BY b.due_date
+      `).all(userId, periodBegin, windowEnd)) as BudgetBill[]).map((b) => normalizeBillDates(b as unknown as Record<string, unknown>) as unknown as BudgetBill)
+
+      const expenses = bills.reduce((s, b) => s + (b.is_paid ? (Number(b.amount) || 0) : 0), 0)
+      const dueExpenses = bills.reduce((s, b) => s + (!b.is_paid ? (Number(b.amount) || 0) : 0), 0)
+      periods[periodKey] = {
+        income: pc.net_pay || 0,
+        expenses,
+        dueExpenses,
+        bills,
+        periodBegin,
+        periodEnd,
+      }
+    }
+    return periods
+  }
+
+  // Weekly / monthly: bucket income (by check date) and bills (by due date)
+  // into consecutive time windows spanning the paycheck history.
+  let start = paychecks[0].check_date as string
+  let end = start
   for (const pc of paychecks) {
-    if (!pc.check_date) continue
-    const periodKey = pc.check_date
+    const pb = pc.pay_period_begin || (pc.check_date as string)
+    const pe = pc.pay_period_end || addDays(pc.check_date as string, 13)
+    if (pb < start) start = pb
+    const windowEnd = addDays(pe, 14)
+    if (windowEnd > end) end = windowEnd
+  }
 
-    // The pay period this paycheck covers: prefer the stored pay-period dates,
-    // otherwise fall back to the paycheck date and the following 14 days.
-    let periodBegin = pc.pay_period_begin || pc.check_date
-    let periodEnd = pc.pay_period_end || addDays(periodKey, 13)
-    // Extend the expense window through the NEXT two-week period
-    // (pay period end + 14 days) so bills due shortly after payday are captured.
-    const windowEnd = addDays(periodEnd, 14)
+  const buckets: { begin: string; end: string }[] = []
+  if (group === 'monthly') {
+    let cur = start.slice(0, 7) + '-01'
+    while (cur <= end) {
+      const nextMonth = addDays(cur, 32).slice(0, 7) + '-01'
+      const last = addDays(nextMonth, -1)
+      buckets.push({ begin: cur, end: last > end ? end : last })
+      cur = nextMonth
+    }
+  } else {
+    // weekly: consecutive 7-day windows
+    for (let i = 0; ; i++) {
+      const bBegin = addDays(start, i * 7)
+      if (bBegin > end) break
+      const bEnd = addDays(start, i * 7 + 6)
+      buckets.push({ begin: bBegin, end: bEnd > end ? end : bEnd })
+    }
+  }
 
+  for (const b of buckets) {
+    const income = paychecks
+      .filter((pc) => (pc.check_date as string) >= b.begin && (pc.check_date as string) <= b.end)
+      .reduce((s, pc) => s + (pc.net_pay || 0), 0)
     const bills = ((await db.prepare(`
       SELECT b.*, COALESCE(b.payee_name, p.name) as payee_name
       FROM budget_bills b
       LEFT JOIN budget_payees p ON b.payee_id = p.id
       WHERE b.user_id = ? AND b.due_date >= ? AND b.due_date <= ?
       ORDER BY b.due_date
-    `).all(userId, periodBegin, windowEnd)) as BudgetBill[]).map((b) => normalizeBillDates(b as unknown as Record<string, unknown>) as unknown as BudgetBill)
+    `).all(userId, b.begin, b.end)) as BudgetBill[]).map((bill) => normalizeBillDates(bill as unknown as Record<string, unknown>) as unknown as BudgetBill)
 
-    const expenses = bills.reduce((s, b) => s + (b.is_paid ? (Number(b.amount) || 0) : 0), 0)
-    const dueExpenses = bills.reduce((s, b) => s + (!b.is_paid ? (Number(b.amount) || 0) : 0), 0)
-    periods[periodKey] = {
-      income: pc.net_pay || 0,
+    // Skip empty buckets so the report stays focused on periods with activity.
+    if (income <= 0 && bills.length === 0) continue
+
+    const expenses = bills.reduce((s, x) => s + (x.is_paid ? (Number(x.amount) || 0) : 0), 0)
+    const dueExpenses = bills.reduce((s, x) => s + (!x.is_paid ? (Number(x.amount) || 0) : 0), 0)
+    periods[b.begin] = {
+      income: Number(income.toFixed(2)),
       expenses,
       dueExpenses,
       bills,
-      periodBegin,
-      periodEnd,
+      periodBegin: b.begin,
+      periodEnd: b.end,
     }
   }
 
