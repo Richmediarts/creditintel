@@ -561,6 +561,11 @@ export async function getBankAccount(userId: number, id: number): Promise<Budget
   return ((await db.prepare('SELECT * FROM budget_bank_accounts WHERE user_id = ? AND id = ?').get(userId, id)) as BudgetBankAccount | undefined) ?? null
 }
 
+export async function getBankAccountByPlaidAccountId(userId: number, plaidAccountId: string): Promise<BudgetBankAccount | null> {
+  const db = getDb()
+  return ((await db.prepare('SELECT * FROM budget_bank_accounts WHERE user_id = ? AND plaid_account_id = ?').get(userId, plaidAccountId)) as BudgetBankAccount | undefined) ?? null
+}
+
 export async function addBankAccount(userId: number, data: Partial<BudgetBankAccount>): Promise<number> {
   const db = getDb()
   const result = await db.prepare(
@@ -634,6 +639,11 @@ export async function getCreditCard(userId: number, id: number): Promise<BudgetC
   const row = ((await db.prepare('SELECT * FROM budget_credit_cards WHERE user_id = ? AND id = ?').get(userId, id)) as BudgetCreditCard | undefined) ?? null
   if (row && row.due_date) row.due_date = toDateString(row.due_date) || row.due_date
   return row
+}
+
+export async function getCreditCardByPlaidAccountId(userId: number, plaidAccountId: string): Promise<BudgetCreditCard | null> {
+  const db = getDb()
+  return ((await db.prepare('SELECT * FROM budget_credit_cards WHERE user_id = ? AND plaid_account_id = ?').get(userId, plaidAccountId)) as BudgetCreditCard | undefined) ?? null
 }
 
 export async function addCreditCard(userId: number, data: Partial<BudgetCreditCard>): Promise<number> {
@@ -724,6 +734,7 @@ export async function getBill(userId: number, id: number): Promise<BudgetBill | 
 
 export async function addBill(userId: number, data: Partial<BudgetBill>): Promise<number> {
   const db = getDb()
+  const today = new Date().toISOString().split('T')[0]
   const result = await db.prepare(
     'INSERT INTO budget_bills (user_id, payee_id, payee_name, amount, due_date, is_paid, paid_date, is_recurring, recurrence_type, notes, category_id, account, credit_card_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id'
   ).run(
@@ -731,7 +742,7 @@ export async function addBill(userId: number, data: Partial<BudgetBill>): Promis
     data.payee_id || null,
     data.payee_name || '',
     data.amount || 0,
-    data.due_date || '',
+    data.due_date || today,
     data.is_paid || 0,
     data.paid_date || null,
     data.is_recurring || 0,
@@ -1014,6 +1025,11 @@ export async function clearAllTransactions(userId: number) {
 // Plaid Items
 export async function addPlaidItem(userId: number, accessToken: string, itemId: string, institutionName: string) {
   const db = getDb()
+  const existing = (await db.prepare('SELECT id FROM budget_plaid_items WHERE user_id = ? AND item_id = ?').get(userId, itemId)) as { id: number } | undefined
+  if (existing) {
+    await db.prepare('UPDATE budget_plaid_items SET access_token = ?, institution_name = ? WHERE id = ?').run(accessToken, institutionName, existing.id)
+    return Number(existing.id)
+  }
   const result = await db.prepare('INSERT INTO budget_plaid_items (user_id, access_token, item_id, institution_name) VALUES (?, ?, ?, ?) RETURNING id').run(userId, accessToken, itemId, institutionName)
   return Number(result.lastInsertRowid)
 }

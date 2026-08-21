@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { getDb } from '@/lib/db'
 import { Configuration, PlaidApi, PlaidEnvironments, ItemPublicTokenExchangeRequest, AccountsGetRequest, TransactionsSyncRequest } from 'plaid'
-import { addPlaidItem, addBankAccount, addCreditCard, addBill, addPayee, getPayeeByName, getAccountsByPlaidItem, upsertPlaidTransaction, updatePlaidCursor, deletePlaidTransaction } from '@/lib/budget-db'
+import { addPlaidItem, addBankAccount, addCreditCard, addBill, addPayee, getPayeeByName, getAccountsByPlaidItem, getBankAccountByPlaidAccountId, getCreditCardByPlaidAccountId, upsertPlaidTransaction, updatePlaidCursor, deletePlaidTransaction, updateBankAccount, updateCreditCard } from '@/lib/budget-db'
 import fs from 'fs'
 import path from 'path'
 
@@ -106,7 +106,8 @@ export async function POST(request: NextRequest) {
       const plaidAccountId = acct.account_id
 
       if (acctType === 'depository' || acctType === 'investment') {
-        await addBankAccount(user.userId, {
+        const existingBank = await getBankAccountByPlaidAccountId(user.userId, plaidAccountId)
+        const bankData = {
           name: institutionName || name,
           account_type: acctSubtype || (acctType === 'investment' ? 'investment' : 'checking'),
           institution: institutionName,
@@ -115,40 +116,63 @@ export async function POST(request: NextRequest) {
           website: '',
           plaid_account_id: plaidAccountId,
           plaid_item_id: itemPk,
-        })
+        }
+        if (existingBank) {
+          await updateBankAccount(user.userId, existingBank.id, { ...bankData, is_active: existingBank.is_active, is_income_account: existingBank.is_income_account, interest_rate: existingBank.interest_rate })
+        } else {
+          await addBankAccount(user.userId, bankData)
+        }
         created.push({ type: 'bank', name: institutionName || name })
       } else if (acctType === 'credit') {
-        const cardId = await addCreditCard(user.userId, {
-          name: institutionName || name,
-          last_four: mask,
-          institution: institutionName,
-          credit_limit: limitVal,
-          current_balance: balance,
-          interest_rate: 0,
-          due_date: '',
-          plaid_account_id: plaidAccountId,
-          plaid_item_id: itemPk,
-        })
-        if (institutionName || name) {
-          const payeeName = institutionName || name
-          const existingPayee = await getPayeeByName(user.userId, payeeName)
-          const payeeId = existingPayee ? existingPayee.id : await addPayee(user.userId, { name: payeeName })
-          await addBill(user.userId, {
-            payee_id: payeeId,
-            payee_name: payeeName,
-            amount: balance,
-            due_date: '',
-            is_paid: 0,
-            is_recurring: 1,
-            recurrence_type: 'monthly',
-            notes: `Credit Card Payment - ${payeeName}`,
-            credit_card_id: cardId,
-            account: payeeName,
+        const existingCard = await getCreditCardByPlaidAccountId(user.userId, plaidAccountId)
+        let cardId: number
+        if (existingCard) {
+          await updateCreditCard(user.userId, existingCard.id, {
+            name: institutionName || name,
+            last_four: mask,
+            institution: institutionName,
+            credit_limit: limitVal,
+            current_balance: balance,
+            due_date: existingCard.due_date || '',
+            website: existingCard.website || '',
+            plaid_account_id: plaidAccountId,
+            plaid_item_id: itemPk,
           })
+          cardId = existingCard.id
+        } else {
+          cardId = await addCreditCard(user.userId, {
+            name: institutionName || name,
+            last_four: mask,
+            institution: institutionName,
+            credit_limit: limitVal,
+            current_balance: balance,
+            interest_rate: 0,
+            due_date: '',
+            plaid_account_id: plaidAccountId,
+            plaid_item_id: itemPk,
+          })
+          if (institutionName || name) {
+            const payeeName = institutionName || name
+            const existingPayee = await getPayeeByName(user.userId, payeeName)
+            const payeeId = existingPayee ? existingPayee.id : await addPayee(user.userId, { name: payeeName })
+            await addBill(user.userId, {
+              payee_id: payeeId,
+              payee_name: payeeName,
+              amount: balance,
+              due_date: new Date().toISOString().split('T')[0],
+              is_paid: 0,
+              is_recurring: 1,
+              recurrence_type: 'monthly',
+              notes: `Credit Card Payment - ${payeeName}`,
+              credit_card_id: cardId,
+              account: payeeName,
+            })
+          }
         }
         created.push({ type: 'credit', name: institutionName || name })
       } else if (acctType === 'loan') {
-        await addBankAccount(user.userId, {
+        const existingLoan = await getBankAccountByPlaidAccountId(user.userId, plaidAccountId)
+        const loanData = {
           name: institutionName || name,
           account_type: 'loan',
           institution: institutionName,
@@ -157,7 +181,12 @@ export async function POST(request: NextRequest) {
           website: '',
           plaid_account_id: plaidAccountId,
           plaid_item_id: itemPk,
-        })
+        }
+        if (existingLoan) {
+          await updateBankAccount(user.userId, existingLoan.id, { ...loanData, is_active: existingLoan.is_active, is_income_account: existingLoan.is_income_account, interest_rate: existingLoan.interest_rate })
+        } else {
+          await addBankAccount(user.userId, loanData)
+        }
         created.push({ type: 'bank', name: institutionName || name })
       }
     }
