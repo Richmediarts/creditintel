@@ -173,8 +173,9 @@ export default function BankAccountsPage() {
       const data = await res.json()
       if (res.ok) {
         const ok = data.results?.filter((r: { status: string }) => r.status === 'ok').length || 0
-        const fail = data.results?.filter((r: { status: string }) => r.status !== 'ok').length || 0
-        setSyncMessage(`Synced ${ok} institution${ok !== 1 ? 's' : ''}${fail ? ` (${fail} failed)` : ''}`)
+        const fail = data.results?.filter((r: { status: string }) => r.status === 'error').length || 0
+        const skipped = data.results?.filter((r: { status: string }) => r.status === 'skipped').length || 0
+        setSyncMessage(`Synced ${ok} institution${ok !== 1 ? 's' : ''}${fail ? ` (${fail} failed)` : ''}${skipped ? ` (${skipped} disconnected, ignored)` : ''}`)
         await fetchAccounts()
       } else {
         setError(data.error || 'Sync failed')

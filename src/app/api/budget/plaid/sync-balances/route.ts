@@ -76,7 +76,12 @@ export async function POST(request: NextRequest) {
         }
         results.push({ item: item.institution_name || '', status: 'ok' })
       } catch (e: unknown) {
-        results.push({ item: item.institution_name || '', status: 'error', error: e instanceof Error ? e.message : String(e) })
+        const plaidCode = (e as { response?: { data?: { error_code?: string } } })?.response?.data?.error_code
+        if (plaidCode === 'NO_ACCOUNTS') {
+          results.push({ item: item.institution_name || '', status: 'skipped' })
+        } else {
+          results.push({ item: item.institution_name || '', status: 'error', error: e instanceof Error ? e.message : String(e) })
+        }
       }
     }
 
