@@ -63,8 +63,11 @@ export async function POST(request: NextRequest) {
         const res = await client.accountsBalanceGet(req)
         for (const acct of res.data.accounts) {
           const aid = acct.account_id
-          const balance = acct.balances?.current || 0
-          const limitVal = acct.balances?.limit || 0
+          const balances = acct.balances || {}
+          const balance = acct.type === 'depository'
+            ? (balances.available ?? balances.current ?? 0)
+            : (balances.current ?? 0)
+          const limitVal = balances.limit || 0
 
           const updated = await db.run('UPDATE budget_bank_accounts SET current_balance = ?, last_synced_at = CURRENT_TIMESTAMP WHERE user_id = ? AND plaid_account_id = ?', [balance, user.userId, aid])
           if (updated.changes === 0) {
