@@ -436,7 +436,8 @@ function BillsContent() {
           Category: {group.title}
         </p>
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <table className="w-full text-left">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-800/60 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 <th className="py-2 px-3 font-medium">Payee</th>
@@ -457,7 +458,8 @@ function BillsContent() {
                 <td />
               </tr>
             </tfoot>
-          </table>
+            </table>
+          </div>
         </div>
       </div>
     )
@@ -615,7 +617,8 @@ function BillsContent() {
                     Category: Other Bills
                   </p>
                   <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-                    <table className="w-full text-left">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
                       <thead>
                         <tr className="bg-gray-50 dark:bg-gray-800/60 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
                           <th className="py-2 px-3 font-medium">Payee</th>
@@ -634,7 +637,8 @@ function BillsContent() {
                           <td />
                         </tr>
                       </tfoot>
-                    </table>
+                      </table>
+                    </div>
                   </div>
                 </div>
               )}

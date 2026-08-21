@@ -241,8 +241,15 @@ export function Header({ setMobileOpen }: { setMobileOpen: (v: boolean) => void 
           {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           <span className="hidden sm:inline">{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
         </button>
-        <span className="text-sm text-gray-500 dark:text-gray-400">
-          {user ? `${user.name} — Credit Intelligence Dashboard` : 'Credit Intelligence Dashboard'}
+        <span className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[40vw] sm:max-w-none">
+          {user ? (
+            <>
+              {user.name}
+              <span className="hidden md:inline"> — Credit Intelligence Dashboard</span>
+            </>
+          ) : (
+            'Credit Intelligence Dashboard'
+          )}
         </span>
       </div>
     </header>

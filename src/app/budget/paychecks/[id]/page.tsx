@@ -270,7 +270,7 @@ export default function PaycheckViewPage() {
                 <h2 className="font-mono text-[10px] uppercase tracking-widest text-[#6b6558]">Earnings</h2>
                 <div className="flex-1 h-px bg-[#d8d3c8]" />
               </div>
-              <table className="w-full text-xs">
+              <div className="overflow-x-auto"><table className="w-full text-xs">
                 <thead>
                   <tr className="text-[10px] uppercase tracking-widest text-[#6b6558] border-b border-[#d8d3c8]">
                     <th className="text-left py-1.5 pr-2 font-medium">Description</th>
@@ -298,7 +298,7 @@ export default function PaycheckViewPage() {
                     <td className="text-right py-1.5 px-2 font-mono font-semibold text-[#1a1814] border-t-2 border-[#1a1814]">{fmt(pc.gross_pay)}</td>
                   </tr>
                 </tfoot>
-              </table>
+              </table></div>
             </div>
 
             {/* Deductions two-col */}
@@ -309,7 +309,7 @@ export default function PaycheckViewPage() {
                   <div className="flex-1 h-px bg-[#d8d3c8]" />
                   <span className="font-mono text-[10px] uppercase px-2 py-0.5 rounded-full bg-[#f9ece8] text-[#c8401a] font-semibold">Pre-Tax</span>
                 </div>
-                <table className="w-full text-xs">
+                <div className="overflow-x-auto"><table className="w-full text-xs">
                   <thead>
                     <tr className="text-[10px] uppercase tracking-widest text-[#6b6558] border-b border-[#d8d3c8]">
                       <th className="text-left py-1.5 pr-2 font-medium">Description</th>
@@ -332,7 +332,7 @@ export default function PaycheckViewPage() {
                       <td className="text-right py-1.5 px-2 font-mono font-semibold border-t-2 border-[#1a1814]">{fmt(pc.pre_tax_deductions)}</td>
                     </tr>
                   </tfoot>
-                </table>
+                </table></div>
               </div>
 
               <div>
@@ -341,7 +341,7 @@ export default function PaycheckViewPage() {
                   <div className="flex-1 h-px bg-[#d8d3c8]" />
                   <span className="font-mono text-[10px] uppercase px-2 py-0.5 rounded-full bg-[#e8eef5] text-[#1a3a6b] font-semibold">Post-Tax</span>
                 </div>
-                <table className="w-full text-xs">
+                <div className="overflow-x-auto"><table className="w-full text-xs">
                   <thead>
                     <tr className="text-[10px] uppercase tracking-widest text-[#6b6558] border-b border-[#d8d3c8]">
                       <th className="text-left py-1.5 pr-2 font-medium">Description</th>
@@ -364,7 +364,7 @@ export default function PaycheckViewPage() {
                       <td className="text-right py-1.5 px-2 font-mono font-semibold border-t-2 border-[#1a1814]">{fmt(pc.post_tax_deductions)}</td>
                     </tr>
                   </tfoot>
-                </table>
+                </table></div>
               </div>
             </div>
 
@@ -374,7 +374,7 @@ export default function PaycheckViewPage() {
                 <h2 className="font-mono text-[10px] uppercase tracking-widest text-[#6b6558]">Employee Taxes</h2>
                 <div className="flex-1 h-px bg-[#d8d3c8]" />
               </div>
-              <table className="w-full text-xs">
+              <div className="overflow-x-auto"><table className="w-full text-xs">
                 <thead>
                   <tr className="text-[10px] uppercase tracking-widest text-[#6b6558] border-b border-[#d8d3c8]">
                     <th className="text-left py-1.5 pr-2 font-medium">Description</th>
@@ -397,7 +397,7 @@ export default function PaycheckViewPage() {
                     <td className="text-right py-1.5 px-2 font-mono font-semibold border-t-2 border-[#1a1814]">{fmt(pc.employee_taxes)}</td>
                   </tr>
                 </tfoot>
-              </table>
+              </table></div>
             </div>
 
             {/* Direct deposit */}

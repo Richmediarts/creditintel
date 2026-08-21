@@ -494,6 +494,7 @@ export default function InteractiveBudgetPage() {
                     </h3>
                     <button onClick={() => addItem(period.id, 'income')} className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline">+ Add</button>
                   </div>
+                  <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-xs text-gray-400 border-b border-gray-100 dark:border-gray-700">
@@ -563,8 +564,9 @@ export default function InteractiveBudgetPage() {
                         <td className={`px-2 py-2 text-sm text-right ${pIncAct - pIncEst >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>{fmt(pIncAct - pIncEst)}</td>
                         <td></td>
                       </tr>
-                    </tfoot>
+                     </tfoot>
                   </table>
+                  </div>
                 </div>
 
                 {/* Expenses */}
@@ -608,6 +610,7 @@ export default function InteractiveBudgetPage() {
                       <button onClick={() => addItem(period.id, 'expenses')} className="text-xs text-red-600 dark:text-red-400 hover:underline">+ Add</button>
                     </div>
                   </div>
+                  <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="text-xs text-gray-400 border-b border-gray-100 dark:border-gray-700">
@@ -678,8 +681,9 @@ export default function InteractiveBudgetPage() {
                         <td className={`px-2 py-2 text-sm text-right ${pExpEst - pExpAct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>{fmt(pExpEst - pExpAct)}</td>
                         <td></td>
                       </tr>
-                    </tfoot>
+                     </tfoot>
                   </table>
+                  </div>
                 </div>
               </div>
             </CardContent>

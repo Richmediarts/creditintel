@@ -209,7 +209,7 @@ export default function BankAccountsPage() {
         const groupWebsite = groupAccounts.find((a) => a.website)?.website || ''
         return (
           <div key={groupName}>
-            <div className="flex items-center justify-between mb-2 px-1">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-2 px-1">
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                 {groupWebsite ? (
                   <a
@@ -225,7 +225,7 @@ export default function BankAccountsPage() {
                   groupName
                 )}
               </h3>
-              <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
                 <span>{groupAccounts.length} account{groupAccounts.length !== 1 ? 's' : ''}</span>
                 <span>Bal: {fmt(groupTotal)}</span>
               </div>
@@ -233,14 +233,15 @@ export default function BankAccountsPage() {
             <div className="space-y-3">
               {groupAccounts.map((account) => (
                 <Card key={account.id} className="hover:shadow-md transition-shadow">
-          <CardContent className="p-4 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4 flex-1 min-w-0">
-              <div className={`p-2.5 rounded-lg ${account.is_income_account ? 'bg-green-100 dark:bg-green-900/40' : 'bg-gray-100 dark:bg-gray-800'}`}>
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
+              <div className={`p-2.5 rounded-lg shrink-0 ${account.is_income_account ? 'bg-green-100 dark:bg-green-900/40' : 'bg-gray-100 dark:bg-gray-800'}`}>
                 {accountIcon(account)}
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold text-gray-900 dark:text-white truncate">{account.name}</p>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <p className="font-semibold text-gray-900 dark:text-white truncate max-w-full">{account.name}</p>
                   {account.is_income_account === 1 && (
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400">
                       Income
@@ -252,16 +253,14 @@ export default function BankAccountsPage() {
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {account.institution && (
-                    <span>
-                      {account.website ? (
-                        <a href={normalizeUrl(account.website)} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">{account.institution}</a>
-                      ) : (
-                        account.institution
-                      )}
-                    </span>
-                  )}
+                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                  {account.institution ? (
+                    account.website ? (
+                      <a href={normalizeUrl(account.website)} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">{account.institution}</a>
+                    ) : (
+                      account.institution
+                    )
+                  ) : null}
                   {account.institution && account.account_number_last4 && <span className="mx-1">&middot;</span>}
                   {account.account_number_last4 && <span>****{account.account_number_last4}</span>}
                   {!account.institution && !account.account_number_last4 && (
@@ -270,81 +269,86 @@ export default function BankAccountsPage() {
                   {account.institution && !account.account_number_last4 && (
                     <span className="ml-1 capitalize">&middot; {account.account_type}</span>
                   )}
-                  {formatSyncedAt(account.last_synced_at) && (
-                    <span className="ml-2 text-xs text-emerald-600 dark:text-emerald-400">
-                      &#183; Last synced {formatSyncedAt(account.last_synced_at)}
-                    </span>
-                  )}
                 </p>
+                {formatSyncedAt(account.last_synced_at) && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">
+                    Last synced {formatSyncedAt(account.last_synced_at)}
+                  </p>
+                )}
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between gap-3 sm:justify-end shrink-0">
               {/* Balance / Edit */}
               {editingId === account.id ? (
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <input
-                    type="text"
-                    value={editInstitution}
-                    onChange={(e) => setEditInstitution(e.target.value)}
-                    placeholder="Institution"
-                    className="w-full sm:w-36 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <input
-                    type="text"
-                    value={editWebsite}
-                    onChange={(e) => setEditWebsite(e.target.value)}
-                    placeholder="URL"
-                    className="w-full sm:w-36 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={editBalance}
-                    onChange={(e) => setEditBalance(e.target.value)}
-                    className="w-full sm:w-28 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-sm text-right text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                <div className="flex items-center gap-1">
                   <button
                     onClick={() => saveEdit(account.id)}
-                    className="p-1 text-green-600 hover:text-green-700 dark:text-green-400"
+                    className="p-1.5 text-green-600 hover:text-green-700 dark:text-green-400 rounded"
                     title="Save"
                   >
                     <Wallet className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => setEditingId(null)}
-                    className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded"
                     title="Cancel"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               ) : (
-                <p className={`text-lg font-bold text-right min-w-[100px] ${account.current_balance < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
-                  {fmt(account.current_balance)}
-                </p>
-              )}
-
-              {/* Actions */}
-              {editingId !== account.id && (
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => startEdit(account)}
-                    className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
-                    title="Edit account"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => deleteAccount(account.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded"
-                    title="Delete account"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+                <>
+                  <p className={`text-lg font-bold text-right tabular-nums whitespace-nowrap ${account.current_balance < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
+                    {fmt(account.current_balance)}
+                  </p>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => startEdit(account)}
+                      className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
+                      title="Edit account"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => deleteAccount(account.id)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded"
+                      title="Delete account"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </>
               )}
             </div>
+            </div>
+
+            {/* Inline edit fields */}
+            {editingId === account.id && (
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_8rem] gap-2 w-full mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                <input
+                  type="text"
+                  value={editInstitution}
+                  onChange={(e) => setEditInstitution(e.target.value)}
+                  placeholder="Institution"
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                  type="text"
+                  value={editWebsite}
+                  onChange={(e) => setEditWebsite(e.target.value)}
+                  placeholder="URL"
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editBalance}
+                  onChange={(e) => setEditBalance(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-right text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            )}
           </CardContent>
                 </Card>
               ))}
@@ -364,7 +368,7 @@ export default function BankAccountsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
           <Landmark className="h-7 w-7 text-blue-600 dark:text-blue-400" />
