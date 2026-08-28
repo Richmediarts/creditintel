@@ -502,20 +502,46 @@ export function parsePaycheckText(rawText: string): ParsedPaycheck {
 
     // Account numbers (******1234). The doubled-glyph de-dup above may halve
     // the asterisk run ("******1234" -> "***1234"), so match 2+ stars.
+    // When a bank name and account appear on the same line, they belong
+    // together (e.g. "First Tech ******1475"); otherwise fall back to a
+    // first-available assignment.
     const accMatch = line.match(/\*{2,}(\d{4})/)
     if (accMatch) {
-      if (result.bank_name === 'PNC Bank' && !result.account_number) {
-        result.account_number = '****' + accMatch[1]
+      const acc = '****' + accMatch[1]
+      const hasFirstTech = /first tech|firsttech/.test(lineLower)
+      const hasPnc = lineLower.includes('pnc')
+      if (hasFirstTech && !result.account2_number) {
+        result.account2_number = acc
+      } else if (hasPnc && !result.account_number) {
+        result.account_number = acc
+      } else if (result.bank_name === 'PNC Bank' && !result.account_number) {
+        result.account_number = acc
       } else if (result.bank2_name && !result.account2_number) {
-        result.account2_number = '****' + accMatch[1]
+        result.account2_number = acc
       }
     }
   }
 
-  // Pass 5b: Fill missing deposit amounts. Bank names and their amounts often
-  // sit on separate lines (e.g. "PNC Bank" / "Account ...****1475" /
-  // "$9,850.00 USD"), so associate the first standalone amount that follows
-  // each bank name with that deposit.
+  // Pass 5b: Fill missing deposit amounts. Two real-world formats:
+  //  1. Shared line with both deposits, no dollar sign, separated by "USD":
+  //        "3,349.98     USD 50.00     USD"  -> PNC=3349.98, First Tech=50.00
+  //  2. Amounts on their own line after each bank name:
+  //        "PNC Bank" / "Account ...****1475" / "$9,850.00 USD"
+  // For the shared line, order follows the bank order (PNC first, First Tech
+  // second). For separate lines, associate the first standalone amount that
+  // follows each bank name.
+  const sharedAmtLine = lines.find((l) => {
+    const money = l.match(/([\d,]+\.\d{2})/g)
+    return !!money && money.length >= 2 && /usd/i.test(l)
+  })
+  if (sharedAmtLine) {
+    const money = sharedAmtLine.match(/([\d,]+\.\d{2})/g) as string[]
+    const first = extractMoney(money[0])
+    const second = extractMoney(money[1])
+    if (result.deposit_amount === undefined && first !== null) result.deposit_amount = first
+    if (result.deposit2_amount === undefined && second !== null) result.deposit2_amount = second
+  }
+
   const fillDeposit = (bankMatch: RegExp, amountField: keyof ParsedPaycheck): void => {
     if (result[amountField] !== undefined && result[amountField] !== null) return
     for (let i = 0; i < lines.length; i++) {
@@ -526,8 +552,8 @@ export function parsePaycheckText(rawText: string): ParsedPaycheck {
       }
     }
   }
-  fillDeposit(/pnc/, 'deposit_amount')
-  fillDeposit(/first tech|firsttech/, 'deposit2_amount')
+  if (result.deposit_amount === undefined) fillDeposit(/pnc/, 'deposit_amount')
+  if (result.deposit2_amount === undefined) fillDeposit(/first tech|firsttech/, 'deposit2_amount')
 
   // Pass 6: Earnings hours & rate (and amount when missing). Handles both
   // same-line entries ("Vacation 0 3,231.87") and multi-line entries where the
