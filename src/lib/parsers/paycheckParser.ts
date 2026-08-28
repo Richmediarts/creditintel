@@ -512,6 +512,23 @@ export function parsePaycheckText(rawText: string): ParsedPaycheck {
     }
   }
 
+  // Pass 5b: Fill missing deposit amounts. Bank names and their amounts often
+  // sit on separate lines (e.g. "PNC Bank" / "Account ...****1475" /
+  // "$9,850.00 USD"), so associate the first standalone amount that follows
+  // each bank name with that deposit.
+  const fillDeposit = (bankMatch: RegExp, amountField: keyof ParsedPaycheck): void => {
+    if (result[amountField] !== undefined && result[amountField] !== null) return
+    for (let i = 0; i < lines.length; i++) {
+      if (!bankMatch.test(lines[i].toLowerCase())) continue
+      for (let j = i + 1; j < lines.length && j <= i + 4; j++) {
+        const amt = lines[j].match(/\$\s*([\d,]+\.\d{2})/)
+        if (amt) { const v = extractMoney(amt[1]); if (v !== null) result[amountField] = v; break }
+      }
+    }
+  }
+  fillDeposit(/pnc/, 'deposit_amount')
+  fillDeposit(/first tech|firsttech/, 'deposit2_amount')
+
   // Pass 6: Earnings hours & rate (and amount when missing). Handles both
   // same-line entries ("Vacation 0 3,231.87") and multi-line entries where the
   // label sits on its own line followed by dates/hours/rate/amount/ytd.
