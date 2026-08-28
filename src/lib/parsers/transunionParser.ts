@@ -84,17 +84,35 @@ function extractPersonalInfo(lines: string[]): PersonalInfo {
 
 function extractAccounts(lines: string[]): Account[] {
   const accounts: Account[] = []
-  const accountInfoIndices: number[] = []
 
+  // Two marker styles: the older "Account Information" line, and the newer
+  // "Account Name Account Number" column header that precedes each account.
+  const infoIndices: number[] = []
+  const nameNumberIndices: number[] = []
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim() === 'Account Information') {
-      accountInfoIndices.push(i)
-    }
+    const t = lines[i].trim()
+    if (t === 'Account Information') infoIndices.push(i)
+    else if (t === 'Account Name Account Number') nameNumberIndices.push(i)
   }
 
-  for (let a = 0; a < accountInfoIndices.length; a++) {
-    const infoIdx = accountInfoIndices[a]
-    const nextInfoIdx = a + 1 < accountInfoIndices.length ? accountInfoIndices[a + 1] : lines.length
+  // Newer layout: creditor name + account number on the line after the marker,
+  // fields possibly glued together with no space between label and value.
+  for (let a = 0; a < nameNumberIndices.length; a++) {
+    const mkIdx = nameNumberIndices[a]
+    const nextMkIdx = a + 1 < nameNumberIndices.length ? nameNumberIndices[a + 1] : lines.length
+    const chunk = lines.slice(mkIdx, nextMkIdx)
+    const acc = parsePackedChunk(chunk)
+    if (!acc) continue
+    accounts.push(finalizeAccount(acc))
+  }
+
+  if (nameNumberIndices.length > 0) return accounts
+
+  // Older layout: account begins with "Account Information", creditor name
+  // scanned backward from the marker.
+  for (let a = 0; a < infoIndices.length; a++) {
+    const infoIdx = infoIndices[a]
+    const nextInfoIdx = a + 1 < infoIndices.length ? infoIndices[a + 1] : lines.length
 
     const { creditorName, accountNumber } = extractCreditorInfo(lines, infoIdx)
     if (!creditorName) continue
@@ -111,6 +129,113 @@ function extractAccounts(lines: string[]): Account[] {
 
   return accounts
 }
+
+// Parses one account block in the newer TransUnion layout, where the creditor
+// name/account sit on the line after the "Account Name Account Number" header
+// and field labels are often glued to their values ("Date Opened12/22/2020",
+// "Balance$0", "Account TypeRevolving Account").
+function parsePackedChunk(chunk: string[]): Partial<Account> | null {
+  const acc: Partial<Account> = {}
+
+  // Find the creditor line: the first non-empty, non-header line after the marker.
+  let header = ''
+  for (const raw of chunk) {
+    const t = raw.trim()
+    if (!t || t === 'Account Name Account Number') continue
+    if (/^(?:Address|Phone|Date Opened|Payment History|Account Number)/i.test(t)) continue
+    if (/^\d+\s*\/\s*\d+$/.test(t)) continue
+    header = t
+    break
+  }
+  if (!header) return null
+
+  // Account number = trailing whitespace-separated tokens that are a masked
+  // account ("57570164**", "**", "37****") or a long numeric account prefix
+  // ("1100011137", "6201052707"), which OCR keeps separate from the creditor
+  // name. Everything before the first such trailing run is the creditor name.
+  const hdrTokens = header.split(/\s+/)
+  let splitAt = hdrTokens.length
+  for (let i = hdrTokens.length - 1; i >= 0; i--) {
+    const tk = hdrTokens[i]
+    if (/^\*{1,4}$/.test(tk) || /\*/.test(tk) || /^\d{6,}$/.test(tk)) { splitAt = i; continue }
+    break
+  }
+  const creditorPart = hdrTokens.slice(0, splitAt).join(' ')
+  const accountPart = hdrTokens.slice(splitAt).join(' ')
+  if (creditorPart) acc.creditorName = creditorPart
+  if (accountPart) acc.accountNumber = accountPart
+  if (!acc.creditorName) return null
+
+  // Join all field lines (skip payment-history grid) into one string so
+  // label/value regexes work regardless of glued spacing.
+  const fieldPart = chunk.slice(1).filter((raw) => {
+    const t = raw.trim()
+    if (!t) return false
+    if (t === 'Account Name Account Number') return false
+    if (/^\s*(?:OK|N\/R|X|C\/O|30|60|90|120|Past Due|Amount Paid|Scheduled)\b/i.test(t) && !t.includes('$') && t.length < 40) return false
+    if (/^[A-Z][a-z]{2}\s+\d{4}\s{2,}/.test(t)) return false
+    return true
+  })
+  const body = fieldPart.join(' ')
+
+  const dateOpened = body.match(/Date\s*Opened\s*(\d{1,2}\/\d{1,2}\/\d{4})/)
+  if (dateOpened) acc.dateOpened = dateOpened[1]
+
+  const resp = body.match(/(?<!\w)Responsibility\s*([^A-Z]*(?:Individual|Joint|Authorized User|Maker|Co-signer)[^A-Z]*?)(?=Account Type|\$\d|Date Updated|$|\s{2,}[A-Z])/i)
+  if (resp) acc.responsibility = resp[1].trim()
+
+  const at = body.match(/Account\s*Type\s*([^A-Z]*[A-Za-z ]*?)(?=Date Updated|Balance\s|\$\d|High Balance|$|\s{2,}[A-Z]\w)/i)
+  if (at) {
+    const v = at[1].trim().toLowerCase()
+    if (v.includes('revolving')) acc.accountType = 'Revolving'
+    else if (v.includes('installment')) acc.accountType = 'Installment'
+    else if (v.includes('mortgage')) acc.accountType = 'Mortgage'
+    else if (v.includes('collection')) acc.accountType = 'Collection'
+    else acc.accountType = 'Other'
+  }
+  // "Installment" is often split across an OCR column boundary
+  // ("Account TypeInstallmen" ... "t Account"), so fall back on the substring.
+  if (!acc.accountType && /installmen/i.test(body)) acc.accountType = 'Installment'
+
+  const loanType = body.match(/Loan\s*Type\s*([^A-Z]*[A-Za-z &]+?)(?=Responsibility|Balance|\s{2,}[A-Z]|$)/i)
+  if (loanType) acc.loanType = loanType[1].trim()
+
+  const bal = body.match(/(?<!High )(?<!Original )Balance\s*\$?\s*([\d,]+)(?!\s*\(hist)/i)
+  if (bal) acc.balance = parseAmount(bal[1])
+
+  const du = body.match(/Date\s*Updated\s*(\d{1,2}\/\d{1,2}\/\d{4})/)
+  if (du) acc.dateUpdated = du[1]
+
+  const mp = body.match(/Monthly\s*Payment\s*\$?([\d,]+)/i)
+  if (mp) acc.monthlyPayment = parseAmount(mp[1])
+
+  const ps = body.match(/Pay\s*Status\s*([^A-Z][^A-Z]*?)(?=\s{3,}[A-Z]|\s+Terms\b|Estimated\s+month|Max\w+\s+Delinquency|\s+Date\s+Closed|$)/i) ||
+            body.match(/Pay\s*Status\s*([A-Za-z0-9 ,;./-]+?)(?=\s{3,}|\s+Terms\b|Estimated\s+month|Max\w+\s+Delinquency|\s+Date\s+Closed|$)/i)
+  if (ps) acc.payStatus = ps[1].replace(/[<>]/g, '').trim()
+
+  const terms = body.match(/Terms\s*\$?([\d,]+[^A-Z]+?)(?=Estimated|Maximum Delinquency|High Balance|Date Closed|$|\s{2,}[A-Z]\w)/i)
+  if (terms) acc.terms = terms[1].replace(/[<>]/g, '').trim()
+
+  const dc = body.match(/Date\s*Closed\s*(\d{1,2}\/\d{1,2}\/\d{4})/)
+  if (dc) acc.dateClosed = dc[1]
+
+  const cl = body.match(/Credit\s*Limit\s*\(?Hist\.?\)?\s*Credit\s*limit\s*of\s*\$?([\d,]+)/i) ||
+            body.match(/Credit\s*Limit\s*\$?([\d,]+)/i)
+  if (cl) acc.creditLimit = parseAmount(cl[1])
+
+  const hb = body.match(/High\s*Balance\s*\(?Hist\.?\)?\s*High\s*balance\s*of\s*\$?([\d,]+)/i) ||
+            body.match(/High\s*Balance\s*\$?([\d,]+)/i)
+  if (hb) acc.highBalance = parseAmount(hb[1])
+
+  const oc = body.match(/Original\s*Creditor\s*([^A-Z]*[A-Za-z][^A-Z]*?)(?=Past Due|Balance|\$\d|$|\s{2,}[A-Z]\w)/i)
+  if (oc) acc.originalCreditor = oc[1].trim()
+
+  const rem = body.match(/Remarks\s*([^A-Z][^A-Z]*?)(?=Estimated month|$|\s{3,}[A-Z])/i)
+  if (rem) acc.remarks = rem[1].replace(/[<>]/g, '').trim()
+
+  return acc
+}
+
 
 function extractCreditorInfo(lines: string[], accountInfoIdx: number): { creditorName: string; accountNumber: string } {
   let creditorName = ''

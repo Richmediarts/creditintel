@@ -62,8 +62,10 @@ function extractAccounts(text: string): Account[] {
         continue
       }
 
-      // Account name - handles both pdftotext "  Balance  $505" and pdfjs "Balance $505" formats
-      const nameMatch = raw.match(/Account\s+name\s+(.+?)\s+Balance\s+\$/i) || raw.match(/Account\s+name\s+(.+?)\s{2,}Balance/i)
+      // Account name - handles pdftotext "  Balance  $505", pdfjs
+      // "Balance $505", and newer reports where each field is on its own line
+      // ("Account Name */KLARNA BNPL" with Balance on a later line).
+      const nameMatch = raw.match(/Account\s+name\s+(.+?)(?:\s{2,}(?:Balance|Status)|\s+Balance\s+\$|$)/i)
       if (nameMatch) {
         acc.creditorName = nameMatch[1].trim()
       }
@@ -172,9 +174,8 @@ function extractAccounts(text: string): Account[] {
           acc.creditorName = name.replace(/SELFREPORTED/i, '').trim() + ' (Self-Reported)'
         }
       }
-      name = name.replace(/ L\s+L\s*C$/i, ' LLC')
-      name = name.replace(/\*\/\s*/g, '')
-      if (!acc.creditorName) acc.creditorName = name.trim()
+      name = (acc.creditorName || name).replace(/ L\s+L\s*C$/i, ' LLC').replace(/\*\/\s*/g, '')
+      acc.creditorName = name.trim()
 
       accounts.push(finalizeAccount(acc))
     }
@@ -196,7 +197,7 @@ function extractInquiries(text: string): Inquiry[] {
   if (sectionEnd < 0) sectionEnd = text.indexOf('\n   Prepared For', sectionStart)
   if (sectionEnd < 0) {
     // Fallback: find last https:// before the end
-    let lastHttps = text.lastIndexOf('\nhttps://', text.indexOf('\nCredit scores', sectionStart))
+    const lastHttps = text.lastIndexOf('\nhttps://', text.indexOf('\nCredit scores', sectionStart))
     if (lastHttps > sectionStart) sectionEnd = lastHttps
     else sectionEnd = text.length
   }
