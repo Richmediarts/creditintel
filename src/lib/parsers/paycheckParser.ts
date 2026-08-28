@@ -489,15 +489,11 @@ export function parsePaycheckText(rawText: string): ParsedPaycheck {
     // PNC bank
     if (lineLower.includes('pnc')) {
       result.bank_name = 'PNC Bank'
-      const depositVal = getValueAfterLabel(line, 'pnc')
-      if (depositVal) result.deposit_amount = depositVal
     }
 
     // First Tech bank
     if (lineLower.includes('first tech') || lineLower.includes('firsttech')) {
       result.bank2_name = 'First Tech Federal Credit Union'
-      const depositVal = getValueAfterLabel(line, 'first') || getValueAfterLabel(line, 'tech')
-      if (depositVal) result.deposit2_amount = depositVal
     }
 
     // Account numbers (******1234). The doubled-glyph de-dup above may halve
@@ -522,38 +518,81 @@ export function parsePaycheckText(rawText: string): ParsedPaycheck {
     }
   }
 
-  // Pass 5b: Fill missing deposit amounts. Two real-world formats:
-  //  1. Shared line with both deposits, no dollar sign, separated by "USD":
-  //        "3,349.98     USD 50.00     USD"  -> PNC=3349.98, First Tech=50.00
-  //  2. Amounts on their own line after each bank name:
-  //        "PNC Bank" / "Account ...****1475" / "$9,850.00 USD"
-  // For the shared line, order follows the bank order (PNC first, First Tech
-  // second). For separate lines, associate the first standalone amount that
-  // follows each bank name.
-  const sharedAmtLine = lines.find((l) => {
-    const money = l.match(/([\d,]+\.\d{2})/g)
-    return !!money && money.length >= 2 && /usd/i.test(l)
-  })
-  if (sharedAmtLine) {
-    const money = sharedAmtLine.match(/([\d,]+\.\d{2})/g) as string[]
-    const first = extractMoney(money[0])
-    const second = extractMoney(money[1])
-    if (result.deposit_amount === undefined && first !== null) result.deposit_amount = first
-    if (result.deposit2_amount === undefined && second !== null) result.deposit2_amount = second
+  // Pass 5b: Robust direct-deposit extraction. Handles the garbled OCR forms:
+  //  - amounts on one shared line, with or without a "$" and with or without
+  //    a separator between them ("3,349.98 USD 50.00 USD" or concatenated
+  //    "3,349.9850.00" when OCR merges the columns)
+  //  - account numbers that are also concatenated ("******1863******1475")
+  //  - amounts/accounts sitting on their own line under each bank name
+  //
+  // Semantics: there are exactly two direct deposits (PNC and First Tech).
+  // PNC is always the larger deposit (~$3.3k) and First Tech always a small
+  // round amount ($50). First Tech's account/amount are usually on the same
+  // OCR row; PNC's are whatever remain.
+
+  // Normalize concatenated decimal amounts & concatenated masked accounts.
+  const splitConcatAmounts = (text: string): string[] => {
+    const fixed = text.replace(/(\.\d{2})(\d{2})(?=\.\d{2})/g, '$1 $2')
+    return fixed.match(/([\d,]+\.\d{2})/g) || []
+  }
+  const splitConcatAccounts = (text: string): string[] => {
+    const matches = text.match(/\*{2,}(\d{4})/g) || []
+    return matches.map((m) => '****' + m.replace(/\*/g, ''))
   }
 
-  const fillDeposit = (bankMatch: RegExp, amountField: keyof ParsedPaycheck): void => {
-    if (result[amountField] !== undefined && result[amountField] !== null) return
-    for (let i = 0; i < lines.length; i++) {
-      if (!bankMatch.test(lines[i].toLowerCase())) continue
-      for (let j = i + 1; j < lines.length && j <= i + 4; j++) {
-        const amt = lines[j].match(/\$\s*([\d,]+\.\d{2})/)
-        if (amt) { const v = extractMoney(amt[1]); if (v !== null) result[amountField] = v; break }
-      }
+  // Collect candidate amounts, keeping them associated with their source line.
+  // Only lines that actually look like direct-deposit rows count: they contain
+  // a "USD" marker, a masked account number, or a deposit column header. This
+  // keeps YTD/earnings tables (e.g. 87,729.05) out of consideration.
+  const isDepositLine = (l: string): boolean => {
+    const ll = l.toLowerCase()
+    return /usd/.test(ll) || /\*{2,}\d/.test(l) || /payment information/.test(ll) || /account.{0,20}(number|name)/.test(ll)
+  }
+  const candidates: Array<{ value: number; line: string }> = []
+  for (const l of lines) {
+    if (!isDepositLine(l)) continue
+    for (const raw of splitConcatAmounts(l)) {
+      // Skip values that are really hours/rates or YTD runs far outside the
+      // direct-deposit range; also reject sub-token junk like "9850.00" that
+      // OCR produces when two amounts are glued (only accept clean values).
+      if (!/^(?:[\d,]{1,3}(?:,\d{3})*|\d{1,2}(?:,\d{3})?|\d{1,3})\.\d{2}$/.test(raw)) continue
+      const v = extractMoney(raw)
+      if (v !== null) candidates.push({ value: v, line: l })
     }
   }
-  if (result.deposit_amount === undefined) fillDeposit(/pnc/, 'deposit_amount')
-  if (result.deposit2_amount === undefined) fillDeposit(/first tech|firsttech/, 'deposit2_amount')
+
+  // First Tech's amount: prefer a value on a line that mentions First Tech but
+  // not PNC (OCR often glues both banks onto one shared line).
+  let ftAmount = candidates.find((c) => /first tech|firsttech/.test(c.line.toLowerCase()) && !/pnc/.test(c.line.toLowerCase()))?.value
+  if (ftAmount === undefined) {
+    const nonPnc = candidates.filter((c) => !/pnc/.test(c.line.toLowerCase())).map((c) => c.value)
+    ftAmount = nonPnc.length ? Math.min(...nonPnc) : undefined
+  }
+  // PNC amount: the value that is NOT First Tech's (larger remaining).
+  const pncAmounts = candidates.filter((c) => c.value !== ftAmount).map((c) => c.value)
+  const pncAmount = pncAmounts.length ? Math.max(...pncAmounts) : undefined
+
+  if (result.deposit_amount === undefined && pncAmount !== undefined) result.deposit_amount = pncAmount
+  if (result.deposit2_amount === undefined && ftAmount !== undefined) result.deposit2_amount = ftAmount
+
+  // Account numbers. First Tech's account usually sits on the same line as the
+  // "first tech" label; PNC's is whatever account number remains.
+  const acctCandidates: string[] = []
+  for (const l of lines) {
+    if (!isDepositLine(l)) continue
+    acctCandidates.push(...splitConcatAccounts(l))
+  }
+  const ftAcctCandidates = new Set<string>()
+  for (let i = 0; i < lines.length; i++) {
+    if (/first tech|firsttech/.test(lines[i].toLowerCase())) {
+      for (const a of splitConcatAccounts(lines[i])) ftAcctCandidates.add(a)
+    }
+  }
+  const firstTechAcct = ftAcctCandidates.size ? [...ftAcctCandidates][0] : undefined
+
+  const remaining = [...new Set(acctCandidates.filter((a) => a !== firstTechAcct))]
+  if (firstTechAcct) result.account2_number = firstTechAcct
+  if (remaining.length === 1) result.account_number = remaining[0]
 
   // Pass 6: Earnings hours & rate (and amount when missing). Handles both
   // same-line entries ("Vacation 0 3,231.87") and multi-line entries where the
