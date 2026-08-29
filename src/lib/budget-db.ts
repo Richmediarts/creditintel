@@ -1174,7 +1174,7 @@ export async function upsertPlaidTransaction(userId: number, localAccountId: num
   const db = getDb()
   const existing = (await db.prepare('SELECT id FROM budget_transactions WHERE plaid_transaction_id = ?').get(plaidTxId)) as { id: number } | undefined
   if (existing) {
-    await db.prepare('UPDATE budget_transactions SET date=?, description=?, amount=?, running_balance=?, category=?, category_detail=? WHERE plaid_transaction_id=?').run(date, description, amount, runningBalance, category, categoryDetail, plaidTxId)
+    await db.prepare('UPDATE budget_transactions SET date=?, description=?, amount=?, balance=?, category=?, category_detail=? WHERE plaid_transaction_id=?').run(date, description, amount, runningBalance, category, categoryDetail, plaidTxId)
   } else {
     await db.prepare('INSERT INTO budget_transactions (user_id, account_id, date, description, amount, balance, plaid_transaction_id, category, category_detail) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(userId, localAccountId, date, description, amount, runningBalance, plaidTxId, category, categoryDetail)
   }
