@@ -27,6 +27,7 @@ interface SidebarProps {
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/getting-started', label: 'Getting Started', icon: ListChecks },
   { href: '/upload', label: 'Upload Center', icon: Upload },
   { href: '/summary', label: 'Credit Summary', icon: BarChart3 },
   { href: '/report-viewer', label: 'Report Viewer', icon: FileText },
@@ -42,7 +43,6 @@ const navItems = [
   { href: '/score-simulator', label: 'Score Simulator', icon: TrendingUp },
   { href: '/export', label: 'Export Center', icon: Download },
   { href: '/help', label: 'Help Guide', icon: HelpCircle },
-  { href: '/getting-started', label: 'Getting Started', icon: ListChecks },
 ]
 
 const budgetItems = [
