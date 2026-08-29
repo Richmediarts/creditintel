@@ -69,6 +69,9 @@ Maintain credit-dashboard Next.js app with accurate report parsing, multi-bureau
 - Experian URL fixed on FICO scores page to `https://usa.experian.com/login/index`.
 - DB backup script (`scripts/backup-db.cjs`): WAL-safe, keeps last 30.
 - Goals page rewritten to match Flask: 6-Month Projection, Debt Breakdown, Savings Goals, Credit Utilization Simulator with per-card allocation table and slider.
+- Plaid transaction sync now backfills the last 90 days via `/transactions/get` (with `include_personal_finance_category`) — manual "Sync Transactions" (Bank Accounts/Credit Cards) and the Reports page's "Sync Last 90 Days" send `{ full: true }`; auto-sync on page load stays incremental. Added `category`/`category_detail` columns to `budget_transactions` (via `initPostgresSchema` migration).
+- Reports page added "Transactions by Category" section: 30/60/90-day range selector, category + account-kind filters, spend-by-category breakdown, money-in/spend/tx-count summary cards, and a filterable transactions table. Category labels/colors from `src/lib/plaid-categories.ts`.
+- Fixed pre-existing `running_balance` column-name bug in `upsertPlaidTransaction` UPDATE (schema column is `balance`).
 
 ### In Progress
 - (none)
