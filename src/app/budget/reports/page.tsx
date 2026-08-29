@@ -206,7 +206,7 @@ export default function PayPeriodReportsPage() {
                 </div>
               </div>
               <div className="h-80 -mx-1">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minHeight={320}>
                   <BarChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#64748b33" vertical={false} />
                     <XAxis dataKey="period" tick={{ fontSize: 12 }} stroke="#64748b" />
