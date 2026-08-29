@@ -108,6 +108,7 @@ export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mob
             return (
               <Link key={item.href} href={item.href}
                 onClick={() => setMobileOpen(false)}
+                title={collapsed ? item.label : undefined}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm
                   ${isActive
                     ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-medium'
@@ -134,6 +135,7 @@ export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mob
             return (
               <Link key={item.href} href={item.href}
                 onClick={() => setMobileOpen(false)}
+                title={collapsed ? item.label : undefined}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm
                   ${isActive
                     ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-medium'
@@ -155,6 +157,7 @@ export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mob
               </div>
               <Link href="/admin/users"
                 onClick={() => setMobileOpen(false)}
+                title={collapsed ? 'Manage Users' : undefined}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm ${
                   pathname === '/admin/users'
                     ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 font-medium'
@@ -184,6 +187,7 @@ export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mob
               {!user.isExample && (
               <Link href="/settings"
                 onClick={() => setMobileOpen(false)}
+                title={collapsed ? 'Settings' : undefined}
                 className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm"
               >
                 <User className="w-4 h-4 flex-shrink-0" />
@@ -191,6 +195,7 @@ export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mob
               </Link>
             )}
               <button onClick={handleLogout}
+                title={collapsed ? 'Sign Out' : undefined}
                 className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm"
               >
                 <LogOut className="w-4 h-4 flex-shrink-0" />
@@ -200,6 +205,7 @@ export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mob
           ) : (
             <div className="p-3">
               <Link href="/login"
+                title={collapsed ? 'Sign In' : undefined}
                 className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm"
               >
                 <LogIn className="w-4 h-4 flex-shrink-0" />
@@ -210,6 +216,7 @@ export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mob
 
           <div className="px-3 pb-3">
             <button onClick={toggleDarkMode}
+              title={collapsed ? (darkMode ? 'Light Mode' : 'Dark Mode') : undefined}
               className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm"
             >
               {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
