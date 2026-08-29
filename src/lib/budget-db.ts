@@ -217,6 +217,7 @@ export interface BudgetBill {
   category_id?: number
   account?: string
   credit_card_id?: number
+  url?: string
 }
 
 export interface BudgetCategory {
@@ -736,7 +737,7 @@ export async function addBill(userId: number, data: Partial<BudgetBill>): Promis
   const db = getDb()
   const today = new Date().toISOString().split('T')[0]
   const result = await db.prepare(
-    'INSERT INTO budget_bills (user_id, payee_id, payee_name, amount, due_date, is_paid, paid_date, is_recurring, recurrence_type, notes, category_id, account, credit_card_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id'
+    'INSERT INTO budget_bills (user_id, payee_id, payee_name, amount, due_date, is_paid, paid_date, is_recurring, recurrence_type, notes, category_id, account, credit_card_id, url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id'
   ).run(
     userId,
     data.payee_id || null,
@@ -750,7 +751,8 @@ export async function addBill(userId: number, data: Partial<BudgetBill>): Promis
     data.notes || '',
     data.category_id || null,
     data.account || '',
-    data.credit_card_id || null
+    data.credit_card_id || null,
+    data.url || null
   )
   return Number(result.lastInsertRowid)
 }
@@ -758,7 +760,7 @@ export async function addBill(userId: number, data: Partial<BudgetBill>): Promis
 export async function updateBill(userId: number, id: number, data: Partial<BudgetBill>): Promise<void> {
   const db = getDb()
   await db.prepare(
-    'UPDATE budget_bills SET payee_id = ?, payee_name = ?, amount = ?, due_date = ?, is_paid = ?, paid_date = ?, is_recurring = ?, recurrence_type = ?, notes = ?, category_id = ?, account = ?, credit_card_id = ? WHERE user_id = ? AND id = ?'
+    'UPDATE budget_bills SET payee_id = ?, payee_name = ?, amount = ?, due_date = ?, is_paid = ?, paid_date = ?, is_recurring = ?, recurrence_type = ?, notes = ?, category_id = ?, account = ?, credit_card_id = ?, url = ? WHERE user_id = ? AND id = ?'
   ).run(
     data.payee_id || null,
     data.payee_name || '',
@@ -772,6 +774,7 @@ export async function updateBill(userId: number, id: number, data: Partial<Budge
     data.category_id || null,
     data.account || '',
     data.credit_card_id || null,
+    data.url || null,
     userId,
     id
   )
@@ -779,7 +782,7 @@ export async function updateBill(userId: number, id: number, data: Partial<Budge
 
 export async function updateBillField(userId: number, id: number, field: string, value: unknown): Promise<void> {
   const db = getDb()
-  const allowedFields = ['payee_id', 'payee_name', 'amount', 'due_date', 'is_paid', 'paid_date', 'is_recurring', 'recurrence_type', 'notes', 'category_id', 'account', 'credit_card_id']
+  const allowedFields = ['payee_id', 'payee_name', 'amount', 'due_date', 'is_paid', 'paid_date', 'is_recurring', 'recurrence_type', 'notes', 'category_id', 'account', 'credit_card_id', 'url']
   if (!allowedFields.includes(field)) return
   await db.prepare(`UPDATE budget_bills SET ${field} = ? WHERE user_id = ? AND id = ?`).run(value, userId, id)
 }

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   Receipt, PlusCircle, ArrowRight, Check, X, Trash2,
-  Edit, CalendarDays,
+  Edit, CalendarDays, ExternalLink,
 } from 'lucide-react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -23,6 +23,7 @@ interface Bill {
   notes?: string
   credit_card_id?: number
   account?: string
+  url?: string
 }
 
 const fmt = (n: number): string =>
@@ -110,6 +111,7 @@ const EMPTY_FORM = {
   due_date: '',
   is_recurring: false,
   notes: '',
+  url: '',
 }
 
 export default function BillsPage() {
@@ -208,6 +210,7 @@ function BillsContent() {
       due_date: bill.due_date,
       is_recurring: !!bill.is_recurring,
       notes: bill.notes || '',
+      url: bill.url || '',
     })
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -270,6 +273,7 @@ function BillsContent() {
       due_date: form.due_date,
       is_recurring: form.is_recurring ? 1 : 0,
       notes: form.notes,
+      url: form.url.trim(),
     }
 
     const url = editing ? `/api/budget/bills/${editing.id}` : '/api/budget/bills'
@@ -363,9 +367,22 @@ function BillsContent() {
             >
               {bill.is_paid ? <Check className="w-3 h-3" /> : null}
             </button>
-            <span className={`text-sm font-medium truncate ${bill.is_paid ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-900 dark:text-white'}`}>
-              {bill.payee_name || 'Unknown Payee'}
-            </span>
+            {bill.url ? (
+              <a
+                href={bill.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`Open ${bill.payee_name || 'bill'} website`}
+                className={`text-sm font-medium truncate ${bill.is_paid ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-blue-600 dark:text-blue-400 underline hover:text-blue-700 dark:hover:text-blue-300'} inline-flex items-center gap-1`}
+              >
+                {bill.payee_name || 'Unknown Payee'}
+                <ExternalLink className="w-3 h-3 flex-shrink-0" />
+              </a>
+            ) : (
+              <span className={`text-sm font-medium truncate ${bill.is_paid ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-900 dark:text-white'}`}>
+                {bill.payee_name || 'Unknown Payee'}
+              </span>
+            )}
           </div>
         </td>
         <td className="py-2 px-2 whitespace-nowrap">
@@ -578,6 +595,16 @@ function BillsContent() {
                     />
                     Recurring
                   </label>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Website URL</label>
+                  <input
+                    type="url"
+                    value={form.url}
+                    onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="https://example.com/bill-pay"
+                  />
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Notes</label>

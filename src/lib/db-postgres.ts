@@ -179,7 +179,8 @@ export async function initPostgresSchema() {
       notes TEXT,
       category_id INTEGER,
       account TEXT,
-      credit_card_id INTEGER
+      credit_card_id INTEGER,
+      url TEXT
     );
   `
   await sql`
@@ -237,6 +238,10 @@ export async function initPostgresSchema() {
 
   await sql`
     ALTER TABLE budget_credit_cards ADD COLUMN IF NOT EXISTS institution TEXT;
+  `
+
+  await sql`
+    ALTER TABLE budget_bills ADD COLUMN IF NOT EXISTS url TEXT;
   `
 
   await sql`
