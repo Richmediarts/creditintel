@@ -93,7 +93,7 @@ export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mob
                 alt="RETTEEE CreditIntel"
                 width={86}
                 height={86}
-                className="w-8 h-8 rounded-lg"
+                className="w-8 h-8"
               />
               <span className="font-bold text-gray-900 dark:text-white text-sm">RETTEEE CreditIntel</span>
             </Link>

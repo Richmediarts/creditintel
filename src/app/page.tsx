@@ -43,7 +43,7 @@ function LoginForm() {
             alt="RETTEEE CreditIntel"
             width={86}
             height={86}
-            className="w-14 h-14 rounded-xl mx-auto mb-3"
+            className="w-20 h-20 mx-auto mb-3"
           />
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">RETTEEE CreditIntel</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Sign in to your account</p>

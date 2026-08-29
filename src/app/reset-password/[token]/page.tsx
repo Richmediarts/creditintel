@@ -76,7 +76,7 @@ export default function ResetPasswordPage() {
             alt="RETTEEE CreditIntel"
             width={86}
             height={86}
-            className="w-12 h-12 rounded-xl mx-auto mb-3"
+            className="w-12 h-12 mx-auto mb-3"
           />
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Set New Password</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Enter your new password below</p>
