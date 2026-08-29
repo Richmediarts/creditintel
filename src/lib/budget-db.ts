@@ -1009,6 +1009,90 @@ export async function getRecentTransactions(userId: number, kind: 'bank' | 'cred
   return rows.map((r) => ({ ...r, date: toDateString(r.date) || '' }))
 }
 
+export interface TransactionRow extends RecentTransaction {
+  category: string | null
+  category_detail: string | null
+  account_kind: 'bank' | 'credit'
+}
+
+export async function getTransactionsFiltered(
+  userId: number,
+  opts: { accountId?: number; kind?: 'bank' | 'credit'; startDate?: string; endDate?: string; category?: string; limit?: number; offset?: number } = {}
+): Promise<TransactionRow[]> {
+  const db = getDb()
+  let sqlText = `
+    SELECT t.id, t.account_id, t.date, t.description, t.amount, t.balance, t.plaid_transaction_id, t.category, t.category_detail,
+           CASE WHEN b.id IS NOT NULL THEN b.name ELSE c.name END AS account_name,
+           CASE WHEN b.id IS NOT NULL THEN 'bank' ELSE 'credit' END AS account_kind
+    FROM budget_transactions t
+    LEFT JOIN budget_bank_accounts b ON b.id = t.account_id
+    LEFT JOIN budget_credit_cards c ON c.id = t.account_id
+    WHERE t.user_id = ?
+  `
+  const params: unknown[] = [userId]
+  if (opts.accountId) {
+    sqlText += ' AND t.account_id = ?'
+    params.push(opts.accountId)
+  }
+  if (opts.kind === 'bank') {
+    sqlText += ' AND b.id IS NOT NULL'
+  } else if (opts.kind === 'credit') {
+    sqlText += ' AND c.id IS NOT NULL'
+  }
+  if (opts.startDate) {
+    sqlText += ' AND t.date >= ?'
+    params.push(opts.startDate)
+  }
+  if (opts.endDate) {
+    sqlText += ' AND t.date <= ?'
+    params.push(opts.endDate)
+  }
+  if (opts.category) {
+    sqlText += ' AND COALESCE(NULLIF(t.category, \'\'), \'UNCATEGORIZED\') = ?'
+    params.push(opts.category)
+  }
+  const limit = opts.limit && opts.limit > 0 ? Math.min(opts.limit, 2000) : 2000
+  sqlText += ' ORDER BY t.date DESC, t.created_at DESC LIMIT ?'
+  params.push(limit)
+  if (opts.offset && opts.offset > 0) {
+    sqlText += ' OFFSET ?'
+    params.push(opts.offset)
+  }
+  const rows = (await db.prepare(sqlText).all(...params)) as TransactionRow[]
+  return rows.map((r) => ({ ...r, date: toDateString(r.date) || '' }))
+}
+
+export interface CategorySpend {
+  category: string
+  count: number
+  spend: number
+}
+
+export async function getSpendingByCategory(userId: number, startDate: string, endDate: string): Promise<CategorySpend[]> {
+  const db = getDb()
+  const rows = (await db.prepare(`
+    SELECT COALESCE(NULLIF(t.category, ''), 'UNCATEGORIZED') AS category,
+           COUNT(*) AS count,
+           ROUND((SUM(CASE WHEN t.amount < 0 THEN -t.amount ELSE 0 END))::numeric, 2) AS spend
+    FROM budget_transactions t
+    WHERE t.user_id = ? AND t.date >= ? AND t.date <= ?
+    GROUP BY category
+    ORDER BY spend DESC, count DESC
+  `).all(userId, startDate, endDate)) as { category: string; count: number; spend: number }[]
+  return rows.map((r) => ({ category: r.category, count: r.count, spend: Number(r.spend) || 0 }))
+}
+
+export async function getDistinctTransactionCategories(userId: number, startDate: string, endDate: string): Promise<string[]> {
+  const db = getDb()
+  const rows = (await db.prepare(`
+    SELECT DISTINCT COALESCE(NULLIF(t.category, ''), 'UNCATEGORIZED') AS category
+    FROM budget_transactions t
+    WHERE t.user_id = ? AND t.date >= ? AND t.date <= ?
+    ORDER BY category
+  `).all(userId, startDate, endDate)) as { category: string }[]
+  return rows.map((r) => r.category)
+}
+
 export async function addTransactions(userId: number, accountId: number, transactionsList: { date: string; description: string; amount: number; balance: number }[]) {
   const db = getDb()
   const insert = db.prepare('INSERT INTO budget_transactions (user_id, account_id, date, description, amount, balance) VALUES (?, ?, ?, ?, ?, ?)')
@@ -1086,13 +1170,13 @@ export async function getAccountsByPlaidItem(userId: number, itemPk: number) {
   return [...banks.map(b => ({ ...b, type: 'bank' as const })), ...cards.map(c => ({ ...c, type: 'credit' as const }))]
 }
 
-export async function upsertPlaidTransaction(userId: number, localAccountId: number, plaidTxId: string, date: string, description: string, amount: number, runningBalance: number, isCreditCard: boolean = false) {
+export async function upsertPlaidTransaction(userId: number, localAccountId: number, plaidTxId: string, date: string, description: string, amount: number, runningBalance: number, isCreditCard: boolean = false, category: string | null = null, categoryDetail: string | null = null) {
   const db = getDb()
   const existing = (await db.prepare('SELECT id FROM budget_transactions WHERE plaid_transaction_id = ?').get(plaidTxId)) as { id: number } | undefined
   if (existing) {
-    await db.prepare('UPDATE budget_transactions SET date=?, description=?, amount=?, running_balance=? WHERE plaid_transaction_id=?').run(date, description, amount, runningBalance, plaidTxId)
+    await db.prepare('UPDATE budget_transactions SET date=?, description=?, amount=?, running_balance=?, category=?, category_detail=? WHERE plaid_transaction_id=?').run(date, description, amount, runningBalance, category, categoryDetail, plaidTxId)
   } else {
-    await db.prepare('INSERT INTO budget_transactions (user_id, account_id, date, description, amount, balance, plaid_transaction_id) VALUES (?, ?, ?, ?, ?, ?, ?)').run(userId, localAccountId, date, description, amount, runningBalance, plaidTxId)
+    await db.prepare('INSERT INTO budget_transactions (user_id, account_id, date, description, amount, balance, plaid_transaction_id, category, category_detail) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(userId, localAccountId, date, description, amount, runningBalance, plaidTxId, category, categoryDetail)
   }
 }
 

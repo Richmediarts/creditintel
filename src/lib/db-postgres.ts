@@ -258,6 +258,13 @@ export async function initPostgresSchema() {
   `
 
   await sql`
+    ALTER TABLE budget_transactions ADD COLUMN IF NOT EXISTS category TEXT;
+  `
+  await sql`
+    ALTER TABLE budget_transactions ADD COLUMN IF NOT EXISTS category_detail TEXT;
+  `
+
+  await sql`
     ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS salary_hours REAL DEFAULT 0;
   `
   await sql`

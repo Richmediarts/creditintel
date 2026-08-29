@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { getDb } from '@/lib/db'
-import { getRecentTransactions } from '@/lib/budget-db'
+import { getRecentTransactions, getTransactionsFiltered, getSpendingByCategory, getDistinctTransactionCategories } from '@/lib/budget-db'
 
 function getAuthUser(request: NextRequest) {
   const token = request.cookies.get('credit-dashboard-token')?.value
@@ -27,28 +27,26 @@ export async function GET(request: NextRequest) {
   const accountId = searchParams.get('account_id')
   const startDate = searchParams.get('start_date')
   const endDate = searchParams.get('end_date')
+  const category = searchParams.get('category')
+  const accountKind = searchParams.get('account_kind') as 'bank' | 'credit' | null
 
-  const db = getDb()
-  let query = 'SELECT * FROM budget_transactions WHERE user_id = ?'
-  const params: unknown[] = [auth.userId]
+  const transactions = await getTransactionsFiltered(auth.userId, {
+    accountId: accountId ? Number(accountId) : undefined,
+    kind: accountKind === 'bank' || accountKind === 'credit' ? accountKind : undefined,
+    startDate: startDate || undefined,
+    endDate: endDate || undefined,
+    category: category || undefined,
+    limit: searchParams.get('limit') ? Number(searchParams.get('limit')) : 2000,
+  })
 
-  if (accountId) {
-    query += ' AND account_id = ?'
-    params.push(Number(accountId))
+  let byCategory: { category: string; count: number; spend: number }[] = []
+  let categories: string[] = []
+  if (startDate && endDate) {
+    byCategory = await getSpendingByCategory(auth.userId, startDate, endDate)
+    categories = await getDistinctTransactionCategories(auth.userId, startDate, endDate)
   }
-  if (startDate) {
-    query += ' AND date >= ?'
-    params.push(startDate)
-  }
-  if (endDate) {
-    query += ' AND date <= ?'
-    params.push(endDate)
-  }
 
-  query += ' ORDER BY date DESC, created_at DESC'
-
-  const transactions = await db.all(query, params)
-  return NextResponse.json({ transactions })
+  return NextResponse.json({ transactions, byCategory, categories })
 }
 
 export async function POST(request: NextRequest) {
