@@ -1,7 +1,7 @@
 'use client'
 
 import { Sun, Moon } from 'lucide-react'
-import { FileText } from 'lucide-react'
+import Image from 'next/image'
 import { useTheme } from '@/lib/theme-context'
 import AuthForm from '@/components/auth/AuthForm'
 
@@ -20,9 +20,13 @@ export default function LoginPage() {
       </button>
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-14 h-14 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3">
-            <FileText className="w-7 h-7 text-white" />
-          </div>
+          <Image
+            src="/card-logos/NewRETTEEE.png"
+            alt="RETTEEE CreditIntel"
+            width={86}
+            height={86}
+            className="w-14 h-14 rounded-xl mx-auto mb-3"
+          />
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">RETTEEE CreditIntel</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Sign in to your account

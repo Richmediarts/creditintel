@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Upload, FileText, BarChart3, GitCompare,
@@ -87,9 +88,13 @@ export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mob
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
           {!collapsed && (
             <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <FileText className="w-4 h-4 text-white" />
-              </div>
+              <Image
+                src="/card-logos/NewRETTEEE.png"
+                alt="RETTEEE CreditIntel"
+                width={86}
+                height={86}
+                className="w-8 h-8 rounded-lg"
+              />
               <span className="font-bold text-gray-900 dark:text-white text-sm">RETTEEE CreditIntel</span>
             </Link>
           )}

@@ -3,7 +3,8 @@
 import React, { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { FileText, AlertCircle, CheckCircle2, Lock } from 'lucide-react'
+import Image from 'next/image'
+import { AlertCircle, CheckCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function ResetPasswordPage() {
@@ -70,9 +71,13 @@ export default function ResetPasswordPage() {
     <div className="min-h-[80vh] flex items-center justify-center">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3">
-            <Lock className="w-6 h-6 text-white" />
-          </div>
+          <Image
+            src="/card-logos/NewRETTEEE.png"
+            alt="RETTEEE CreditIntel"
+            width={86}
+            height={86}
+            className="w-12 h-12 rounded-xl mx-auto mb-3"
+          />
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Set New Password</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Enter your new password below</p>
         </div>

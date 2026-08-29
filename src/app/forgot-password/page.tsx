@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import { FileText, ArrowLeft, CheckCircle2, AlertCircle, Copy } from 'lucide-react'
+import Image from 'next/image'
+import { ArrowLeft, CheckCircle2, AlertCircle, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export default function ForgotPasswordPage() {
@@ -52,9 +53,13 @@ export default function ForgotPasswordPage() {
             <ArrowLeft className="w-4 h-4" /> Back to sign in
           </Link>
           <div className="text-center">
-            <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-3">
-              <FileText className="w-6 h-6 text-white" />
-            </div>
+            <Image
+              src="/card-logos/NewRETTEEE.png"
+              alt="RETTEEE CreditIntel"
+              width={86}
+              height={86}
+              className="w-12 h-12 rounded-xl mx-auto mb-3"
+            />
             <h1 className="text-xl font-bold text-gray-900 dark:text-white">Reset Password</h1>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               Enter your email to get a password reset link
