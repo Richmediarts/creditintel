@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { getDb } from '@/lib/db'
+import { getRecentTransactions } from '@/lib/budget-db'
 
 function getAuthUser(request: NextRequest) {
   const token = request.cookies.get('credit-dashboard-token')?.value
@@ -15,6 +16,14 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url)
+  const kind = searchParams.get('kind')
+  const limit = Number(searchParams.get('limit')) || 10
+
+  if (kind === 'bank' || kind === 'credit') {
+    const transactions = await getRecentTransactions(auth.userId, kind, limit)
+    return NextResponse.json({ transactions })
+  }
+
   const accountId = searchParams.get('account_id')
   const startDate = searchParams.get('start_date')
   const endDate = searchParams.get('end_date')

@@ -1,11 +1,11 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Wallet, CreditCard, TrendingUp, PlusCircle, ArrowRight,
-  Edit, Trash2, RefreshCw, Plug, Loader2, ExternalLink, Link2,
+  Edit, Trash2, RefreshCw, Plug, Loader2, ExternalLink, Link2, Receipt,
 } from 'lucide-react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -45,6 +45,24 @@ function normalizeUrl(url: string): string {
   const trimmed = url.trim()
   if (!trimmed) return ''
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+}
+
+const formatTxDate = (v: string): string => {
+  const d = new Date(v)
+  if (isNaN(d.getTime())) return v || '—'
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${String(d.getFullYear()).slice(-2)}`
+}
+
+interface RecentTx {
+  id: number
+  account_id: number
+  account_name: string
+  date: string
+  description: string
+  amount: number
+  balance: number
+  plaid_transaction_id: string | null
 }
 
 // Institution brand theme (card gradient + text colors + favicon domain)
@@ -230,6 +248,11 @@ export default function CreditCardsPage() {
   const [error, setError] = useState('')
   const [syncing, setSyncing] = useState(false)
   const [syncMessage, setSyncMessage] = useState('')
+  const [txSyncing, setTxSyncing] = useState(false)
+  const [txMessage, setTxMessage] = useState('')
+  const [recentTx, setRecentTx] = useState<RecentTx[]>([])
+  const [txLoading, setTxLoading] = useState(true)
+  const autoSyncedRef = useRef(false)
 
   const fetchCards = useCallback(async () => {
     const res = await fetch('/api/budget/credit-cards', { cache: 'no-store' })
@@ -244,6 +267,55 @@ export default function CreditCardsPage() {
     if (!authLoading && !user) { router.push('/login'); return }
     if (user) fetchCards()
   }, [user, authLoading, fetchCards])
+
+  const fetchRecentTx = useCallback(async () => {
+    const res = await fetch('/api/budget/transactions?kind=credit&limit=10')
+    if (res.ok) {
+      const data = await res.json()
+      setRecentTx(data.transactions)
+    }
+    setTxLoading(false)
+  }, [])
+
+  const runTransactionSync = useCallback(async (manually: boolean) => {
+    setTxSyncing(true)
+    setTxMessage('')
+    if (manually) setError('')
+    try {
+      const res = await fetch('/api/budget/plaid/sync-transactions', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        setTxMessage(data.message || 'Transactions synced')
+        await fetchRecentTx()
+        await fetchCards()
+      } else if (manually) {
+        setError(data.error || 'Transaction sync failed')
+      }
+    } catch {
+      if (manually) setError('Transaction sync failed')
+    }
+    setTxSyncing(false)
+  }, [fetchRecentTx, fetchCards])
+
+  useEffect(() => {
+    if (!user) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/budget/transactions?kind=credit&limit=10')
+        if (!cancelled && res.ok) setRecentTx((await res.json()).transactions)
+      } finally {
+        if (!cancelled) setTxLoading(false)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [user])
+
+  useEffect(() => {
+    if (!user || autoSyncedRef.current) return
+    autoSyncedRef.current = true
+    runTransactionSync(false)
+  }, [user, runTransactionSync])
 
   const setField = (name: string, v: string) => setForm((f) => ({ ...f, [name]: v }))
 
@@ -387,10 +459,15 @@ export default function CreditCardsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <PlaidLinkButton onConnected={fetchCards} />
-          <Button onClick={handleSync} disabled={syncing} variant="secondary" size="sm">
+          <Button onClick={handleSync} disabled={syncing || txSyncing} variant="secondary" size="sm">
             {syncing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
             <span className="hidden sm:inline">{syncing ? 'Syncing...' : 'Sync Balances'}</span>
             <span className="sm:hidden">{syncing ? '...' : 'Sync'}</span>
+          </Button>
+          <Button onClick={() => runTransactionSync(true)} disabled={txSyncing || syncing} variant="secondary" size="sm">
+            {txSyncing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Receipt className="h-4 w-4 mr-1" />}
+            <span className="hidden sm:inline">{txSyncing ? 'Syncing...' : 'Sync Transactions'}</span>
+            <span className="sm:hidden">{txSyncing ? '...' : 'Txns'}</span>
           </Button>
           {!editing && (
             <Button onClick={startAdd} size="sm"><PlusCircle className="w-4 h-4 mr-1" /> Add</Button>
@@ -406,6 +483,11 @@ export default function CreditCardsPage() {
       {syncMessage && (
         <div className="rounded-lg bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
           {syncMessage}
+        </div>
+      )}
+      {txMessage && (
+        <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
+          {txMessage}
         </div>
       )}
       {error && (
@@ -781,6 +863,64 @@ export default function CreditCardsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Recent Transactions */}
+      <div className="mt-8">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Transactions</h2>
+          <Button onClick={() => runTransactionSync(true)} disabled={txSyncing} variant="secondary" size="sm">
+            {txSyncing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+            {txSyncing ? 'Syncing...' : 'Sync Now'}
+          </Button>
+        </div>
+        <Card>
+          <CardContent className="p-5">
+            {txLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+              </div>
+            ) : recentTx.length === 0 ? (
+              <div className="text-center py-8">
+                <Receipt className="w-8 h-8 mx-auto text-gray-300 dark:text-gray-600 mb-2" />
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  No card transactions yet. Link your card via Plaid and hit &quot;Sync Transactions&quot; to pull them in.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="bg-gray-50 dark:bg-gray-800/60 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                      <th className="py-2 px-3 font-medium">Date</th>
+                      <th className="py-2 px-3 font-medium">Description</th>
+                      <th className="py-2 px-3 font-medium">Card</th>
+                      <th className="py-2 px-3 font-medium text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentTx.map((tx) => (
+                      <tr key={tx.id} className="border-t border-gray-100 dark:border-gray-800">
+                        <td className="py-2 px-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                          {formatTxDate(tx.date)}
+                        </td>
+                        <td className="py-2 px-3 text-sm text-gray-900 dark:text-white truncate max-w-[260px]">
+                          {tx.description || '—'}
+                        </td>
+                        <td className="py-2 px-3 text-sm text-gray-600 dark:text-gray-400 truncate max-w-[180px]">
+                          {tx.account_name}
+                        </td>
+                        <td className={`py-2 px-3 text-right text-sm font-semibold tabular-nums whitespace-nowrap ${tx.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                          {fmt(tx.amount)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

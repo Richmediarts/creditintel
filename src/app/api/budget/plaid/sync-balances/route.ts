@@ -1,44 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { getDb } from '@/lib/db'
-import { Configuration, PlaidApi, PlaidEnvironments, AccountsBalanceGetRequest } from 'plaid'
+import { AccountsBalanceGetRequest } from 'plaid'
+import { getPlaidConfig, getPlaidClient, requirePlaidConfig } from '@/lib/plaid-client'
 import { getPlaidItems } from '@/lib/budget-db'
-
-async function getPlaidConfig() {
-  // 1. Check DB settings table
-  try {
-    const db = getDb()
-    await db.exec("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
-    const row = await db.get("SELECT value FROM settings WHERE key = 'plaid_config'", [])
-    if (row) {
-      try {
-        const cfg = JSON.parse(row.value)
-        if (cfg.client_id && cfg.secret) return cfg
-      } catch { /* ignore */ }
-    }
-  } catch { /* ignore */ }
-
-  // 2. Fall back to env vars
-  return {
-    client_id: process.env.PLAID_CLIENT_ID || '',
-    secret: process.env.PLAID_SECRET || '',
-    environment: process.env.PLAID_ENV || 'sandbox',
-  }
-}
-
-function getPlaidClient(config: { client_id: string; secret: string; environment: string }) {
-  const basePath = config.environment === 'production' ? PlaidEnvironments.production : PlaidEnvironments.sandbox
-  const conf = new Configuration({
-    basePath,
-    baseOptions: {
-      headers: {
-        'PLAID-CLIENT-ID': config.client_id,
-        'PLAID-SECRET': config.secret,
-      },
-    },
-  })
-  return new PlaidApi(conf)
-}
 
 export async function POST(request: NextRequest) {
   const token = request.cookies.get('credit-dashboard-token')?.value
@@ -47,7 +12,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const config = await getPlaidConfig()
-  if (!config.client_id || !config.secret) {
+  if (!requirePlaidConfig(config)) {
     return NextResponse.json({ error: 'Plaid not configured' }, { status: 400 })
   }
 

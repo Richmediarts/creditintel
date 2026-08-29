@@ -251,6 +251,12 @@ export async function initPostgresSchema() {
     ALTER TABLE budget_credit_cards ADD COLUMN IF NOT EXISTS last_synced_at TIMESTAMP;
   `
 
+  // budget_transactions.account_id stores both bank-account and credit-card ids
+  // (credit-card accounts are linked via Plaid), so the bank-only FK is relaxed.
+  await sql`
+    ALTER TABLE budget_transactions DROP CONSTRAINT IF EXISTS budget_transactions_account_id_fkey;
+  `
+
   await sql`
     ALTER TABLE budget_paychecks ADD COLUMN IF NOT EXISTS salary_hours REAL DEFAULT 0;
   `

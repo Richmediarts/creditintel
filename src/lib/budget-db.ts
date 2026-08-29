@@ -984,6 +984,31 @@ export async function getTransactions(userId: number, accountId?: number, startD
   return (await db.prepare(sql).all(...params)) as { id: number; user_id: number; account_id: number; date: string; description: string; amount: number; balance: number; plaid_transaction_id: string | null }[]
 }
 
+export interface RecentTransaction {
+  id: number
+  account_id: number
+  account_name: string
+  date: string
+  description: string
+  amount: number
+  balance: number
+  plaid_transaction_id: string | null
+}
+
+export async function getRecentTransactions(userId: number, kind: 'bank' | 'credit', limit = 10): Promise<RecentTransaction[]> {
+  const db = getDb()
+  const table = kind === 'credit' ? 'budget_credit_cards' : 'budget_bank_accounts'
+  const rows = (await db.prepare(`
+    SELECT t.id, t.account_id, t.date, t.description, t.amount, t.balance, t.plaid_transaction_id, a.name AS account_name
+    FROM budget_transactions t
+    LEFT JOIN ${table} a ON a.id = t.account_id
+    WHERE t.user_id = ? AND a.id IS NOT NULL
+    ORDER BY t.date DESC, t.created_at DESC
+    LIMIT ?
+  `).all(userId, limit)) as RecentTransaction[]
+  return rows.map((r) => ({ ...r, date: toDateString(r.date) || '' }))
+}
+
 export async function addTransactions(userId: number, accountId: number, transactionsList: { date: string; description: string; amount: number; balance: number }[]) {
   const db = getDb()
   const insert = db.prepare('INSERT INTO budget_transactions (user_id, account_id, date, description, amount, balance) VALUES (?, ?, ?, ?, ?, ?)')
