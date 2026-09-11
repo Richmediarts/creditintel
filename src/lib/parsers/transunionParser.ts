@@ -560,7 +560,12 @@ function extractAccountsRegex(text: string): Account[] {
 }
 
 function finalizeAccount(acc: Partial<Account>): Account {
-  const payStatus = (acc.payStatus || '').toLowerCase()
+  // Normalize pay status: collapse multiple spaces and remove internal spaces within hyphenated words
+  let payStatus = (acc.payStatus || '').toLowerCase()
+  payStatus = payStatus.replace(/\s+/g, ' ').trim()
+  payStatus = payStatus.replace(/charge[\s-]*off/g, 'charge off')
+  payStatus = payStatus.replace(/charge[\s-]*of[\s]*f/g, 'charge off')
+
   const remarks = (acc.remarks || '').toLowerCase()
 
   const hasDerogatoryPayStatus =
