@@ -84,21 +84,30 @@ function DisputeLettersContent() {
     })
   }
 
-  let letterContent = ''
-  if (letterType === 'dispute') {
-    letterContent = generateCombinedDisputeLetter(creditData.reports, checkedItems, consumerName, consumerAddress)
-  } else if (letterType === 'inquiry' && checkedItems.length > 0) {
-    const item = checkedItems[0]
-    letterContent = generateInquiryDisputeLetter(item.bureau, item.creditorName, item.inquiryDate || 'Unknown', consumerName, consumerAddress).body
-  } else if (letterType === 'revocation' && checkedItems.length > 0) {
-    const item = checkedItems[0]
-    letterContent = generateRevocationLetter(item.bureau, item.creditorName, consumerName, consumerAddress).body
-  } else if (letterType === 'validation' && checkedItems.length > 0) {
-    const item = checkedItems[0]
-    letterContent = generateValidationRequest(item.bureau, item.creditorName, consumerName, consumerAddress).body
+  const generateLetterForItem = (item: DisputeItem): string => {
+    if (letterType === 'dispute') {
+      return generateCombinedDisputeLetter(creditData.reports, [item], consumerName, consumerAddress)
+    } else if (letterType === 'inquiry') {
+      return generateInquiryDisputeLetter(item.bureau, item.creditorName, item.inquiryDate || 'Unknown', consumerName, consumerAddress).body
+    } else if (letterType === 'revocation') {
+      return generateRevocationLetter(item.bureau, item.creditorName, consumerName, consumerAddress).body
+    } else if (letterType === 'validation') {
+      return generateValidationRequest(item.bureau, item.creditorName, consumerName, consumerAddress).body
+    }
+    return ''
   }
 
+  const letterContent = checkedItems.length > 0
+    ? checkedItems.map(item => generateLetterForItem(item)).join('\n\n' + '─'.repeat(60) + '\n\n')
+    : ''
+
   const handleCopy = async () => {
+    if (checkedItems.length > 1) {
+      const confirmed = window.confirm(
+        `You have ${checkedItems.length} items selected. All letters will be copied to clipboard. Continue?`
+      )
+      if (!confirmed) return
+    }
     await navigator.clipboard.writeText(letterContent)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
@@ -143,25 +152,27 @@ function DisputeLettersContent() {
   }
 
   const saveLetterToLibrary = async () => {
-    if (!letterContent) return
-    const items = letterType === 'dispute'
-      ? checkedItems
-      : checkedItems.length > 0 ? [checkedItems[0]] : []
-    if (items.length === 0) return
+    if (checkedItems.length === 0) return
 
-    for (const item of items) {
-      await fetch('/api/letters', {
+    let saved = 0
+    for (const item of checkedItems) {
+      const letter = generateLetterForItem(item)
+      if (!letter) continue
+      const res = await fetch('/api/letters', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           creditorName: item.creditorName,
           bureau: item.bureau,
           letterType,
-          letterText: letterContent,
+          letterText: letter,
         }),
       })
+      if (res.ok) saved++
     }
-    setSavedMessage(`Saved ${items.length} letter${items.length > 1 ? 's' : ''} to your Letters Library.`)
+    if (saved > 0) {
+      setSavedMessage(`Saved ${saved} letter${saved > 1 ? 's' : ''} to your Letters Library.`)
+    }
   }
 
   const letterTypeLabels: Record<string, string> = {
@@ -202,13 +213,45 @@ function DisputeLettersContent() {
     URL.revokeObjectURL(url)
   }
 
+  const handlePrint = async () => {
+    if (checkedItems.length > 1) {
+      const confirmed = window.confirm(
+        `You have ${checkedItems.length} items selected. Each will be printed on its own page. Continue?`
+      )
+      if (!confirmed) return
+    }
+    await trackPrinted()
+    await saveLetterToLibrary()
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+    const htmlContent = checkedItems.map(item => {
+      const letter = generateLetterForItem(item)
+      return `<div style="page-break-after:always;padding:40px;font-family:monospace;white-space:pre-wrap;font-size:12px;line-height:1.6;">${letter.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>`
+    }).join('')
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>Dispute Letters</title></head><body>${htmlContent}</body></html>`)
+    printWindow.document.close()
+    printWindow.print()
+  }
+
   const handleDownload = async () => {
+    if (checkedItems.length > 1) {
+      const confirmed = window.confirm(
+        `You have ${checkedItems.length} items selected. All letters will be included in one file. Continue?`
+      )
+      if (!confirmed) return
+    }
     await trackPrinted()
     await saveLetterToLibrary()
     await downloadBlob(new Blob([letterContent], { type: 'text/plain' }), 'txt', 'text/plain')
   }
 
   const handleDownloadDocx = async () => {
+    if (checkedItems.length > 1) {
+      const confirmed = window.confirm(
+        `You have ${checkedItems.length} items selected. All letters will be included in one file. Continue?`
+      )
+      if (!confirmed) return
+    }
     setDownloadingDocx(true)
     try {
       await trackPrinted()
@@ -485,6 +528,9 @@ function DisputeLettersContent() {
                   <Button variant="secondary" size="sm" onClick={handleCopy}>
                     {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                     {copied ? 'Copied' : 'Copy'}
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={handlePrint}>
+                    <Printer className="w-4 h-4" /> Print
                   </Button>
                   <Button variant="secondary" size="sm" onClick={handleDownload}>
                     <Download className="w-4 h-4" /> .txt
