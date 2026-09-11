@@ -209,9 +209,17 @@ function parsePackedChunk(chunk: string[]): Partial<Account> | null {
   const mp = body.match(/Monthly\s*Payment\s*\$?([\d,]+)/i)
   if (mp) acc.monthlyPayment = parseAmount(mp[1])
 
-  const ps = body.match(/Pay\s*Status\s*([^A-Z][^A-Z]*?)(?=\s{3,}[A-Z]|\s+Terms\b|Estimated\s+month|Max\w+\s+Delinquency|\s+Date\s+Closed|$)/i) ||
-            body.match(/Pay\s*Status\s*([A-Za-z0-9 ,;./-]+?)(?=\s{3,}|\s+Terms\b|Estimated\s+month|Max\w+\s+Delinquency|\s+Date\s+Closed|$)/i)
-  if (ps) acc.payStatus = ps[1].replace(/[<>]/g, '').trim()
+  const ps = body.match(/Pay\s*Status\s*(?:>\s*)?([^A-Z]*[A-Za-z][^A-Z]*?)(?=\s{3,}[A-Z]|\s+Terms\b|Estimated\s+month|Max\w+\s+Delinquency|\s+Date\s+Closed|$)/i) ||
+            body.match(/Pay\s*Status\s*(?:>\s*)?([A-Za-z0-9 ,;./-]*[A-Za-z][A-Za-z0-9 ,;./-]*?)(?=\s{3,}|\s+Terms\b|Estimated\s+month|Max\w+\s+Delinquency|\s+Date\s+Closed|$)/i) ||
+            body.match(/Pay\s*Status\s*>\s*([^<>]+?)</i)
+  if (ps) {
+    let psVal = ps[1].replace(/[<>]/g, '').trim()
+    // For merged fields like "Estimated month and year...04/2028Charge-of f",
+    // extract the actual pay status from the end (after the date)
+    const mergedMatch = psVal.match(/(\d{4})\s*(Charge[\s-]*of[\s]*f|Charge[\s-]*off|Collectio\s*n|Collection|Current Account|Paid.*|Past Due|Closed.*)/i)
+    if (mergedMatch) psVal = mergedMatch[2].trim()
+    acc.payStatus = psVal
+  }
 
   const terms = body.match(/Terms\s*\$?([\d,]+[^A-Z]+?)(?=Estimated|Maximum Delinquency|High Balance|Date Closed|$|\s{2,}[A-Z]\w)/i)
   if (terms) acc.terms = terms[1].replace(/[<>]/g, '').trim()
@@ -536,7 +544,8 @@ function extractAccountsRegex(text: string): Account[] {
     const hbMatch = trimmed.match(/High\s+Balance\s+\$?([\d,]+)/i)
     if (hbMatch) acc.highBalance = parseAmount(hbMatch[1])
 
-    const psMatch = trimmed.match(/Pay\s+Status\s+(.+?)(?:\n|$)/i)
+    const psMatch = trimmed.match(/Pay\s+Status\s+(.+?)(?:\n|$)/i) ||
+                    trimmed.match(/Pay\s+Status\s*>\s*([^<>]+)</i)
     if (psMatch) {
       acc.payStatus = psMatch[1].replace(/[<>]/g, '').trim()
     }
