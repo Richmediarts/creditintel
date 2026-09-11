@@ -182,7 +182,10 @@ export function generateDisputeItems(
         }
       }
 
-      if (inaccuracies.length > 0) {
+      // Always include derogatory accounts even without inaccuracies
+      const isDerogatory = account.isChargeOff || account.isCollection || account.isLate || account.status === 'ChargeOff' || account.status === 'Collection' || account.status === 'Derogatory'
+
+      if (inaccuracies.length > 0 || isDerogatory) {
         items.push({
           accountId: ma.id,
           creditorName: account.creditorName,
