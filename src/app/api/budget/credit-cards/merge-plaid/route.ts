@@ -44,13 +44,15 @@ export async function POST(request: NextRequest) {
         ).get(user.userId, mask) as { id: number } | undefined
 
         if (unlinked) {
+          const plaidLimit = acct.balances?.limit ?? 0
           await db.prepare(
-            'UPDATE budget_credit_cards SET plaid_account_id = ?, plaid_item_id = ?, current_balance = ?, credit_limit = ? WHERE user_id = ? AND id = ?'
+            'UPDATE budget_credit_cards SET plaid_account_id = ?, plaid_item_id = ?, current_balance = ?, credit_limit = CASE WHEN ? > 0 THEN ? ELSE credit_limit END WHERE user_id = ? AND id = ?'
           ).run(
             acct.account_id,
             item.id,
             acct.balances?.current ?? 0,
-            acct.balances?.limit ?? 0,
+            plaidLimit,
+            plaidLimit,
             user.userId,
             unlinked.id
           )
