@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Wallet, CreditCard, TrendingUp, PlusCircle, ArrowRight,
-  Edit, Trash2, RefreshCw, Plug, Loader2, ExternalLink, Link2, Receipt,
+  Edit, Trash2, RefreshCw, Plug, Loader2, ExternalLink, Link2, Receipt, Unplug, AlertTriangle,
 } from 'lucide-react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -253,6 +253,7 @@ export default function CreditCardsPage() {
   const [recentTx, setRecentTx] = useState<RecentTx[]>([])
   const [txLoading, setTxLoading] = useState(true)
   const autoSyncedRef = useRef(false)
+  const [plaidItemIds, setPlaidItemIds] = useState<Set<number>>(new Set())
 
   const fetchCards = useCallback(async () => {
     const res = await fetch('/api/budget/credit-cards', { cache: 'no-store' })
@@ -265,7 +266,12 @@ export default function CreditCardsPage() {
 
   useEffect(() => {
     if (!authLoading && !user) { router.push('/login'); return }
-    if (user) fetchCards()
+    if (user) {
+      fetchCards()
+      fetch('/api/budget/plaid/items').then(r => r.ok ? r.json() : { items: [] }).then(d => {
+        setPlaidItemIds(new Set(d.items.map((i: { id: number }) => i.id)))
+      })
+    }
   }, [user, authLoading, fetchCards])
 
   const fetchRecentTx = useCallback(async () => {
@@ -743,8 +749,14 @@ export default function CreditCardsPage() {
                                       <p className={`text-base truncate ${theme.subtext}`}>{card.name}</p>
                                     </div>
                                   </div>
-                                  {card.plaid_account_id && (
-                                    <span title="Plaid connected"><Plug className="w-4 h-4 text-green-400 shrink-0" /></span>
+                                  {card.plaid_item_id ? (
+                                    plaidItemIds.has(card.plaid_item_id) ? (
+                                      <span title="Plaid linked — active"><Plug className="w-4 h-4 text-green-400 shrink-0" /></span>
+                                    ) : (
+                                      <span title="Plaid linked — needs reconnection"><AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0" /></span>
+                                    )
+                                  ) : (
+                                    <span title="Not linked to Plaid"><Unplug className="w-4 h-4 text-red-400/60 shrink-0" /></span>
                                   )}
                                 </div>
 
