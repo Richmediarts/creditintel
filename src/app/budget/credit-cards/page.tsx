@@ -449,6 +449,11 @@ export default function CreditCardsPage() {
         const fail = data.results?.filter((r: { status: string }) => r.status === 'error').length || 0
         const skipped = data.results?.filter((r: { status: string }) => r.status === 'skipped').length || 0
         setSyncMessage(`Synced ${ok} institution${ok !== 1 ? 's' : ''}${fail ? ` (${fail} failed)` : ''}${skipped ? ` (${skipped} disconnected, ignored)` : ''}`)
+        try {
+          const mergeRes = await fetch('/api/budget/credit-cards/merge-plaid', { method: 'POST' })
+          const mergeData = await mergeRes.json()
+          if (mergeData.merged > 0) setSyncMessage(prev => prev + ` — Linked ${mergeData.merged} card${mergeData.merged !== 1 ? 's' : ''}`)
+        } catch { /* ignore */ }
         await fetchCards()
         await fetchPlaidItems()
       } else {
@@ -481,7 +486,7 @@ export default function CreditCardsPage() {
           <p className="text-sm text-gray-500">Track balances, limits, and utilization across all your cards.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <PlaidLinkButton onConnected={fetchCards} />
+          <PlaidLinkButton onConnected={async () => { await fetchCards(); await fetchPlaidItems(); try { const r = await fetch('/api/budget/credit-cards/merge-plaid', { method: 'POST' }); const d = await r.json(); if (d.merged > 0) await fetchCards(); } catch {} }} />
           <Button onClick={handleSync} disabled={syncing || txSyncing} variant="secondary" size="sm">
             {syncing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
             <span className="hidden sm:inline">{syncing ? 'Syncing...' : 'Sync Balances'}</span>
@@ -885,7 +890,7 @@ export default function CreditCardsPage() {
               <CreditCard className="w-8 h-8 mx-auto text-gray-300 mb-2" />
               <p className="text-sm text-gray-400">No credit cards yet.</p>
               <div className="flex items-center justify-center gap-2 mt-3">
-          <PlaidLinkButton onConnected={() => { fetchCards(); fetchPlaidItems() }} />
+          <PlaidLinkButton onConnected={async () => { await fetchCards(); await fetchPlaidItems(); try { const r = await fetch('/api/budget/credit-cards/merge-plaid', { method: 'POST' }); const d = await r.json(); if (d.merged > 0) await fetchCards(); } catch {} }} />
                 <Button onClick={startAdd}><PlusCircle className="w-4 h-4 mr-2" /> Add Manually</Button>
               </div>
             </div>
