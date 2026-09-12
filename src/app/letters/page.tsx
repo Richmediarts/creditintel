@@ -5,13 +5,13 @@ import {
   ArrowLeft, Folder, FolderOpen, FileText, Download, Trash2,
   Copy, Check, Loader2, ExternalLink,
 } from 'lucide-react'
+import { letterTextToDocx } from '@/lib/utils/disputeLetters'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
-import { letterTextToDocx } from '@/lib/utils/disputeLetters'
 import type { Bureau } from '@/types'
 
 interface Letter {
@@ -75,6 +75,7 @@ export default function LettersPage() {
   const [letters, setLetters] = useState<Letter[]>([])
   const [loading, setLoading] = useState(true)
   const [copiedId, setCopiedId] = useState<number | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
   const fetchLetters = async () => {
     const res = await fetch('/api/letters')
@@ -111,15 +112,52 @@ export default function LettersPage() {
     setTimeout(() => setCopiedId(null), 2000)
   }
 
+  const toggleSelected = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = (bureau: Letter[]) => {
+    const ids = bureau.map(l => l.id)
+    const allSelected = ids.every(id => selectedIds.has(id))
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (allSelected) {
+        ids.forEach(id => next.delete(id))
+      } else {
+        ids.forEach(id => next.add(id))
+      }
+      return next
+    })
+  }
+
+  const handleBulkDownload = async () => {
+    if (selectedIds.size === 0) return
+    const selected = letters.filter(l => selectedIds.has(l.id))
+    for (const letter of selected) {
+      const filename = `${letter.letterType}_${letter.bureau}_${letter.creditorName.replace(/[^a-z0-9]/gi, '_')}.docx`
+      const res = await fetch(`/api/letters/${letter.id}`)
+      if (!res.ok) continue
+      const data = await res.json()
+      await downloadDocx(data.letter.letterText, filename)
+    }
+  }
+
   if (authLoading) return <div className="text-center py-20 text-gray-500">Loading...</div>
   if (!user) return null
 
   const groups: Record<string, Record<string, Letter[]>> = {}
-  for (const bureau of BUREAUS) groups[bureau] = {}
+  const bureauLetters: Record<string, Letter[]> = {}
+  for (const bureau of BUREAUS) { groups[bureau] = {}; bureauLetters[bureau] = [] }
   for (const letter of letters) {
     if (!groups[letter.bureau]) groups[letter.bureau] = {}
     if (!groups[letter.bureau][letter.letterType]) groups[letter.bureau][letter.letterType] = []
     groups[letter.bureau][letter.letterType].push(letter)
+    bureauLetters[letter.bureau].push(letter)
   }
 
   return (
@@ -130,6 +168,11 @@ export default function LettersPage() {
         </Link>
         <h1 className="text-xl font-bold text-gray-900 dark:text-white">Letters Library</h1>
         <Badge variant="info">{letters.length} saved</Badge>
+        {selectedIds.size > 0 && (
+          <Button size="sm" onClick={handleBulkDownload} className="ml-auto">
+            <Download className="w-4 h-4 mr-1" /> Download Selected ({selectedIds.size})
+          </Button>
+        )}
       </div>
 
       <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -163,6 +206,15 @@ export default function LettersPage() {
                     <div className="flex items-center gap-2">
                       {hasLetters ? <FolderOpen className="w-5 h-5 text-blue-500" /> : <Folder className="w-5 h-5 text-gray-300 dark:text-gray-600" />}
                       <span className="font-semibold text-gray-900 dark:text-white">{bureau}</span>
+                      {hasLetters && (
+                        <input
+                          type="checkbox"
+                          checked={bureauLetters[bureau].length > 0 && bureauLetters[bureau].every(l => selectedIds.has(l.id))}
+                          onChange={() => toggleSelectAll(bureauLetters[bureau])}
+                          className="rounded border-gray-300 ml-1"
+                          title="Select all"
+                        />
+                      )}
                     </div>
                     <Badge variant={hasLetters ? 'info' : 'default'}>{total}</Badge>
                   </div>
@@ -176,6 +228,12 @@ export default function LettersPage() {
                       {list.map(letter => (
                         <div key={letter.id} className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/40 rounded-lg group">
                           <div className="flex items-center gap-2 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(letter.id)}
+                              onChange={() => toggleSelected(letter.id)}
+                              className="rounded border-gray-300 shrink-0"
+                            />
                             <FileText className="w-4 h-4 text-gray-400 shrink-0" />
                             <div className="min-w-0">
                               <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{letter.creditorName}</p>
