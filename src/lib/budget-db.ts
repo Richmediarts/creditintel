@@ -567,6 +567,28 @@ export async function getBankAccountByPlaidAccountId(userId: number, plaidAccoun
   return ((await db.prepare('SELECT * FROM budget_bank_accounts WHERE user_id = ? AND plaid_account_id = ?').get(userId, plaidAccountId)) as BudgetBankAccount | undefined) ?? null
 }
 
+export async function getBankAccountByLastFour(userId: number, lastFour: string): Promise<BudgetBankAccount | null> {
+  const db = getDb()
+  return ((await db.prepare('SELECT * FROM budget_bank_accounts WHERE user_id = ? AND account_number_last4 = ? AND plaid_account_id IS NULL').get(userId, lastFour)) as BudgetBankAccount | null) ?? null
+}
+
+export async function mergeBankAccountPlaid(userId: number, accountId: number, data: { plaid_account_id: string; plaid_item_id: number; name?: string; current_balance?: number }): Promise<void> {
+  const db = getDb()
+  const existing = ((await db.prepare('SELECT * FROM budget_bank_accounts WHERE user_id = ? AND id = ?').get(userId, accountId)) as BudgetBankAccount | undefined)
+  if (!existing) return
+
+  await db.prepare(
+    'UPDATE budget_bank_accounts SET plaid_account_id = ?, plaid_item_id = ?, current_balance = ?, name = ? WHERE user_id = ? AND id = ?'
+  ).run(
+    data.plaid_account_id,
+    data.plaid_item_id,
+    data.current_balance ?? existing.current_balance ?? 0,
+    data.name || existing.name || '',
+    userId,
+    accountId
+  )
+}
+
 export async function addBankAccount(userId: number, data: Partial<BudgetBankAccount>): Promise<number> {
   const db = getDb()
   const result = await db.prepare(
@@ -645,6 +667,29 @@ export async function getCreditCard(userId: number, id: number): Promise<BudgetC
 export async function getCreditCardByPlaidAccountId(userId: number, plaidAccountId: string): Promise<BudgetCreditCard | null> {
   const db = getDb()
   return ((await db.prepare('SELECT * FROM budget_credit_cards WHERE user_id = ? AND plaid_account_id = ?').get(userId, plaidAccountId)) as BudgetCreditCard | undefined) ?? null
+}
+
+export async function getCreditCardByLastFour(userId: number, lastFour: string): Promise<BudgetCreditCard | null> {
+  const db = getDb()
+  return ((await db.prepare('SELECT * FROM budget_credit_cards WHERE user_id = ? AND last_four = ? AND plaid_account_id IS NULL').get(userId, lastFour)) as BudgetCreditCard | undefined) ?? null
+}
+
+export async function mergeCreditCardPlaid(userId: number, cardId: number, data: { plaid_account_id: string; plaid_item_id: number; name?: string; current_balance?: number; credit_limit?: number }): Promise<void> {
+  const db = getDb()
+  const existing = ((await db.prepare('SELECT * FROM budget_credit_cards WHERE user_id = ? AND id = ?').get(userId, cardId)) as BudgetCreditCard | undefined)
+  if (!existing) return
+
+  await db.prepare(
+    'UPDATE budget_credit_cards SET plaid_account_id = ?, plaid_item_id = ?, current_balance = ?, credit_limit = ?, name = ? WHERE user_id = ? AND id = ?'
+  ).run(
+    data.plaid_account_id,
+    data.plaid_item_id,
+    data.current_balance ?? existing.current_balance ?? 0,
+    data.credit_limit ?? existing.credit_limit ?? 0,
+    data.name || existing.name || '',
+    userId,
+    cardId
+  )
 }
 
 export async function addCreditCard(userId: number, data: Partial<BudgetCreditCard>): Promise<number> {

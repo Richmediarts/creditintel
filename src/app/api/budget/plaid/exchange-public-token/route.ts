@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { ItemPublicTokenExchangeRequest, AccountsGetRequest, TransactionsSyncRequest } from 'plaid'
-import { addPlaidItem, addBankAccount, addCreditCard, addBill, addPayee, getPayeeByName, getAccountsByPlaidItem, getBankAccountByPlaidAccountId, getCreditCardByPlaidAccountId, upsertPlaidTransaction, updatePlaidCursor, deletePlaidTransaction, updateBankAccount, updateCreditCard } from '@/lib/budget-db'
+import { addPlaidItem, addBankAccount, addCreditCard, addBill, addPayee, getPayeeByName, getAccountsByPlaidItem, getBankAccountByPlaidAccountId, getCreditCardByPlaidAccountId, upsertPlaidTransaction, updatePlaidCursor, deletePlaidTransaction, updateBankAccount, updateCreditCard, getCreditCardByLastFour, mergeCreditCardPlaid, getBankAccountByLastFour, mergeBankAccountPlaid } from '@/lib/budget-db'
 import { getPlaidConfig, getPlaidClient, requirePlaidConfig } from '@/lib/plaid-client'
 
 export async function POST(request: NextRequest) {
@@ -58,6 +58,14 @@ export async function POST(request: NextRequest) {
         }
         if (existingBank) {
           await updateBankAccount(user.userId, existingBank.id, { ...bankData, is_active: existingBank.is_active, is_income_account: existingBank.is_income_account, interest_rate: existingBank.interest_rate })
+        } else if (mask) {
+          const matchByLastFour = await getBankAccountByLastFour(user.userId, mask)
+          if (matchByLastFour) {
+            await mergeBankAccountPlaid(user.userId, matchByLastFour.id, { plaid_account_id: plaidAccountId, plaid_item_id: itemPk, name: institutionName || name, current_balance: balance })
+            created.push({ type: 'bank', name: institutionName || name })
+            continue
+          }
+          await addBankAccount(user.userId, bankData)
         } else {
           await addBankAccount(user.userId, bankData)
         }
@@ -78,6 +86,24 @@ export async function POST(request: NextRequest) {
             plaid_item_id: itemPk,
           })
           cardId = existingCard.id
+        } else if (mask) {
+          const matchByLastFour = await getCreditCardByLastFour(user.userId, mask)
+          if (matchByLastFour) {
+            await mergeCreditCardPlaid(user.userId, matchByLastFour.id, { plaid_account_id: plaidAccountId, plaid_item_id: itemPk, name: institutionName || name, current_balance: balance, credit_limit: limitVal })
+            cardId = matchByLastFour.id
+          } else {
+            cardId = await addCreditCard(user.userId, {
+              name: institutionName || name,
+              last_four: mask,
+              institution: institutionName,
+              credit_limit: limitVal,
+              current_balance: balance,
+              interest_rate: 0,
+              due_date: '',
+              plaid_account_id: plaidAccountId,
+              plaid_item_id: itemPk,
+            })
+          }
         } else {
           cardId = await addCreditCard(user.userId, {
             name: institutionName || name,
@@ -90,23 +116,23 @@ export async function POST(request: NextRequest) {
             plaid_account_id: plaidAccountId,
             plaid_item_id: itemPk,
           })
-          if (institutionName || name) {
-            const payeeName = institutionName || name
-            const existingPayee = await getPayeeByName(user.userId, payeeName)
-            const payeeId = existingPayee ? existingPayee.id : await addPayee(user.userId, { name: payeeName })
-            await addBill(user.userId, {
-              payee_id: payeeId,
-              payee_name: payeeName,
-              amount: balance,
-              due_date: new Date().toISOString().split('T')[0],
-              is_paid: 0,
-              is_recurring: 1,
-              recurrence_type: 'monthly',
-              notes: `Credit Card Payment - ${payeeName}`,
-              credit_card_id: cardId,
-              account: payeeName,
-            })
-          }
+        }
+        if (institutionName || name) {
+          const payeeName = institutionName || name
+          const existingPayee = await getPayeeByName(user.userId, payeeName)
+          const payeeId = existingPayee ? existingPayee.id : await addPayee(user.userId, { name: payeeName })
+          await addBill(user.userId, {
+            payee_id: payeeId,
+            payee_name: payeeName,
+            amount: balance,
+            due_date: new Date().toISOString().split('T')[0],
+            is_paid: 0,
+            is_recurring: 1,
+            recurrence_type: 'monthly',
+            notes: `Credit Card Payment - ${payeeName}`,
+            credit_card_id: cardId,
+            account: payeeName,
+          })
         }
         created.push({ type: 'credit', name: institutionName || name })
       } else if (acctType === 'loan') {
@@ -123,6 +149,14 @@ export async function POST(request: NextRequest) {
         }
         if (existingLoan) {
           await updateBankAccount(user.userId, existingLoan.id, { ...loanData, is_active: existingLoan.is_active, is_income_account: existingLoan.is_income_account, interest_rate: existingLoan.interest_rate })
+        } else if (mask) {
+          const matchByLastFour = await getBankAccountByLastFour(user.userId, mask)
+          if (matchByLastFour) {
+            await mergeBankAccountPlaid(user.userId, matchByLastFour.id, { plaid_account_id: plaidAccountId, plaid_item_id: itemPk, name: institutionName || name, current_balance: balance })
+            created.push({ type: 'bank', name: institutionName || name })
+            continue
+          }
+          await addBankAccount(user.userId, loanData)
         } else {
           await addBankAccount(user.userId, loanData)
         }
