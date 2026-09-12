@@ -279,6 +279,9 @@ export default function CreditCardsPage() {
     if (user) {
       fetchCards()
       fetchPlaidItems()
+      fetch('/api/budget/credit-cards/merge-plaid', { method: 'POST' })
+        .then(r => r.ok ? r.json() : { merged: 0 })
+        .then(d => { if (d.merged > 0) fetchCards() })
     }
   }, [user, authLoading, fetchCards, fetchPlaidItems])
 
