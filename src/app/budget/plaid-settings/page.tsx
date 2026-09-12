@@ -3,10 +3,17 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plug, ArrowRight, CheckCircle } from 'lucide-react'
+import { Plug, ArrowRight, CheckCircle, Trash2, AlertTriangle, Unplug } from 'lucide-react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
+
+interface PlaidItem {
+  id: number
+  item_id: string
+  institution_name: string
+  needs_reconnection: boolean
+}
 
 export default function PlaidSettingsPage() {
   const { user, loading: authLoading } = useAuth()
@@ -18,6 +25,8 @@ export default function PlaidSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [success, setSuccess] = useState(false)
+  const [items, setItems] = useState<PlaidItem[]>([])
+  const [deleting, setDeleting] = useState<number | null>(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -35,9 +44,22 @@ export default function PlaidSettingsPage() {
     setLoading(false)
   }, [])
 
+  const fetchItems = useCallback(async () => {
+    try {
+      const res = await fetch('/api/budget/plaid/items')
+      if (res.ok) {
+        const data = await res.json()
+        setItems(data.items)
+      }
+    } catch { /* ignore */ }
+  }, [])
+
   useEffect(() => {
-    if (user) fetchSettings()
-  }, [user, fetchSettings])
+    if (user) {
+      fetchSettings()
+      fetchItems()
+    }
+  }, [user, fetchSettings, fetchItems])
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -54,6 +76,22 @@ export default function PlaidSettingsPage() {
       setTimeout(() => setSuccess(false), 3000)
     }
     setSaving(false)
+  }
+
+  const handleDelete = async (itemId: number) => {
+    if (!confirm('Delete this Plaid link? Cards/bank accounts will be unlinked but not deleted.')) return
+    setDeleting(itemId)
+    try {
+      const res = await fetch('/api/budget/plaid/items', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_id: itemId }),
+      })
+      if (res.ok) {
+        await fetchItems()
+      }
+    } catch { /* ignore */ }
+    setDeleting(null)
   }
 
   if (authLoading || !user) {
@@ -77,6 +115,50 @@ export default function PlaidSettingsPage() {
       >
         <ArrowRight className="h-3 w-3 rotate-180" /> Back to Bank Accounts
       </Link>
+
+      {/* Linked Accounts */}
+      <Card className="mb-6">
+        <CardContent className="p-5">
+          <CardTitle className="mb-3">Linked Accounts ({items.length})</CardTitle>
+          {items.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">No Plaid accounts linked yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {items.map(item => (
+                <div key={item.id} className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    {item.needs_reconnection ? (
+                      <AlertTriangle className="h-5 w-5 text-yellow-400 shrink-0" />
+                    ) : (
+                      <Plug className="h-5 w-5 text-green-400 shrink-0" />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{item.institution_name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {item.needs_reconnection ? 'Needs reconnection' : 'Active'}
+                        <span className="ml-2 text-gray-400">ID: {item.id}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDelete(item.id)}
+                    disabled={deleting === item.id}
+                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                  >
+                    {deleting === item.id ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-400" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Instructions */}
       <Card className="mb-6">
