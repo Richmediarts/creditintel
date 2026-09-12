@@ -82,6 +82,7 @@ Maintain credit-dashboard Next.js app with accurate report parsing, multi-bureau
 ### Key Decisions
 - Generic parser uses two-pass approach: (1) insert spaces before known field labels when concatenated, (2) scan for creditor-name-like lines and extract fields within each account block.
 - PDF extractor now preserves relative spacing between text items (multiple spaces for larger gaps) rather than binary small/large gap.
+- Dispute letters: all checked items generate separate letters joined with separator; user prompted when multiple items selected for copy/print/download.
 
 ### Next Steps
 1. Debug PDF text extraction output — add raw text display on Report Viewer or upload page so user can see what the parsers actually receive.
@@ -111,7 +112,7 @@ Maintain credit-dashboard Next.js app with accurate report parsing, multi-bureau
 - `/home/rich/credit-dashboard/src/app/comparison/page.tsx`: fixed dark mode text colors; user name from `useAuth()`
 - `/home/rich/credit-dashboard/src/app/summary/page.tsx`: bureau titles link to `/report-viewer?bureau=X`
 - `/home/rich/credit-dashboard/src/app/report-viewer/page.tsx`: reads `?bureau=` param; Suspense for `useSearchParams`
-- `/home/rich/credit-dashboard/src/app/dispute-letters/page.tsx`: user name from `useAuth()`; "Where to Send Letters"; `.docx` Save As
+- `/home/rich/credit-dashboard/src/app/dispute-letters/page.tsx`: user name from `useAuth()`; "Where to Send Letters"; `.docx` Save As; multi-item print/save/download with prompts
 - `/home/rich/credit-dashboard/seed/seed.json`: password hashes updated to match local DB (admin: `ella`)
 - `/home/rich/credit-dashboard/src/app/api/reports/enrich/route.ts`: standalone seed endpoint (no longer called automatically)
 - `/home/rich/credit-dashboard/src/lib/budget-db.ts`: NEW — budget schema + queries (`getPaychecks`, `getPaycheck`, `addPaycheck`, `updatePaycheck`, `deletePaycheck`, `getNextPaycheckDate`, `getBudgetStats`)

@@ -101,8 +101,8 @@ export default function LettersPage() {
     if (!res.ok) return
     const data = await res.json()
     const letter = data.letter
-    const filename = `${letter.letterType}_${letter.bureau}_${letter.creditorName.replace(/[^a-z0-9]/gi, '_')}.txt`
-    downloadText(letter.letterText, filename)
+    const filename = `${letter.letterType}_${letter.bureau}_${letter.creditorName.replace(/[^a-z0-9]/gi, '_')}.docx`
+    await downloadDocx(letter.letterText, filename)
   }
 
   const handleCopy = async (id: number, text: string) => {
@@ -192,7 +192,7 @@ export default function LettersPage() {
                             </Link>
                             <button
                               onClick={() => handleDownloadLetter(letter.id)}
-                              title="Download .txt"
+                              title="Download .docx"
                               className="p-1.5 text-gray-400 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
                             >
                               <Download className="w-4 h-4" />

@@ -59,18 +59,7 @@ export default function LetterDetailPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleDownload = () => {
-    if (!letter) return
-    const filename = `${letter.letterType}_${letter.bureau}_${letter.creditorName.replace(/[^a-z0-9]/gi, '_')}`
-    const url = URL.createObjectURL(new Blob([letter.letterText], { type: 'text/plain' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${filename}.txt`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const handleDownloadDocx = async () => {
+  const handleDownload = async () => {
     if (!letter) return
     const filename = `${letter.letterType}_${letter.bureau}_${letter.creditorName.replace(/[^a-z0-9]/gi, '_')}`
     const blob = await letterTextToDocx(letter.letterText)
@@ -110,10 +99,7 @@ export default function LetterDetailPage() {
             {copied ? 'Copied' : 'Copy'}
           </Button>
           <Button variant="secondary" size="sm" onClick={handleDownload}>
-            <Download className="w-4 h-4 mr-1" /> .txt
-          </Button>
-          <Button variant="secondary" size="sm" onClick={handleDownloadDocx}>
-            <Download className="w-4 h-4 mr-1" /> .docx
+            <Download className="w-4 h-4 mr-1" /> Download .docx
           </Button>
           <Button variant="danger" size="sm" onClick={handleDelete}>
             <Trash2 className="w-4 h-4 mr-1" /> Delete
