@@ -253,7 +253,7 @@ export default function CreditCardsPage() {
   const [recentTx, setRecentTx] = useState<RecentTx[]>([])
   const [txLoading, setTxLoading] = useState(true)
   const autoSyncedRef = useRef(false)
-  const [plaidItemIds, setPlaidItemIds] = useState<Set<number>>(new Set())
+  const [plaidItemIds, setPlaidItemIds] = useState<Map<number, boolean>>(new Map())
 
   const fetchCards = useCallback(async () => {
     const res = await fetch('/api/budget/credit-cards', { cache: 'no-store' })
@@ -269,7 +269,11 @@ export default function CreditCardsPage() {
       const res = await fetch('/api/budget/plaid/items')
       if (res.ok) {
         const d = await res.json()
-        setPlaidItemIds(new Set(d.items.map((i: { id: number }) => i.id)))
+        const map = new Map<number, boolean>()
+        for (const i of d.items as { id: number; needs_reconnection: boolean }[]) {
+          map.set(i.id, i.needs_reconnection)
+        }
+        setPlaidItemIds(map)
       }
     } catch { /* ignore */ }
   }, [])
@@ -769,7 +773,11 @@ export default function CreditCardsPage() {
                                   </div>
                                   {card.plaid_item_id ? (
                                     plaidItemIds.has(card.plaid_item_id) ? (
-                                      <span title="Plaid linked — active"><Plug className="w-4 h-4 text-green-400 shrink-0" /></span>
+                                      plaidItemIds.get(card.plaid_item_id) ? (
+                                        <span title="Plaid linked — needs reconnection"><AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0" /></span>
+                                      ) : (
+                                        <span title="Plaid linked — active"><Plug className="w-4 h-4 text-green-400 shrink-0" /></span>
+                                      )
                                     ) : (
                                       <span title="Plaid linked — needs reconnection"><AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0" /></span>
                                     )

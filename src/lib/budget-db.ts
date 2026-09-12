@@ -1195,7 +1195,17 @@ export async function addPlaidItem(userId: number, accessToken: string, itemId: 
 
 export async function getPlaidItems(userId: number) {
   const db = getDb()
-  return (await db.prepare('SELECT * FROM budget_plaid_items WHERE user_id = ? ORDER BY id').all(userId)) as { id: number; user_id: number; access_token: string; item_id: string; institution_name: string; plaid_cursor: string | null }[]
+  return (await db.prepare('SELECT * FROM budget_plaid_items WHERE user_id = ? ORDER BY id').all(userId)) as { id: number; user_id: number; access_token: string; item_id: string; institution_name: string; plaid_cursor: string | null; needs_reconnection: boolean }[]
+}
+
+export async function markPlaidItemReconnect(userId: number, itemId: number) {
+  const db = getDb()
+  await db.prepare('UPDATE budget_plaid_items SET needs_reconnection = TRUE WHERE user_id = ? AND id = ?').run(userId, itemId)
+}
+
+export async function clearPlaidItemReconnect(userId: number, itemId: number) {
+  const db = getDb()
+  await db.prepare('UPDATE budget_plaid_items SET needs_reconnection = FALSE WHERE user_id = ? AND id = ?').run(userId, itemId)
 }
 
 export async function deletePlaidItem(userId: number, itemId: number) {

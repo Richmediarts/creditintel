@@ -322,6 +322,9 @@ export async function initPostgresSchema() {
   await sql`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS mirror_user_id INTEGER;
   `
+  await sql`
+    ALTER TABLE budget_plaid_items ADD COLUMN IF NOT EXISTS needs_reconnection BOOLEAN DEFAULT FALSE;
+  `
 
   const serialTables = [
     'users',

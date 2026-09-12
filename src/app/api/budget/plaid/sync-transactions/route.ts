@@ -3,7 +3,7 @@ import { verifyToken } from '@/lib/auth'
 import { getDb } from '@/lib/db'
 import { TransactionsSyncRequest, TransactionsGetRequest } from 'plaid'
 import { getPlaidConfig, getPlaidClient, requirePlaidConfig } from '@/lib/plaid-client'
-import { getPlaidItems, getAccountsByPlaidItem, upsertPlaidTransaction, deletePlaidTransaction, updatePlaidCursor } from '@/lib/budget-db'
+import { getPlaidItems, getAccountsByPlaidItem, upsertPlaidTransaction, deletePlaidTransaction, updatePlaidCursor, markPlaidItemReconnect, clearPlaidItemReconnect } from '@/lib/budget-db'
 
 const RECONNECT_CODES = new Set([
   'ITEM_LOGIN_REQUIRED',
@@ -159,6 +159,8 @@ export async function POST(request: NextRequest) {
 
       if (cursorVal) await updatePlaidCursor(user.userId, item.id, cursorVal)
 
+      await clearPlaidItemReconnect(user.userId, item.id)
+
       const localAccounts = await getAccountsByPlaidItem(user.userId, item.id)
       for (const a of localAccounts) {
         const table = a.type === 'credit' ? 'budget_credit_cards' : 'budget_bank_accounts'
@@ -168,6 +170,7 @@ export async function POST(request: NextRequest) {
       const code = plaidErrorCode(e)
       if (code && RECONNECT_CODES.has(code)) {
         reconnectNeeded.push({ institution: item.institution_name, code })
+        await markPlaidItemReconnect(user.userId, item.id)
       } else {
         const msg = e instanceof Error ? e.message : String(e)
         return NextResponse.json({ error: msg }, { status: 500 })

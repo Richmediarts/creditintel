@@ -9,5 +9,5 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const items = await getPlaidItems(user.userId)
-  return NextResponse.json({ items: items.map(i => ({ id: i.id, item_id: i.item_id, institution_name: i.institution_name })) })
+  return NextResponse.json({ items: items.map(i => ({ id: i.id, item_id: i.item_id, institution_name: i.institution_name, needs_reconnection: i.needs_reconnection })) })
 }
