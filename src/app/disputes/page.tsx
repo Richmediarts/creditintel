@@ -101,6 +101,7 @@ export default function DisputesPage() {
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [reminders, setReminders] = useState<{ overdue: any[]; dueSoon: any[] }>({ overdue: [], dueSoon: [] })
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
   const [creditorName, setCreditorName] = useState('')
   const [bureau, setBureau] = useState<Bureau>('Experian')
@@ -198,6 +199,40 @@ export default function DisputesPage() {
     fetchReminders()
   }
 
+  const toggleSelected = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const toggleSelectAll = () => {
+    const allIds = disputes.map(d => d.id)
+    const allSelected = allIds.length > 0 && allIds.every(id => selectedIds.has(id))
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (allSelected) {
+        allIds.forEach(id => next.delete(id))
+      } else {
+        allIds.forEach(id => next.add(id))
+      }
+      return next
+    })
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return
+    if (!confirm(`Delete ${selectedIds.size} dispute tracking entr${selectedIds.size > 1 ? 'ies' : 'y'}?`)) return
+    for (const id of selectedIds) {
+      await fetch(`/api/disputes/${id}`, { method: 'DELETE' })
+    }
+    setSelectedIds(new Set())
+    fetchDisputes()
+    fetchReminders()
+  }
+
   const toggleInaccuracy = (val: string) => {
     setInaccuracies(prev =>
       prev.includes(val) ? prev.filter(v => v !== val) : [...prev, val]
@@ -228,7 +263,14 @@ export default function DisputesPage() {
             </Link>
           )}
         </div>
-        <Button onClick={() => setShowAdd(true)}><Plus className="w-4 h-4 mr-2" /> Track Dispute</Button>
+        <div className="flex items-center gap-2">
+          {selectedIds.size > 0 && (
+            <Button variant="danger" size="sm" onClick={handleBulkDelete}>
+              <Trash2 className="w-4 h-4 mr-1" /> Delete Selected ({selectedIds.size})
+            </Button>
+          )}
+          <Button onClick={() => setShowAdd(true)}><Plus className="w-4 h-4 mr-2" /> Track Dispute</Button>
+        </div>
       </div>
 
       {/* Warning note about open accounts */}
@@ -365,12 +407,31 @@ export default function DisputesPage() {
             </div>
           ) : (
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
+              <div className="px-4 py-2 flex items-center gap-3 bg-gray-50 dark:bg-gray-800/50">
+                <input
+                  type="checkbox"
+                  checked={disputes.length > 0 && disputes.every(d => selectedIds.has(d.id))}
+                  onChange={toggleSelectAll}
+                  className="rounded border-gray-300"
+                  title="Select all"
+                />
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                  {selectedIds.size > 0 ? `${selectedIds.size} selected` : 'Select all'}
+                </span>
+              </div>
               {disputes.map(d => {
                 const ltInfo = LETTER_TYPES.find(lt => lt.value === d.letterType)
                 return (
                   <div key={d.id} className="p-4">
                     <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(d.id)}
+                          onChange={() => toggleSelected(d.id)}
+                          className="rounded border-gray-300 mt-1 shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-base font-semibold text-gray-900 dark:text-white">{d.creditorName}</span>
                           <Badge>{d.bureau}</Badge>
@@ -408,6 +469,7 @@ export default function DisputesPage() {
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
+                      </div>
                     </div>
                   </div>
                 )
