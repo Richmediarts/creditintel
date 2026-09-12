@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
             name: institutionName || name,
             last_four: mask,
             institution: institutionName,
-            credit_limit: limitVal,
+            credit_limit: limitVal > 0 ? limitVal : (existingCard.credit_limit || 0),
             current_balance: balance,
             due_date: existingCard.due_date || '',
             website: existingCard.website || '',

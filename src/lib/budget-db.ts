@@ -679,13 +679,15 @@ export async function mergeCreditCardPlaid(userId: number, cardId: number, data:
   const existing = ((await db.prepare('SELECT * FROM budget_credit_cards WHERE user_id = ? AND id = ?').get(userId, cardId)) as BudgetCreditCard | undefined)
   if (!existing) return
 
+  const mergedLimit = (data.credit_limit && data.credit_limit > 0) ? data.credit_limit : (existing.credit_limit || 0)
+
   await db.prepare(
     'UPDATE budget_credit_cards SET plaid_account_id = ?, plaid_item_id = ?, current_balance = ?, credit_limit = ?, name = ? WHERE user_id = ? AND id = ?'
   ).run(
     data.plaid_account_id,
     data.plaid_item_id,
     data.current_balance ?? existing.current_balance ?? 0,
-    data.credit_limit ?? existing.credit_limit ?? 0,
+    mergedLimit,
     data.name || existing.name || '',
     userId,
     cardId

@@ -264,15 +264,23 @@ export default function CreditCardsPage() {
     setLoading(false)
   }, [])
 
+  const fetchPlaidItems = useCallback(async () => {
+    try {
+      const res = await fetch('/api/budget/plaid/items')
+      if (res.ok) {
+        const d = await res.json()
+        setPlaidItemIds(new Set(d.items.map((i: { id: number }) => i.id)))
+      }
+    } catch { /* ignore */ }
+  }, [])
+
   useEffect(() => {
     if (!authLoading && !user) { router.push('/login'); return }
     if (user) {
       fetchCards()
-      fetch('/api/budget/plaid/items').then(r => r.ok ? r.json() : { items: [] }).then(d => {
-        setPlaidItemIds(new Set(d.items.map((i: { id: number }) => i.id)))
-      })
+      fetchPlaidItems()
     }
-  }, [user, authLoading, fetchCards])
+  }, [user, authLoading, fetchCards, fetchPlaidItems])
 
   const fetchRecentTx = useCallback(async () => {
     const res = await fetch('/api/budget/transactions?kind=credit&limit=10')
@@ -298,6 +306,7 @@ export default function CreditCardsPage() {
         setTxMessage(data.message || 'Transactions synced')
         await fetchRecentTx()
         await fetchCards()
+        await fetchPlaidItems()
       } else if (manually) {
         setError(data.error || 'Transaction sync failed')
       }
@@ -305,7 +314,7 @@ export default function CreditCardsPage() {
       if (manually) setError('Transaction sync failed')
     }
     setTxSyncing(false)
-  }, [fetchRecentTx, fetchCards])
+  }, [fetchRecentTx, fetchCards, fetchPlaidItems])
 
   useEffect(() => {
     if (!user) return
@@ -438,6 +447,7 @@ export default function CreditCardsPage() {
         const skipped = data.results?.filter((r: { status: string }) => r.status === 'skipped').length || 0
         setSyncMessage(`Synced ${ok} institution${ok !== 1 ? 's' : ''}${fail ? ` (${fail} failed)` : ''}${skipped ? ` (${skipped} disconnected, ignored)` : ''}`)
         await fetchCards()
+        await fetchPlaidItems()
       } else {
         setError(data.error || 'Sync failed')
       }
@@ -872,7 +882,7 @@ export default function CreditCardsPage() {
               <CreditCard className="w-8 h-8 mx-auto text-gray-300 mb-2" />
               <p className="text-sm text-gray-400">No credit cards yet.</p>
               <div className="flex items-center justify-center gap-2 mt-3">
-                <PlaidLinkButton onConnected={fetchCards} />
+          <PlaidLinkButton onConnected={() => { fetchCards(); fetchPlaidItems() }} />
                 <Button onClick={startAdd}><PlusCircle className="w-4 h-4 mr-2" /> Add Manually</Button>
               </div>
             </div>
