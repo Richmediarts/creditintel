@@ -156,13 +156,17 @@ function computeGlobalSummary(reports: BureauReport[], _mergedAccounts: MergedAc
     totalCreditLimit += report.summary.totalCreditLimit
   }
 
+  const reportCount = reports.length || 1
+  const avgBalance = totalBalance / reportCount
+  const avgLimit = totalCreditLimit / reportCount
+
   return {
     totalAccounts, totalOpen, totalClosed,
     totalDerogatory, totalChargeOffs, totalCollections,
     totalLateAccounts, totalHardInquiries, totalSoftInquiries,
     totalPublicRecords, totalBankruptcies,
-    totalCreditUtilization: totalCreditLimit > 0 ? (totalBalance / totalCreditLimit) * 100 : 0,
-    totalBalance, totalCreditLimit,
+    totalCreditUtilization: avgLimit > 0 ? (avgBalance / avgLimit) * 100 : 0,
+    totalBalance: avgBalance, totalCreditLimit: avgLimit,
   }
 }
 
