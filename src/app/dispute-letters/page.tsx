@@ -84,6 +84,19 @@ function DisputeLettersContent() {
     })
   }
 
+  const allChecked = disputeItems.length > 0 && disputeItems.every(item => checkedKeys.has(itemKey(item)))
+  const toggleSelectAll = () => {
+    setCheckedKeys(prev => {
+      const next = new Set(prev)
+      if (allChecked) {
+        disputeItems.forEach(item => next.delete(itemKey(item)))
+      } else {
+        disputeItems.forEach(item => next.add(itemKey(item)))
+      }
+      return next
+    })
+  }
+
   const generateLetterForItem = (item: DisputeItem): string => {
     if (letterType === 'dispute') {
       return generateCombinedDisputeLetter(creditData.reports, [item], consumerName, consumerAddress)
@@ -566,6 +579,19 @@ function DisputeLettersContent() {
           <Card className="mt-4">
             <CardContent className="p-4">
               <CardTitle className="mb-3">Dispute Items ({disputeItems.length})</CardTitle>
+              {disputeItems.length > 0 && (
+                <div className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800/60">
+                  <input
+                    type="checkbox"
+                    checked={allChecked}
+                    onChange={toggleSelectAll}
+                    className="rounded border-gray-300"
+                  />
+                  <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                    {checkedKeys.size > 0 ? `${checkedKeys.size} of ${disputeItems.length} selected` : 'Select All'}
+                  </span>
+                </div>
+              )}
               {disputeItems.length === 0 ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400">No dispute items available for the selected bureau</p>
               ) : (
