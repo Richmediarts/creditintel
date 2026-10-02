@@ -27,7 +27,7 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/getting-started', label: 'Getting Started', icon: ListChecks },
   { href: '/upload', label: 'Upload Center', icon: Upload },
   { href: '/summary', label: 'Credit Summary', icon: BarChart3 },
@@ -87,7 +87,7 @@ export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mob
       `}>
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
           {!collapsed && (
-            <Link href="/" className="flex items-center gap-2">
+            <Link href="/dashboard" className="flex items-center gap-2">
               <Image
                 src="/card-logos/NewRETTEEE.png"
                 alt="RETTEEE CreditIntel"
@@ -123,7 +123,7 @@ export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mob
               >
                 <Icon className="w-5 h-5 flex-shrink-0" />
                 {!collapsed && <span>{item.label}</span>}
-                {!collapsed && item.href === '/' && reportCount > 0 && (
+                {!collapsed && item.href === '/dashboard' && reportCount > 0 && (
                   <Badge variant="info" className="ml-auto">{reportCount}</Badge>
                 )}
               </Link>
