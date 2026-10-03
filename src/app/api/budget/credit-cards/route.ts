@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
-import { getCreditCards, getCreditCard, addCreditCard, updateCreditCard, deleteCreditCard, clearCreditCardPlaid, getBillsByCreditCard } from '@/lib/budget-db'
+import { getCreditCards, getCreditCard, addCreditCard, updateCreditCard, deleteCreditCard, clearCreditCardPlaid, getBillsByCreditCard, syncAllCreditCardsToBills } from '@/lib/budget-db'
 
 function getAuthUser(request: NextRequest) {
   const token = request.cookies.get('credit-dashboard-token')?.value
@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
   }
 
   const cards = await getCreditCards(auth.userId)
+  await syncAllCreditCardsToBills(auth.userId)
   return NextResponse.json({ cards })
 }
 

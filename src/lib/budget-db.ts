@@ -751,6 +751,28 @@ export async function getBillsByCreditCard(userId: number, creditCardId: number)
   return ((await db.prepare('SELECT * FROM budget_bills WHERE user_id = ? AND credit_card_id = ? ORDER BY due_date').all(userId, creditCardId)) as BudgetBill[]).map((b) => normalizeBillDates(b as unknown as Record<string, unknown>) as unknown as BudgetBill)
 }
 
+export async function ensureCreditCardBill(userId: number, cardId: number): Promise<void> {
+  const db = getDb()
+  const existing = ((await db.prepare('SELECT id FROM budget_bills WHERE user_id = ? AND credit_card_id = ?').all(userId, cardId)) as any[]).length
+  if (existing === 0) {
+    const card = ((await db.prepare('SELECT * FROM budget_credit_cards WHERE user_id = ? AND id = ?').all(userId, cardId)) as any[])[0]
+    if (card) {
+      await db.prepare(`
+        INSERT INTO budget_bills (user_id, payee_name, amount, due_date, is_paid, is_recurring, recurrence_type, credit_card_id)
+        VALUES (?, ?, ?, ?, 0, 1, 'monthly', ?)
+      `).run(userId, card.name, card.current_balance ?? 0, card.due_date ?? null, cardId)
+    }
+  }
+}
+
+export async function syncAllCreditCardsToBills(userId: number): Promise<void> {
+  const db = getDb()
+  const cards = ((await db.prepare('SELECT id FROM budget_credit_cards WHERE user_id = ?').all(userId)) as any[]).map((r) => r.id)
+  for (const cardId of cards) {
+    await ensureCreditCardBill(userId, cardId)
+  }
+}
+
 // Bills
 export async function getBills(userId: number): Promise<BudgetBill[]> {
   const db = getDb()
