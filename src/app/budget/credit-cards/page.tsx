@@ -818,7 +818,9 @@ export default function CreditCardsPage() {
                                 </div>
                                 <div>
                                   <p className="text-xs text-gray-400">Available</p>
-                                  <p className={`text-xl font-bold ${available > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>{fmt(available)}</p>
+                                  <p className={`text-xl font-bold ${available > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
+                                    {limit > 0 ? fmt(available) : '—'}
+                                  </p>
                                 </div>
                                 <div className="col-span-2 md:col-span-1">
                                   <p className="text-xs text-gray-400">Utilization</p>
