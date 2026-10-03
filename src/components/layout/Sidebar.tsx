@@ -87,7 +87,7 @@ export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mob
       `}>
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
           {!collapsed && (
-            <Link href="/dashboard" className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2">
               <Image
                 src="/card-logos/NewRETTEEE.png"
                 alt="RETTEEE CreditIntel"
