@@ -41,6 +41,27 @@ export async function POST(request: NextRequest) {
             } else {
               await db.run('UPDATE budget_credit_cards SET current_balance = ?, last_synced_at = CURRENT_TIMESTAMP WHERE user_id = ? AND plaid_account_id = ?', [balance, user.userId, aid])
             }
+
+            // Get the card id and its existing due date
+            const cardRows = ((await db.prepare('SELECT id, due_date FROM budget_credit_cards WHERE user_id = ? AND plaid_account_id = ?').all(user.userId, aid)) as any[])
+            if (cardRows.length > 0) {
+              const cardId = cardRows[0].id
+              const currentDue = cardRows[0].due_date
+
+              // Ensure a bill exists for this card
+              await db.prepare('INSERT OR IGNORE INTO budget_bills (user_id, payee_name, amount, due_date, is_paid, is_recurring, recurrence_type, credit_card_id) SELECT user_id, name, current_balance, due_date, 0, 1, \'monthly\', id FROM budget_credit_cards WHERE id = ?').run(cardId)
+
+              if (balance === 0 && currentDue) {
+                const nextDue = new Date(currentDue)
+                nextDue.setMonth(nextDue.getMonth() + 1)
+                const nextDueStr = nextDue.toISOString().split('T')[0]
+
+                await db.run('UPDATE budget_credit_cards SET due_date = ? WHERE user_id = ? AND id = ?', [nextDueStr, user.userId, cardId])
+                await db.run('UPDATE budget_bills SET is_paid = 1, paid_date = CURRENT_DATE, due_date = ? WHERE user_id = ? AND credit_card_id = ?', [nextDueStr, user.userId, cardId])
+              } else if (currentDue) {
+                await db.run('UPDATE budget_bills SET due_date = ? WHERE user_id = ? AND credit_card_id = ?', [currentDue, user.userId, cardId])
+              }
+            }
           }
         }
         results.push({ item: item.institution_name || '', status: 'ok' })
