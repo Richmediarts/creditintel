@@ -142,6 +142,16 @@ function BillsContent() {
   const skipBlurRef = useRef(false)
   const [inlineEdit, setInlineEdit] = useState<{ id: number; field: 'due_date' | 'amount' } | null>(null)
   const [inlineValue, setInlineValue] = useState('')
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
+
+  const toggleSection = (title: string) => {
+    setCollapsedSections((prev) => {
+      const next = new Set(prev)
+      if (next.has(title)) next.delete(title)
+      else next.add(title)
+      return next
+    })
+  }
 
   const fetchBills = useCallback(async () => {
     const res = await fetch('/api/budget/bills')
@@ -447,37 +457,45 @@ function BillsContent() {
 
   const renderSection = (group: { title: string; items: Bill[]; total: number }) => {
     if (group.items.length === 0) return null
+    const collapsed = collapsedSections.has(group.title)
     return (
       <div key={group.title}>
-        <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mt-6 mb-1">
-          Category: {group.title}
-        </p>
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-gray-800/60 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                <th className="py-2 px-3 font-medium">Payee</th>
-                <th className="py-2 px-3 font-medium">Due Date</th>
-                <th className="py-2 px-3 font-medium text-right">Amount</th>
-                <th className="py-2 px-3 w-14" />
-              </tr>
-            </thead>
-            <tbody>{group.items.map(renderBillRow)}</tbody>
-            <tfoot>
-              <tr className="border-t border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40">
-                <td className="py-2 px-3 text-sm font-bold text-gray-900 dark:text-white" colSpan={2}>
-                  Total
-                </td>
-                <td className="py-2 px-3 text-right text-sm font-bold text-gray-900 dark:text-white tabular-nums">
-                  {fmt(group.total)}
-                </td>
-                <td />
-              </tr>
-            </tfoot>
-            </table>
+        <button
+          type="button"
+          onClick={() => toggleSection(group.title)}
+          className="flex items-center justify-between w-full text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mt-6 mb-1 hover:text-blue-600 dark:hover:text-blue-400"
+        >
+          <span>Category: {group.title}</span>
+          <span>{collapsed ? '▼' : '▲'}</span>
+        </button>
+        {!collapsed && (
+          <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+              <thead>
+                <tr className="bg-gray-50 dark:bg-gray-800/60 text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  <th className="py-2 px-3 font-medium">Payee</th>
+                  <th className="py-2 px-3 font-medium">Due Date</th>
+                  <th className="py-2 px-3 font-medium text-right">Amount</th>
+                  <th className="py-2 px-3 w-14" />
+                </tr>
+              </thead>
+              <tbody>{group.items.map(renderBillRow)}</tbody>
+              <tfoot>
+                <tr className="border-t border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-800/40">
+                  <td className="py-2 px-3 text-sm font-bold text-gray-900 dark:text-white" colSpan={2}>
+                    Total
+                  </td>
+                  <td className="py-2 px-3 text-right text-sm font-bold text-gray-900 dark:text-white tabular-nums">
+                    {fmt(group.total)}
+                  </td>
+                  <td />
+                </tr>
+              </tfoot>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     )
   }
