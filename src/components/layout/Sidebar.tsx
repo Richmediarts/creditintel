@@ -10,7 +10,7 @@ import {
   Sun, Moon, Menu, X, ChevronLeft, ChevronRight,
   Gavel, Shield, LogIn, LogOut, User, Activity, HelpCircle,
   Wallet, Banknote, Receipt, Landmark, CreditCard, Users, Tag,
-  PieChart, Target, FileUp, Plug, FolderArchive, ListChecks, Home,
+  PieChart, Target, FileUp, Plug, FolderArchive, ListChecks, Home, Globe,
 } from 'lucide-react'
 import { useCredit } from '@/lib/store/creditStore'
 import { useAuth } from '@/lib/auth-context'
@@ -38,6 +38,7 @@ const navItems = [
   { href: '/ai-analysis', label: 'AI Analysis', icon: Brain },
   { href: '/dispute-letters', label: 'Dispute Letters', icon: Mail },
   { href: '/disputes', label: 'Dispute Tracker', icon: Gavel },
+  { href: '/disputes/online', label: 'Online Disputes', icon: Globe },
   { href: '/opt-out', label: 'Opt-Out Center', icon: Shield },
   { href: '/letters', label: 'Letters Library', icon: FolderArchive },
   { href: '/fico-scores', label: 'FICO® Scores', icon: Activity },

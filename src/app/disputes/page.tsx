@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import {
   FileText, Plus, Clock, CheckCircle2, AlertTriangle,
   ArrowLeft, Calendar, Trash2, Bell, Printer, Send, RefreshCw,
+  Mail, Globe, ExternalLink,
 } from 'lucide-react'
 import Link from 'next/link'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
@@ -273,6 +274,34 @@ export default function DisputesPage() {
         </div>
       </div>
 
+      {/* Channel summary + link to online center */}
+      {disputes.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-gray-600 dark:text-gray-400">
+                  {disputes.filter(d => !d.requiresMail).length} can be filed online
+                </span>
+                {disputes.filter(d => d.requiresMail).length > 0 && (
+                  <>
+                    <span className="text-gray-300 dark:text-gray-600">•</span>
+                    <span className="font-semibold text-red-600 dark:text-red-400">
+                      {disputes.filter(d => d.requiresMail).length} need a physical letter
+                    </span>
+                  </>
+                )}
+              </div>
+              <Link href="/disputes/online">
+                <Button variant="secondary" size="sm">
+                  <Globe className="w-4 h-4 mr-2" /> Open Online Dispute Center
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Warning note about open accounts */}
       <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
         <CardContent className="p-4">
@@ -432,11 +461,36 @@ export default function DisputesPage() {
                           className="rounded border-gray-300 mt-1 shrink-0"
                         />
                         <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className="text-base font-semibold text-gray-900 dark:text-white">{d.creditorName}</span>
                           <Badge>{d.bureau}</Badge>
                           <Badge variant="info" className="text-xs">{ltInfo?.label || d.letterType}</Badge>
+                          {d.requiresMail ? (
+                            <Badge variant="danger" className="text-xs font-bold">
+                              <Mail className="w-3 h-3 mr-1" /> PHYSICAL LETTER REQUIRED
+                            </Badge>
+                          ) : (
+                            <Badge variant="success" className="text-xs">
+                              <Globe className="w-3 h-3 mr-1" /> File Online
+                            </Badge>
+                          )}
                         </div>
+                        {d.requiresMail && d.routing?.reasons?.length > 0 && (
+                          <p className="text-xs text-red-600 dark:text-red-400 mb-2 leading-relaxed flex items-start gap-1.5">
+                            <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                            {d.routing.reasons[0]}
+                          </p>
+                        )}
+                        {!d.requiresMail && (
+                          <a
+                            href={d.routing?.portalUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1 mb-2"
+                          >
+                            {d.routing?.portalLabel || `${d.bureau} Online Dispute`} <ExternalLink className="w-3 h-3" />
+                          </a>
+                        )}
                         {d.inaccuracies.length > 0 && (
                           <div className="flex gap-1 flex-wrap mb-2">
                             {d.inaccuracies.map((inacc, i) => (

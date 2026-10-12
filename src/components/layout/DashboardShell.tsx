@@ -11,7 +11,7 @@ import { Sidebar, Header } from '@/components/layout/Sidebar'
 
 function DashboardSwitcher() {
   const pathname = usePathname()
-  const onCreditDashboard = pathname.startsWith('/dashboard') || pathname.startsWith('/ai-analysis') || pathname.startsWith('/comparison') || pathname.startsWith('/derogatory') || pathname.startsWith('/dispute-') || pathname.startsWith('/export') || pathname.startsWith('/fico-scores') || pathname.startsWith('/getting-started') || pathname.startsWith('/inquiries') || pathname.startsWith('/letters') || pathname.startsWith('/opt-out') || pathname.startsWith('/report-viewer') || pathname.startsWith('/score-simulator') || pathname.startsWith('/settings') || pathname.startsWith('/summary') || pathname.startsWith('/upload')
+  const onCreditDashboard = pathname.startsWith('/dashboard') || pathname.startsWith('/ai-analysis') || pathname.startsWith('/comparison') || pathname.startsWith('/derogatory') || pathname.startsWith('/dispute') || pathname.startsWith('/export') || pathname.startsWith('/fico-scores') || pathname.startsWith('/getting-started') || pathname.startsWith('/inquiries') || pathname.startsWith('/letters') || pathname.startsWith('/opt-out') || pathname.startsWith('/report-viewer') || pathname.startsWith('/score-simulator') || pathname.startsWith('/settings') || pathname.startsWith('/summary') || pathname.startsWith('/upload')
 
   return (
     <div className="flex justify-center gap-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950">

@@ -78,6 +78,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       fields.push('inaccuracies = ?')
       values.push(JSON.stringify(updates.inaccuracies))
     }
+    if (updates.method !== undefined) {
+      fields.push('method = ?')
+      values.push(updates.method)
+      fields.push('requires_mail = ?')
+      values.push(updates.method === 'mail' ? 1 : 0)
+    }
+    if (updates.confirmationNumber !== undefined) {
+      fields.push('confirmation_number = ?')
+      values.push(updates.confirmationNumber)
+    }
 
     if (fields.length === 0) {
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 })

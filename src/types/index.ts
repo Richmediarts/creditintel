@@ -179,6 +179,20 @@ export type DisputeStatus = 'printed' | 'sent' | 'pending' | 'resend' | 'complet
 
 export type LetterType = 'validation' | 'dispute' | 'revocation' | 'inquiry'
 
+/** How the dispute is delivered to the bureau. */
+export type DisputeMethod = 'online' | 'mail'
+
+export interface DisputeRouting {
+  method: DisputeMethod
+  requiresMail: boolean
+  reasons: string[]
+  rules: string[]
+  portalUrl: string
+  portalLabel: string
+  cfpbUrl: string
+  ftcUrl?: string
+}
+
 export interface DisputeTracking {
   id: number
   userId: number
@@ -187,6 +201,10 @@ export interface DisputeTracking {
   inaccuracies: string[]
   letterType: LetterType
   status: DisputeStatus
+  method: DisputeMethod
+  requiresMail: boolean
+  routing: DisputeRouting
+  confirmationNumber: string | null
   printedAt: string | null
   sentAt: string | null
   pendingAt: string | null

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { getDb, calculateExpectedResponseDateFrom } from '@/lib/db'
+import { routeDispute } from '@/lib/utils/disputeRouting'
+import type { Bureau, LetterType } from '@/types'
 
 interface DisputeRow {
   id: number
@@ -10,6 +12,9 @@ interface DisputeRow {
   inaccuracies: string | null
   status: string
   letter_type: string
+  method?: string
+  requires_mail?: number
+  confirmation_number?: string | null
   filed_date: string | null
   expected_response_date: string | null
   resolved_date: string | null
@@ -52,14 +57,25 @@ export async function GET(request: NextRequest) {
       isOverdue = daysUntilResponse < 0 && d.status !== 'complete'
     }
 
+    const parsedInaccuracies: string[] = d.inaccuracies ? JSON.parse(d.inaccuracies) : []
+    const routing = routeDispute(
+      d.bureau as Bureau,
+      parsedInaccuracies,
+      (d.letter_type || 'validation') as LetterType
+    )
+
     return {
       id: d.id,
       userId: d.user_id,
       creditorName: d.creditor_name,
       bureau: d.bureau,
-      inaccuracies: d.inaccuracies ? JSON.parse(d.inaccuracies) : [],
+      inaccuracies: parsedInaccuracies,
       letterType: d.letter_type || 'validation',
       status: d.status,
+      method: (d.method as 'online' | 'mail') || routing.method,
+      requiresMail: d.requires_mail ? true : routing.requiresMail,
+      routing,
+      confirmationNumber: d.confirmation_number || null,
       printedAt: d.printed_at || null,
       sentAt: d.sent_at || null,
       pendingAt: d.pending_at || null,
@@ -86,7 +102,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { creditorName, bureau, inaccuracies, filedDate, notes, status, letterType } = await request.json()
+    const { creditorName, bureau, inaccuracies, filedDate, notes, status, letterType, method } = await request.json()
 
     if (!creditorName || !bureau) {
       return NextResponse.json({ error: 'Creditor name and bureau required' }, { status: 400 })
@@ -98,24 +114,36 @@ export async function POST(request: NextRequest) {
     const effectiveFiledDate = filedDate || now
     const expectedDate = calculateExpectedResponseDateFrom(lt, effectiveFiledDate)
 
+    // Determine the filing channel. An explicit `method` from the client wins,
+    // otherwise fall back to the routing engine's verdict.
+    const routing = routeDispute(bureau as Bureau, inaccuracies || [], lt as LetterType)
+    const finalMethod = method === 'mail' || method === 'online' ? method : routing.method
+    const requiresMail = finalMethod === 'mail' ? 1 : 0
+
+    // Online disputes are filed the moment they are created; mail disputes are
+    // only "filed" once the letter is actually sent.
+    const initialStatus = finalMethod === 'online' ? 'sent' : (status || 'printed')
+
     const result = await db.run(`
-      INSERT INTO disputes (user_id, creditor_name, bureau, inaccuracies, status, letter_type, filed_date, expected_response_date, notes, printed_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO disputes (user_id, creditor_name, bureau, inaccuracies, status, letter_type, method, requires_mail, filed_date, expected_response_date, notes, sent_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING id
     `, [
       auth.userId,
       creditorName.trim(),
       bureau,
       JSON.stringify(inaccuracies || []),
-      status || 'printed',
+      initialStatus,
       lt,
+      finalMethod,
+      requiresMail,
       effectiveFiledDate,
       expectedDate,
       notes || '',
-      now,
+      finalMethod === 'online' ? now : null,
     ])
 
-    return NextResponse.json({ id: result.lastInsertRowid }, { status: 201 })
+    return NextResponse.json({ id: result.lastInsertRowid, method: finalMethod, routing }, { status: 201 })
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Failed to create dispute' }, { status: 500 })
   }

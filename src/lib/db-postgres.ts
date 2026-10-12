@@ -38,6 +38,22 @@ export async function initPostgresSchema() {
       updated_at TIMESTAMP DEFAULT NOW()
     );
   `
+  // Dispute filing channel: 'online' (portal/CFPB) or 'mail' (physical letter).
+  // requires_mail is set by the routing engine in lib/utils/disputeRouting.ts.
+  const disputeCols = await sql`
+    SELECT column_name FROM information_schema.columns
+    WHERE table_name = 'disputes' AND column_name IN ('method', 'requires_mail', 'confirmation_number')
+  `
+  const existing = new Set(disputeCols.rows.map((r) => r.column_name))
+  if (!existing.has('method')) {
+    await sql`ALTER TABLE disputes ADD COLUMN method TEXT NOT NULL DEFAULT 'online'`
+  }
+  if (!existing.has('requires_mail')) {
+    await sql`ALTER TABLE disputes ADD COLUMN requires_mail INTEGER NOT NULL DEFAULT 0`
+  }
+  if (!existing.has('confirmation_number')) {
+    await sql`ALTER TABLE disputes ADD COLUMN confirmation_number TEXT`
+  }
   await sql`
     CREATE TABLE IF NOT EXISTS reports (
       user_id INTEGER NOT NULL REFERENCES users(id),
