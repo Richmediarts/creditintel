@@ -3,11 +3,14 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Home, Calculator, RefreshCw, Info, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Home, Calculator, RefreshCw, Info, AlertTriangle, CheckCircle2, TrendingDown, HandCoins, ExternalLink, ChevronDown } from 'lucide-react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
+import {
+  DTI_LEVERS, ASSISTANCE_PROGRAMS, FREE_STEPS, DTI_BUREAU_TARGETS,
+} from '@/lib/utils/affordabilityResources'
 
 const fmt = (n: number): string =>
   '$' + (Number.isFinite(n) ? n : 0).toLocaleString('en-US', { maximumFractionDigits: 0 })
@@ -73,6 +76,8 @@ export default function AffordabilityPage() {
   const [loading, setLoading] = useState(true)
   const [computing, setComputing] = useState(false)
   const [editMode, setEditMode] = useState<'debts' | 'expenses' | null>(null)
+  const [extraPayment, setExtraPayment] = useState(0)
+  const [payoffMonths, setPayoffMonths] = useState(6)
 
   useEffect(() => {
     if (!authLoading && !user) { router.push('/login'); return }
@@ -125,6 +130,58 @@ export default function AffordabilityPage() {
     () => (result ? result.totalMonthlyIncome - totalMonthlyOutflow : 0),
     [result, totalMonthlyOutflow]
   )
+
+  const planned = useMemo(() => {
+    const income = result?.totalMonthlyIncome || 0
+    const debts = result?.totalMonthlyDebtPayments || 0
+    const amortize = extraPayment * Math.max(1, payoffMonths)
+    const newDebts = Math.max(0, debts - amortize)
+    const dti = income > 0 ? (newDebts / income) * 100 : 0
+
+    // Solve for the largest loan whose full housing cost keeps DTI <= 45%.
+    const dp = Math.min(Math.max(form.downPaymentPercent, 0), 100) / 100
+    const rate = form.interestRate
+    const years = form.termYears || 30
+    const taxRate = (form.propertyTaxRate || 0) / 100
+    const ins = (form.annualHomeInsurance || 0) / 12
+    const hoa = form.monthlyHOA || 0
+    const cap = income > 0 ? (0.45 * income) - newDebts : 0
+
+    const pmt = (principal: number) => {
+      const r = rate / 100 / 12
+      const n = years * 12
+      if (principal <= 0) return 0
+      if (r === 0) return principal / n
+      return (principal * r) / (1 - Math.pow(1 + r, -n))
+    }
+
+    let price = 0
+    if (cap > 0) {
+      let lo = 0
+      let hi = 5_000_000
+      for (let i = 0; i < 70; i++) {
+        const mid = (lo + hi) / 2
+        const loan = mid * (1 - dp)
+        const pi = pmt(loan)
+        const tax = (mid * taxRate) / 12
+        const mbi = dp < 0.8 ? (loan * 0.005) / 12 : 0
+        if (pi + tax + ins + hoa + mbi <= cap) lo = mid
+        else hi = mid
+      }
+      price = lo
+    }
+
+    let verdict = 'No change — enter a payment amount'
+    if (amortize > 0) {
+      if (dti <= 36) verdict = 'Excellent — strong application'
+      else if (dti <= 43) verdict = 'Good — inside guidelines'
+      else if (dti <= 45) verdict = 'Borderline — needs a compensating factor'
+      else if (dti <= 50) verdict = 'Too high — most lenders decline'
+      else verdict = 'Unqualifiable at this income'
+    }
+
+    return { dti, payoff: amortize, maxPrice: Math.round(price), verdict }
+  }, [result, extraPayment, payoffMonths, form.downPaymentPercent, form.interestRate, form.termYears, form.propertyTaxRate, form.annualHomeInsurance, form.monthlyHOA])
 
   if (authLoading || loading) {
     return (
@@ -436,6 +493,215 @@ export default function AffordabilityPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Interactive DTI reduction planner */}
+      <Card>
+        <CardContent className="p-5">
+          <CardTitle className="text-sm mb-1 flex items-center gap-2">
+            <TrendingDown className="w-4 h-4 text-emerald-500" /> How much extra payment drops you under 43%?
+          </CardTitle>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            Most lenders cap back-end DTI at 43–45%. Enter an extra monthly payment against your debt to see
+            where that would land you and how much more house you could carry.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Extra monthly payment</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">$</span>
+                <input
+                  type="number"
+                  step="25"
+                  value={extraPayment}
+                  onChange={e => setExtraPayment(Number(e.target.value) || 0)}
+                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 pl-7 pr-3 py-2 text-sm text-gray-900 dark:text-white"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Months committed</label>
+              <input
+                type="number"
+                value={payoffMonths}
+                onChange={e => setPayoffMonths(Number(e.target.value) || 0)}
+                className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white"
+              />
+            </div>
+            <div className="rounded-lg bg-gray-50 dark:bg-gray-800/50 p-3">
+              <p className="text-[10px] uppercase tracking-wide text-gray-400">DTI today</p>
+              <p className={`text-lg font-bold ${result ? dtiColor(result.backEndDTI).text : ''}`}>{result?.backEndDTI ?? 0}%</p>
+            </div>
+            <div className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 p-3">
+              <p className="text-[10px] uppercase tracking-wide text-gray-400">DTI after payoff</p>
+              <p className={`text-lg font-bold ${dtiColor(planned.dti).text}`}>{planned.dti.toFixed(1)}%</p>
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <div className="relative h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div className="absolute inset-y-0 left-0 bg-red-400/60" style={{ width: `${Math.min(planned.dti, 43) / 43 * 86}%` }} />
+              <div className="absolute inset-y-0 bg-yellow-400/60" style={{ left: '86%', width: `${Math.min(Math.max(planned.dti - 43, 0), 7) / 7 * 14}%` }} />
+              <div
+                className="absolute inset-y-0 w-1 bg-gray-900 dark:bg-white"
+                style={{ left: `${Math.min(planned.dti, 100)}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+              <span>0%</span><span>36%</span><span>43%</span><span>45%</span><span>50%</span><span>100%</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div>
+              <p className="text-xs text-gray-500">Debt retired</p>
+              <p className="font-bold text-gray-900 dark:text-white">{fmt(planned.payoff)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">New home price capacity</p>
+              <p className="font-bold text-emerald-600 dark:text-emerald-400">{fmt(planned.maxPrice)}</p>
+              {result && planned.maxPrice > result.maxAffordableHomePrice && (
+                <p className="text-[10px] text-gray-400">
+                  +{fmt(planned.maxPrice - result.maxAffordableHomePrice)} vs today
+                </p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Verdict</p>
+              <p className="font-bold text-gray-900 dark:text-white">{planned.verdict}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* DTI levers */}
+      <div>
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Ways to lower your DTI</h2>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+          Ranked by real impact on your application. Lead time matters — most lenders want to see
+          6 months of consistent behavior before they underwrite.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {DTI_LEVERS.map(lever => (
+            <details key={lever.id} className="group rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 overflow-hidden">
+              <summary className="flex items-start gap-3 p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors list-none">
+                <Badge
+                  variant={lever.dtiImpact === 'high' ? 'danger' : lever.dtiImpact === 'medium' ? 'warning' : 'default'}
+                  className="shrink-0 mt-0.5"
+                >
+                  {lever.dtiImpact} impact
+                </Badge>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{lever.title}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{lever.category}</p>
+                </div>
+                <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0 mt-1 transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="px-4 pb-4 pt-0">
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">{lever.summary}</p>
+                <ul className="space-y-1">
+                  {lever.steps.map((s, i) => (
+                    <li key={i} className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-1.5">
+                      <span className="text-emerald-500 flex-shrink-0">›</span>
+                      {s}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-[10px] text-gray-400 mt-2">
+                  Recommended lead time before application: <strong>{lever.leadTimeMonths} months</strong>
+                </p>
+              </div>
+            </details>
+          ))}
+        </div>
+      </div>
+
+      {/* Down payment assistance directory */}
+      <Card>
+        <CardContent className="p-5">
+          <CardTitle className="text-sm mb-1 flex items-center gap-2">
+            <HandCoins className="w-4 h-4 text-blue-500" /> Down Payment &amp; Closing Cost Assistance
+          </CardTitle>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            Programs that can reduce or eliminate the cash you need at closing. Most require an approved
+            homebuyer education course and a participating lender. Verify current terms — program details change.
+          </p>
+
+          {(['Federal', 'State', 'Nonprofit', 'Local'] as const).map(type => {
+            const group = ASSISTANCE_PROGRAMS.filter(p => p.type === type)
+            if (group.length === 0) return null
+            return (
+              <div key={type} className="mb-5 last:mb-0">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-2">
+                  {type} Programs
+                </p>
+                <div className="space-y-2">
+                  {group.map(p => (
+                    <div key={p.name} className="p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <a
+                            href={p.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+                          >
+                            {p.name} <ExternalLink className="w-3 h-3" />
+                          </a>
+                          <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400 mt-0.5">{p.assistance}</p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">Best for: {p.bestFor}</p>
+                        </div>
+                        <Badge
+                          variant={p.type === 'Federal' ? 'info' : p.type === 'State' ? 'success' : 'default'}
+                          className="shrink-0"
+                        >
+                          {p.type}
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-gray-500 mt-1.5">{p.notes}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })}
+        </CardContent>
+      </Card>
+
+      {/* Free steps */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {FREE_STEPS.map(f => (
+          <a key={f.title} href={f.url} target="_blank" rel="noopener noreferrer" className="block group">
+            <Card className="h-full hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white inline-flex items-center gap-1 group-hover:text-blue-600">
+                  {f.title} <ExternalLink className="w-3 h-3" />
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{f.description}</p>
+              </CardContent>
+            </Card>
+          </a>
+        ))}
+      </div>
+
+      {/* Mortgage FICO note */}
+      <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20">
+        <CardContent className="p-5">
+          <CardTitle className="text-sm mb-2 flex items-center gap-2">
+            <Info className="w-4 h-4 text-amber-500" /> The scores your lender will actually pull
+          </CardTitle>
+          <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">
+            Mortgage lenders use <strong>FICO 2 (Experian)</strong>, <strong>FICO 5 (Equifax)</strong>, and
+            <strong> FICO 4 (TransUnion)</strong> — not the FICO 8 scores you can see for free, and not VantageScore.
+            For a Georgia purchase, buy a one-month{' '}
+            <a href="https://www.myfico.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+              myFICO
+            </a>{' '}
+            subscription 30–60 days before you apply. Typical minimums: 620 for conventional, 500 for FHA, and most
+            USDA and VA loans allow below 580 with compensating factors.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   )
 }
