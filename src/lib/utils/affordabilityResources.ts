@@ -288,20 +288,51 @@ export interface CounselingAndFreeOptions {
 
 export const FREE_STEPS: CounselingAndFreeOptions[] = [
   {
+    title: 'Cobb County parcel & tax viewer',
+    url: 'https://www.cobbcounty.org/',
+    description: 'Check assessed value, parcel boundaries, and whether the current owner already claims the Georgia homestead exemption. Go to GIS/Mapping → Tax Parcel Viewer.',
+  },
+  {
+    title: 'Georgia DOR property tax',
+    url: 'https://dor.georgia.gov/local-government-services/property-tax',
+    description: 'Statewide guidance on how Georgia property tax is assessed, plus the digests your millage rate comes from.',
+  },
+  {
     title: 'Free FICO 8 scores',
     url: 'https://www.experian.com/products/credit-monitoring/',
     description: 'Experian free account shows your FICO 8 and a free report. myFICO gives your Equifax FICO 8 at no cost.',
   },
   {
-    title: 'Free mortgage-specific scores',
+    title: 'Mortgage-specific FICO (2 / 5 / 4)',
     url: 'https://www.myfico.com/',
-    description: 'Mortgage lenders use FICO 2 (Experian), FICO 5 (Equifax), and FICO 4 (TransUnion). myFICO requires a subscription for these three.',
+    description: 'The scores your lender will actually pull. myFICO requires a subscription for these three — buy it 30–60 days before you apply.',
   },
   {
-    title: 'Georgia probate and homestead filing check',
-    url: 'https://qpublic.schneidercorp.com/GA/Cobb/index.html',
-    description: 'Confirm there is no recorded title issue or mechanic lien on a specific address before offering.',
+    title: 'HUD-Approved Housing Counselor Search',
+    url: 'https://www.hud.gov/i_want_to/talk_to_a_housing_counselor',
+    description: 'Free counseling and a realistic affordability analysis. Most down payment assistance programs require a completion certificate from one of these.',
   },
+]
+
+/**
+ * Note on title work in Georgia.
+ *
+ * Georgia is an attorney-closing state: a licensed Georgia real estate attorney
+ * or title company is required to prepare the deed and handle the title search.
+ * There is no reliable self-service portal for a full title or mechanic lien
+ * search, and county parcel viewers only show tax and assessment data.
+ *
+ * What a buyer CAN usefully check themselves before making an offer:
+ *  - County tax assessor: assessed value, parcel, homestead exemption status
+ *  - Superior Court Clerk: recorded liens, judgments, easements
+ * A licensed attorney does the actual title search and issues the insurance.
+ */
+export const TITLE_SEARCH_NOTES = [
+  'Georgia is an attorney-closing state. A licensed Georgia real estate attorney must prepare the deed, perform the title search, and issue the title insurance policy. There is no DIY title search.',
+  'A county parcel viewer shows tax and assessment data only — it does not reveal mechanic liens, judgment liens, or easements.',
+  'Recorded liens and judgments are filed with the county Superior Court Clerk. Ask your attorney to pull a 40-year search.',
+  'Mechanic liens arise when a contractor or supplier is not paid and files a lien affidavit in Superior Court. Ask whether any work was performed on the property in the last 12 months.',
+  'If the seller has held the property under a loan for more than a few years, tax bills paid by the lender are strong evidence of clear title.',
 ]
 
 /**

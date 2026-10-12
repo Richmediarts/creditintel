@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
 import {
-  DTI_LEVERS, ASSISTANCE_PROGRAMS, FREE_STEPS, DTI_BUREAU_TARGETS,
+  DTI_LEVERS, ASSISTANCE_PROGRAMS, FREE_STEPS, TITLE_SEARCH_NOTES,
 } from '@/lib/utils/affordabilityResources'
 
 const fmt = (n: number): string =>
@@ -668,20 +668,50 @@ export default function AffordabilityPage() {
         </CardContent>
       </Card>
 
+      {/* Title search reality check */}
+      <Card className="border-red-200 dark:border-red-800 bg-red-50/40 dark:bg-red-950/10">
+        <CardContent className="p-5">
+          <CardTitle className="text-sm mb-2 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-500" /> About title searches in Georgia
+          </CardTitle>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mb-3 leading-relaxed">
+            There is no self-service title or mechanic lien search in Georgia. If you were looking for a portal
+            to check a specific address for liens before offering, that is not something a county parcel viewer
+            can do — you would need the Superior Court Clerk records, which is work your closing attorney handles.
+          </p>
+          <ul className="space-y-1.5">
+            {TITLE_SEARCH_NOTES.map((n, i) => (
+              <li key={i} className="text-xs text-gray-600 dark:text-gray-400 flex items-start gap-1.5">
+                <span className="text-red-400 flex-shrink-0">›</span>
+                {n}
+              </li>
+            ))}
+          </ul>
+          <p className="text-[11px] text-gray-500 mt-3 pt-2 border-t border-red-200 dark:border-red-900">
+            Budget for the attorney fee in your closing costs — Georgia does not use a simple title company
+            transaction the way some other states do.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Free steps */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {FREE_STEPS.map(f => (
-          <a key={f.title} href={f.url} target="_blank" rel="noopener noreferrer" className="block group">
-            <Card className="h-full hover:shadow-md transition-shadow">
-              <CardContent className="p-4">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white inline-flex items-center gap-1 group-hover:text-blue-600">
-                  {f.title} <ExternalLink className="w-3 h-3" />
-                </p>
-                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{f.description}</p>
-              </CardContent>
-            </Card>
-          </a>
-        ))}
+      <div>
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Free resources and things you can check yourself</h2>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">No cost, and no appointment needed.</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {FREE_STEPS.map(f => (
+            <a key={f.title} href={f.url} target="_blank" rel="noopener noreferrer" className="block group">
+              <Card className="h-full hover:shadow-md transition-shadow">
+                <CardContent className="p-4">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white inline-flex items-center gap-1 group-hover:text-blue-600">
+                    {f.title} <ExternalLink className="w-3 h-3" />
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{f.description}</p>
+                </CardContent>
+              </Card>
+            </a>
+          ))}
+        </div>
       </div>
 
       {/* Mortgage FICO note */}
