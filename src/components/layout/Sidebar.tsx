@@ -10,7 +10,7 @@ import {
   Sun, Moon, Menu, X, ChevronLeft, ChevronRight,
   Gavel, Shield, LogIn, LogOut, User, Activity, HelpCircle,
   Wallet, Banknote, Receipt, Landmark, CreditCard, Users, Tag,
-  PieChart, Target, FileUp, Plug, FolderArchive, ListChecks,
+  PieChart, Target, FileUp, Plug, FolderArchive, ListChecks, Home,
 } from 'lucide-react'
 import { useCredit } from '@/lib/store/creditStore'
 import { useAuth } from '@/lib/auth-context'
@@ -48,6 +48,7 @@ const navItems = [
 
 const budgetItems = [
   { href: '/budget', label: 'Budget Dashboard', icon: Wallet },
+  { href: '/budget/affordability', label: 'Home Affordability', icon: Home },
   { href: '/budget/interactive', label: 'Interactive Budget', icon: PieChart },
   { href: '/budget/paychecks', label: 'Paychecks', icon: Banknote },
   { href: '/budget/bills', label: 'Bills', icon: Receipt },
