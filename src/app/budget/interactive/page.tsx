@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   Plus, Trash2, RotateCcw, Printer, Wallet, Info,
   CheckCircle2, AlertTriangle, ChevronDown, Target,
@@ -16,6 +17,7 @@ import {
 import {
   BILL_CATEGORIES, normalizeBillName, nameMatchesCategory, matchBillForLabel, formatBillDate,
 } from '@/lib/utils/billCategories'
+import { payWindowFor, daysUntil, parseDate } from '@/lib/utils/recurrence'
 
 interface LineItem {
   id: string
@@ -36,6 +38,8 @@ interface Bill {
 interface Stats {
   biweekly_income: number
   last_paycheck_net: number
+  next_paycheck_date?: string | null
+  last_paycheck_date?: string | null
 }
 
 const fmt = (n: number): string =>
@@ -322,6 +326,42 @@ export default function InteractiveBudgetPage() {
     return { groups, other }
   }, [ws, bills])
 
+  /**
+   * Group unpaid bills into 14-day pay windows anchored on the most recent
+   * paycheck. Window 0 is the period you are living in right now; window 1 is
+   * next paychecks, and so on.
+   */
+  const payWindows = useMemo(() => {
+    const anchor = stats?.last_paycheck_date || stats?.next_paycheck_date || null
+    if (!anchor) return null
+
+    const buckets = new Map<number, {
+      index: number
+      start: Date
+      end: Date
+      dueTotal: number
+      bills: Array<{ bill: Bill; label: string; due: string }>
+    }>()
+
+    for (const bill of bills) {
+      if (bill.is_paid || !bill.due_date) continue
+      const w = payWindowFor(bill.due_date, anchor)
+      if (!w) continue
+      const entry = buckets.get(w.windowIndex) || {
+        index: w.windowIndex,
+        start: w.windowStart,
+        end: w.windowEnd,
+        dueTotal: 0,
+        bills: [],
+      }
+      entry.dueTotal += Number(bill.amount) || 0
+      entry.bills.push({ bill, label: bill.payee_name || 'Unknown payee', due: bill.due_date })
+      buckets.set(w.windowIndex, entry)
+    }
+
+    return Array.from(buckets.values()).sort((a, b) => a.index - b.index)
+  }, [bills, stats])
+
   if (loading || !ws) {
     return (
       <div className="flex justify-center py-16">
@@ -477,6 +517,101 @@ export default function InteractiveBudgetPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Biweekly pay-period tracker */}
+      {payWindows && payWindows.length > 0 && (
+        <Card>
+          <CardContent className="p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">What is due each paycheck</p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                  Grouped into 14-day windows from your last paycheck
+                  {stats?.last_paycheck_date ? ` (${formatBillDate(stats.last_paycheck_date)})` : ''}.
+                  Pay periods repeat every two weeks.
+                </p>
+              </div>
+              <Link href="/budget/paychecks" className="text-xs text-blue-600 dark:text-blue-400 hover:underline shrink-0">
+                Import paycheck
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {payWindows.slice(0, 6).map(w => {
+                const net = stats?.biweekly_income || 0
+                const remaining = net - w.dueTotal
+                const pct = net > 0 ? (w.dueTotal / net) * 100 : 0
+                const isCurrent = w.index === 0
+                return (
+                  <div
+                    key={w.index}
+                    className={`rounded-lg border p-3 ${
+                      isCurrent
+                        ? 'border-blue-300 dark:border-blue-700 bg-blue-50/60 dark:bg-blue-950/20'
+                        : 'border-gray-200 dark:border-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-xs font-semibold text-gray-900 dark:text-white">
+                        {isCurrent ? 'This paycheck' : w.index === 1 ? 'Next paycheck' : `Paycheck +${w.index}`}
+                      </p>
+                      <p className="text-[10px] text-gray-400 tabular-nums">
+                        {w.start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        {' – '}
+                        {w.end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      </p>
+                    </div>
+
+                    <p className="text-lg font-bold text-gray-900 dark:text-white tabular-nums">{fmt(w.dueTotal)}</p>
+                    <p className="text-[10px] text-gray-500 mb-2">
+                      {w.bills.length} bill{w.bills.length !== 1 ? 's' : ''} due
+                      {net > 0 && ` · ${pct.toFixed(0)}% of take-home`}
+                    </p>
+
+                    {net > 0 && (
+                      <div className="h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mb-2">
+                        <div
+                          className={`h-full rounded-full ${pct > 100 ? 'bg-red-500' : pct > 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                          style={{ width: `${Math.min(pct, 100)}%` }}
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-0.5 max-h-28 overflow-y-auto">
+                      {w.bills
+                        .slice()
+                        .sort((a, b) => a.due.localeCompare(b.due))
+                        .map((b) => {
+                          const d = daysUntil(b.due)
+                          const overdue = d !== null && d < 0
+                          const soon = d !== null && d >= 0 && d <= 3
+                          return (
+                            <div key={b.bill.id} className="flex items-center justify-between gap-2 text-[11px]">
+                              <span className="truncate text-gray-700 dark:text-gray-300">{b.label}</span>
+                              <span
+                                className={`shrink-0 tabular-nums ${
+                                  overdue ? 'text-red-500 font-medium' : soon ? 'text-amber-600' : 'text-gray-400'
+                                }`}
+                              >
+                                {b.due.slice(5)} · {fmt(b.bill.amount)}
+                              </span>
+                            </div>
+                          )
+                        })}
+                    </div>
+
+                    {net > 0 && (
+                      <p className={`text-[11px] mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 font-medium ${remaining >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600'}`}>
+                        {remaining >= 0 ? `${fmt(remaining)} left after these bills` : `${fmt(Math.abs(remaining))} short`}
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Three buckets */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

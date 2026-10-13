@@ -35,15 +35,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (data.field && data.value !== undefined) {
       await updateBillField(auth.userId, Number(id), data.field, data.value)
     } else if (data.paid === true) {
-      await markBillPaid(auth.userId, Number(id))
-      // If this bill belongs to a credit card, advance its due date to next month
+      // markBillPaid rolls the due date by the bill's own recurrence and
+      // returns the new date so the UI can confirm what happened.
+      const result = await markBillPaid(auth.userId, Number(id))
       const bill = await getBill(auth.userId, Number(id))
-      if (bill && bill.credit_card_id && bill.due_date) {
-        const next = new Date(bill.due_date)
-        next.setMonth(next.getMonth() + 1)
-        const nextDate = next.toISOString().split('T')[0]
-        await updateBillField(auth.userId, Number(id), 'due_date', nextDate)
-      }
+      return NextResponse.json({
+        success: true,
+        nextDueDate: result.nextDueDate,
+        bill,
+      })
     } else if (data.paid === false) {
       await markBillUnpaid(auth.userId, Number(id))
     } else {

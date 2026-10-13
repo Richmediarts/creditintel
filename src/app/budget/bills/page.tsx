@@ -5,12 +5,15 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   Receipt, PlusCircle, ArrowRight, Check, X, Trash2,
-  Edit, CalendarDays, ExternalLink,
+  Edit, CalendarDays, ExternalLink, CheckCircle2 as CheckCircleIcon,
 } from 'lucide-react'
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
 import { BILL_CATEGORIES as SECTIONS } from '@/lib/utils/billCategories'
+import {
+  RECURRENCE_OPTIONS, recurrenceLabel, nextDueDate, formatDueDate,
+} from '@/lib/utils/recurrence'
 
 interface Bill {
   id: number
@@ -71,6 +74,7 @@ const EMPTY_FORM = {
   amount: '',
   due_date: '',
   is_recurring: false,
+  recurrence_type: 'monthly',
   notes: '',
   url: '',
 }
@@ -151,20 +155,53 @@ function BillsContent() {
     .filter((b) => b.is_paid && b.paid_date && b.paid_date >= monthStart && b.paid_date <= monthEnd)
     .reduce((s, b) => s + (Number(b.amount) || 0), 0)
 
+  const [notice, setNotice] = useState('')
+
   const handleTogglePaid = async (bill: Bill) => {
     const newPaid = !bill.is_paid
+
+    if (newPaid) {
+      // Confirm before committing, and tell the user exactly what will happen
+      // to the due date so paying a bill is never a surprise.
+      const isRecurring = !!bill.is_recurring
+      const rollTo = isRecurring ? nextDueDate(bill.due_date, bill.recurrence_type || '') : null
+      const when = rollTo ? formatDueDate(rollTo) : 'the current date'
+
+      const message = isRecurring
+        ? `Mark "${bill.payee_name || 'this bill'}" paid?\n\n` +
+          `It repeats ${recurrenceLabel(bill.recurrence_type).toLowerCase()}, so the due date will move to ${when} and it will return to your unpaid list.`
+        : `Mark "${bill.payee_name || 'this bill'}" paid?\n\nThis bill is not set to recurring, so it will stay closed and will not reappear.`
+
+      if (!confirm(message)) return
+    }
+
     setBills((prev) =>
       prev.map((b) =>
         b.id === bill.id
-          ? { ...b, is_paid: newPaid ? 1 : 0, paid_date: newPaid ? new Date().toISOString().split('T')[0] : undefined }
+          ? {
+              ...b,
+              is_paid: newPaid ? 1 : 0,
+              paid_date: newPaid ? new Date().toISOString().split('T')[0] : undefined,
+            }
           : b
       )
     )
-    await fetch(`/api/budget/bills/${bill.id}`, {
+
+    const res = await fetch(`/api/budget/bills/${bill.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ paid: newPaid }),
     })
+
+    if (newPaid) {
+      const data = await res.json().catch(() => ({}))
+      if (data.nextDueDate) {
+        setNotice(`${bill.payee_name || 'Bill'} marked paid — next due ${formatDueDate(data.nextDueDate)}`)
+        // The server rolled the date and reset is_paid, so resync from it.
+        await fetchBills()
+      }
+      setTimeout(() => setNotice(''), 6000)
+    }
   }
 
   const handleDelete = async (bill: Bill) => {
@@ -180,6 +217,7 @@ function BillsContent() {
       amount: String(bill.amount),
       due_date: bill.due_date,
       is_recurring: !!bill.is_recurring,
+      recurrence_type: bill.recurrence_type || 'monthly',
       notes: bill.notes || '',
       url: bill.url || '',
     })
@@ -243,6 +281,7 @@ function BillsContent() {
       amount: parseFloat(form.amount) || 0,
       due_date: form.due_date,
       is_recurring: form.is_recurring ? 1 : 0,
+      recurrence_type: form.is_recurring ? (form.recurrence_type || 'monthly') : '',
       notes: form.notes,
       url: form.url.trim(),
     }
@@ -379,6 +418,11 @@ function BillsContent() {
           {!bill.is_paid && bill.due_date && (
             <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${b.cls}`}>{b.text}</span>
           )}
+          {bill.is_recurring && (
+            <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300">
+              {recurrenceLabel(bill.recurrence_type)}
+            </span>
+          )}
         </td>
         <td className="py-2 px-2 text-right whitespace-nowrap">
           {inlineEdit && inlineEdit.id === bill.id && inlineEdit.field === 'amount' ? (
@@ -512,6 +556,13 @@ function BillsContent() {
         </Card>
       </div>
 
+      {notice && (
+        <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
+          <CheckCircleIcon className="w-4 h-4 flex-shrink-0" />
+          {notice}
+        </div>
+      )}
+
       {error && (
         <div className="rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
           {error}
@@ -569,11 +620,31 @@ function BillsContent() {
                     <input
                       type="checkbox"
                       checked={form.is_recurring}
-                      onChange={(e) => setForm((f) => ({ ...f, is_recurring: e.target.checked }))}
+                      onChange={(e) => setForm((f) => ({
+                        ...f,
+                        is_recurring: e.target.checked,
+                        recurrence_type: e.target.checked && !f.recurrence_type ? 'monthly' : f.recurrence_type,
+                      }))}
                       className="rounded"
                     />
                     Recurring
                   </label>
+                  {form.is_recurring && (
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                        Repeats
+                      </label>
+                      <select
+                        value={form.recurrence_type || 'monthly'}
+                        onChange={(e) => setForm((f) => ({ ...f, recurrence_type: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {RECURRENCE_OPTIONS.filter((o) => o.value !== '').map((o) => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Website URL</label>

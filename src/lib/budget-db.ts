@@ -1,4 +1,5 @@
 import { getDb } from '@/lib/db'
+import { nextDueDate } from '@/lib/utils/recurrence'
 
 export interface BudgetPaycheck {
   id: number
@@ -856,10 +857,39 @@ export async function updateBillField(userId: number, id: number, field: string,
   await db.prepare(`UPDATE budget_bills SET ${field} = ? WHERE user_id = ? AND id = ?`).run(value, userId, id)
 }
 
-export async function markBillPaid(userId: number, id: number): Promise<void> {
+/**
+ * Mark a bill paid and roll its due date forward by its own recurrence.
+ *
+ * A recurring bill is not "done" once paid — it comes back next cycle. Rolling
+ * the date here (rather than only setting is_paid) keeps the unpaid queue
+ * meaningful, which is what the biweekly pay-period tracker reads.
+ */
+export async function markBillPaid(userId: number, id: number): Promise<{ nextDueDate: string | null }> {
   const db = getDb()
   const today = new Date().toISOString().split('T')[0]
-  await db.prepare('UPDATE budget_bills SET is_paid = 1, paid_date = ? WHERE user_id = ? AND id = ?').run(today, userId, id)
+  const bill = (await db.prepare('SELECT due_date, is_recurring, recurrence_type FROM budget_bills WHERE user_id = ? AND id = ?').get(userId, id)) as {
+    due_date: string | null
+    is_recurring: number | null
+    recurrence_type: string | null
+  } | undefined
+
+  if (!bill) {
+    await db.prepare('UPDATE budget_bills SET is_paid = 1, paid_date = ? WHERE user_id = ? AND id = ?').run(today, userId, id)
+    return { nextDueDate: null }
+  }
+
+  // Roll the date only for recurring bills that have a recurrence set.
+  const next = bill.is_recurring ? nextDueDate(bill.due_date, bill.recurrence_type || '') : null
+
+  if (next) {
+    await db.prepare(
+      'UPDATE budget_bills SET is_paid = 0, paid_date = ?, due_date = ? WHERE user_id = ? AND id = ?'
+    ).run(today, next, userId, id)
+  } else {
+    await db.prepare('UPDATE budget_bills SET is_paid = 1, paid_date = ? WHERE user_id = ? AND id = ?').run(today, userId, id)
+  }
+
+  return { nextDueDate: next }
 }
 
 export async function markBillUnpaid(userId: number, id: number): Promise<void> {
