@@ -10,12 +10,19 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
-import { BUCKETS, categorize, TEMPLATE, computeStatus, budgetVerdict, type Bucket } from '@/lib/utils/budgetRule'
+import {
+  BUCKETS, categorize, TEMPLATE, computeStatus, budgetVerdict, type Bucket,
+} from '@/lib/utils/budgetRule'
+import {
+  BILL_CATEGORIES, normalizeBillName, nameMatchesCategory, matchBillForLabel, formatBillDate,
+} from '@/lib/utils/billCategories'
 
 interface LineItem {
   id: string
   label: string
   amount: number
+  /** Due date mirrored from the matching bill, shown in the Needs table. */
+  dueDate?: string
 }
 
 interface Bill {
@@ -188,7 +195,12 @@ export default function InteractiveBudgetPage() {
         ...prev,
         items: {
           ...prev.items,
-          [bucket]: [...prev.items[bucket], { id: genId(), label, amount: bill.amount || 0 }],
+          [bucket]: [...prev.items[bucket], {
+            id: genId(),
+            label,
+            amount: bill.amount || 0,
+            dueDate: bill.due_date || undefined,
+          }],
         },
       }
       saveState(next)
@@ -203,7 +215,12 @@ export default function InteractiveBudgetPage() {
       const existing = new Set(prev.items[bucket].map(i => i.label.toLowerCase()))
       const additions = bills
         .filter(b => !existing.has((b.payee_name || 'unknown payee').toLowerCase()))
-        .map(b => ({ id: genId(), label: b.payee_name || 'Unknown payee', amount: b.amount || 0 }))
+        .map(b => ({
+          id: genId(),
+          label: b.payee_name || 'Unknown payee',
+          amount: b.amount || 0,
+          dueDate: b.due_date || undefined,
+        }))
       if (additions.length === 0) return prev
       const next: Worksheet = {
         ...prev,
@@ -251,6 +268,59 @@ export default function InteractiveBudgetPage() {
 
   const remaining = (ws?.monthlyIncome || 0) - totalAllocated
   const verdict = useMemo(() => budgetVerdict(ws?.monthlyIncome || 0, totals), [ws, totals])
+
+  /**
+   * Needs renders as category-grouped tables like the Bills page. Each
+   * worksheet row is matched back to a real bill so the due date stays in
+   * sync; rows with no matching bill fall through to the uncategorized group.
+   */
+  const needSections = useMemo(() => {
+    const rows = (ws?.items.needs ?? []).map(item => {
+      const bill = matchBillForLabel(item.label, bills)
+      return {
+        item,
+        bill,
+        due: item.dueDate || bill?.due_date || '',
+      }
+    })
+
+    const byName = new Map<string, typeof rows[number]>()
+    for (const r of rows) {
+      const key = normalizeBillName(r.item.label)
+      const prev = byName.get(key)
+      if (!prev) byName.set(key, r)
+    }
+
+    const used = new Set<string>()
+    const groups = BILL_CATEGORIES.map(cat => {
+      const items: typeof rows = []
+      for (const name of cat.bills) {
+        // Exact hit first, then a prefix match so suffixed payees such as
+        // "Sorento Fuel / Transportation" land in the right category.
+        let r = byName.get(name)
+        if (!r) {
+          for (const [key, cand] of byName) {
+            if (used.has(key)) continue
+            if (nameMatchesCategory(cand.item.label, name)) {
+              r = cand
+              break
+            }
+          }
+        }
+        if (r && !used.has(normalizeBillName(r.item.label))) {
+          items.push(r)
+          used.add(normalizeBillName(r.item.label))
+        }
+      }
+      items.sort((a, b) => (a.due || '').localeCompare(b.due || ''))
+      return { title: cat.title, items }
+    })
+
+    const other = rows.filter(r => !used.has(normalizeBillName(r.item.label)))
+    other.sort((a, b) => (a.due || '').localeCompare(b.due || ''))
+
+    return { groups, other }
+  }, [ws, bills])
 
   if (loading || !ws) {
     return (
@@ -462,8 +532,155 @@ export default function InteractiveBudgetPage() {
                     {def.description}
                   </p>
 
-                  <div className="space-y-1.5 flex-1">
-                    {items.map(item => (
+                  {status.key === 'needs' ? (
+                    /* Needs: category-grouped tables with due dates from bills */
+                    <div className="space-y-4">
+                      {needSections.groups
+                        .filter(g => g.items.length > 0)
+                        .map(g => {
+                          const gTotal = g.items.reduce((s, r) => s + (Number(r.item.amount) || 0), 0)
+                          return (
+                            <div key={g.title}>
+                              <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                                Category: {g.title}
+                              </p>
+                              <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                <table className="w-full text-xs">
+                                  <thead>
+                                    <tr className="bg-blue-600 text-white">
+                                      <th className="text-left py-1.5 px-2 font-semibold">Payee</th>
+                                      <th className="text-right py-1.5 px-2 font-semibold w-24">Due Date</th>
+                                      <th className="text-right py-1.5 px-2 font-semibold w-24">Amount</th>
+                                      <th className="w-6" />
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {g.items.map(r => (
+                                      <tr key={r.item.id} className="border-b border-gray-50 dark:border-gray-800 group">
+                                        <td className="py-1 px-2">
+                                          <input
+                                            type="text"
+                                            value={r.item.label}
+                                            onChange={e => updateItem('needs', r.item.id, 'label', e.target.value)}
+                                            className="w-full bg-transparent border-none text-xs text-gray-900 dark:text-white focus:outline-none p-0 truncate"
+                                          />
+                                        </td>
+                                        <td className="py-1 px-2 text-right text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                          {r.due ? formatBillDate(r.due) : '—'}
+                                        </td>
+                                        <td className="py-1 px-2">
+                                          <div className="flex items-center justify-end gap-0.5">
+                                            <span className="text-gray-300 text-xs">$</span>
+                                            <input
+                                              type="number"
+                                              step="0.01"
+                                              value={r.item.amount}
+                                              onChange={e => updateItem('needs', r.item.id, 'amount', e.target.value)}
+                                              onFocus={e => e.target.select()}
+                                              className="w-20 bg-transparent border-none border-b border-transparent focus:border-blue-500 text-xs text-right tabular-nums text-gray-900 dark:text-white focus:outline-none p-0"
+                                            />
+                                          </div>
+                                        </td>
+                                        <td className="py-1 pr-1">
+                                          <button
+                                            onClick={() => deleteItem('needs', r.item.id)}
+                                            className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            title="Remove"
+                                          >
+                                            <Trash2 className="w-3 h-3" />
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                  <tfoot>
+                                    <tr className="bg-gray-50 dark:bg-gray-800/60 font-bold">
+                                      <td className="py-1.5 px-2 text-xs">Total</td>
+                                      <td />
+                                      <td className="py-1.5 px-2 text-right text-xs tabular-nums">
+                                        {fmt(gTotal)}
+                                      </td>
+                                      <td />
+                                    </tr>
+                                  </tfoot>
+                                </table>
+                              </div>
+                            </div>
+                          )
+                        })}
+
+                      {needSections.other.length > 0 && (
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+                            Other Needs
+                          </p>
+                          <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="bg-blue-600 text-white">
+                                  <th className="text-left py-1.5 px-2 font-semibold">Payee</th>
+                                  <th className="text-right py-1.5 px-2 font-semibold w-24">Due Date</th>
+                                  <th className="text-right py-1.5 px-2 font-semibold w-24">Amount</th>
+                                  <th className="w-6" />
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {needSections.other.map(r => (
+                                  <tr key={r.item.id} className="border-b border-gray-50 dark:border-gray-800 group">
+                                    <td className="py-1 px-2">
+                                      <input
+                                        type="text"
+                                        value={r.item.label}
+                                        onChange={e => updateItem('needs', r.item.id, 'label', e.target.value)}
+                                        className="w-full bg-transparent border-none text-xs text-gray-900 dark:text-white focus:outline-none p-0 truncate"
+                                      />
+                                    </td>
+                                    <td className="py-1 px-2 text-right text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                                      {r.due ? formatBillDate(r.due) : '—'}
+                                    </td>
+                                    <td className="py-1 px-2">
+                                      <div className="flex items-center justify-end gap-0.5">
+                                        <span className="text-gray-300 text-xs">$</span>
+                                        <input
+                                          type="number"
+                                          step="0.01"
+                                          value={r.item.amount}
+                                          onChange={e => updateItem('needs', r.item.id, 'amount', e.target.value)}
+                                          onFocus={e => e.target.select()}
+                                          className="w-20 bg-transparent border-none border-b border-transparent focus:border-blue-500 text-xs text-right tabular-nums text-gray-900 dark:text-white focus:outline-none p-0"
+                                        />
+                                      </div>
+                                    </td>
+                                    <td className="py-1 pr-1">
+                                      <button
+                                        onClick={() => deleteItem('needs', r.item.id)}
+                                        className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="Remove"
+                                      >
+                                        <Trash2 className="w-3 h-3" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                              <tfoot>
+                                <tr className="bg-gray-50 dark:bg-gray-800/60 font-bold">
+                                  <td className="py-1.5 px-2 text-xs">Total</td>
+                                  <td />
+                                  <td className="py-1.5 px-2 text-right text-xs tabular-nums">
+                                    {fmt(needSections.other.reduce((s, r) => s + (Number(r.item.amount) || 0), 0))}
+                                  </td>
+                                  <td />
+                                </tr>
+                              </tfoot>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 flex-1">
+                      {items.map(item => (
                       <div key={item.id} className="flex items-center gap-1.5 group">
                         <input
                           type="text"
@@ -497,7 +714,8 @@ export default function InteractiveBudgetPage() {
                         </button>
                       </div>
                     ))}
-                  </div>
+                    </div>
+                  )}
 
                   <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 space-y-2">
                     <button

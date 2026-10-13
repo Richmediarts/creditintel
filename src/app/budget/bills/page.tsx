@@ -10,6 +10,7 @@ import {
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
+import { BILL_CATEGORIES as SECTIONS } from '@/lib/utils/billCategories'
 
 interface Bill {
   id: number
@@ -56,48 +57,8 @@ function normalizeName(name?: string): string {
 }
 
 // Spreadsheet layout: sections in order, each with its bill names.
-const SECTIONS: { title: string; bills: string[] }[] = [
-  {
-    title: 'Home & Utilities',
-    bills: ['pennymac', 'brookside hoa fees (yrly)', 'truegreen', 'anthem', 'electric bill'],
-  },
-  {
-    title: 'Transportation',
-    bills: ['bridgecrest - sorento', 'capitalone auto loan', 'progressive', 'sorento fuel', 'jeep fuel'],
-  },
-  {
-    title: 'Food & Personal',
-    bills: ['groceries'],
-  },
-  {
-    title: 'Internet / TV / Cell Phone / Home Security',
-    bills: ['at&t wireless', 'xfinity', 'vivint security', 'security equipment (fortiva)'],
-  },
-  {
-    title: 'Water/Gas/Electricity',
-    bills: ['greystone power', 'gas south', 'paulding county water', 'community waste'],
-  },
-  {
-    title: 'School Debt',
-    bills: ['nelnet - ella', 'nelnet - richard'],
-  },
-  {
-    title: 'Credit Cards',
-    bills: [
-      "ella's discover", "ella's old navy cc", "ella's apple card", "ella's pnc cash rewards",
-      "ella's ally cc", "ella's avant cc", "ella's mission lane cc", "ella's indigo cc",
-      "ella's destiny cc", "ella's prosper", "ella's navy federal", "rich amazon card",
-      "rich's apple card", "mission lane", "rich's quicksilver cap1-9223", "rich's cap1 venture-6873",
-      "rich's secure cap1-5491", "rich's plat2 cap1-5566", "rich's cap1 savor", "rich paypal credit",
-      "pay pal credit", "credit one amex", "rich's indigo", "rich's plat2 cap1-8259",
-      "rich's quicksilver cap1-2266",
-    ],
-  },
-  {
-    title: 'Other Expenses',
-    bills: ['midland - (aph law)', 'klarna k&g (my suit)', "klarna - sam's club (ethans monitor)", 'klarna - walmart', 'klarna - stubhub', 'woodstock - law settlement'],
-  },
-]
+// Category definitions live in lib/utils/billCategories.ts so this page and the
+// 50/30/20 Interactive Budget stay in sync.
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr)
