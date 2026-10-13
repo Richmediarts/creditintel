@@ -1,25 +1,21 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash2, DollarSign, Calendar, RotateCcw, Printer, Wallet, ArrowUpCircle, ArrowDownCircle, X } from 'lucide-react'
-import { Card, CardContent, CardTitle } from '@/components/ui/card'
+import {
+  Plus, Trash2, RotateCcw, Printer, Wallet, Info,
+  CheckCircle2, AlertTriangle, ChevronDown, Target,
+} from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/lib/auth-context'
+import { BUCKETS, categorize, TEMPLATE, computeStatus, budgetVerdict, type Bucket } from '@/lib/utils/budgetRule'
 
-interface PeriodItem {
+interface LineItem {
   id: string
   label: string
-  est: number
-  act: number
-}
-
-interface Period {
-  id: number
-  name: string
-  date: string
-  income: PeriodItem[]
-  expenses: PeriodItem[]
+  amount: number
 }
 
 interface Bill {
@@ -30,10 +26,6 @@ interface Bill {
   is_paid: number
 }
 
-interface Payee {
-  name: string
-}
-
 interface Stats {
   biweekly_income: number
   last_paycheck_net: number
@@ -42,130 +34,70 @@ interface Stats {
 const fmt = (n: number): string =>
   '$' + (Number.isFinite(n) ? n : 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-const LS_KEY = 'interactiveBudgetBi'
+const fmtRound = (n: number): string =>
+  '$' + (Number.isFinite(n) ? n : 0).toLocaleString('en-US', { maximumFractionDigits: 0 })
 
-function parseMDY(str: string): Date | null {
-  const m = str.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
-  if (!m) return null
-  const d = new Date(parseInt(m[3]), parseInt(m[1]) - 1, parseInt(m[2]))
-  return isNaN(d.getTime()) ? null : d
-}
+const LS_KEY = 'interactiveBudget502030'
 
-function getPeriodDateRange(period: Period): { start: Date; end: Date } | null {
-  const d = period.date.trim()
-  if (!d) return null
-  const rangeMatch = d.match(/(\d{1,2}\/\d{1,2}\/\d{4})\s*[-–]\s*(\d{1,2}\/\d{1,2}\/\d{4})/)
-  if (rangeMatch) {
-    const start = parseMDY(rangeMatch[1])
-    const end = parseMDY(rangeMatch[2])
-    if (start && end) return { start, end }
-  }
-  const singleMatch = d.match(/(\d{1,2}\/\d{1,2}\/\d{4})/)
-  if (singleMatch) {
-    const start = parseMDY(singleMatch[1])
-    if (start) {
-      const end = new Date(start)
-      end.setDate(end.getDate() + 13)
-      return { start, end }
-    }
-  }
-  return null
-}
-
-function billsInPeriod(period: Period, bills: Bill[]): Bill[] {
-  const range = getPeriodDateRange(period)
-  if (!range) return []
-  return bills.filter((b) => {
-    if (b.is_paid) return false
-    if (!b.due_date) return false
-    const due = new Date(b.due_date + 'T00:00:00')
-    return !isNaN(due.getTime()) && due >= range.start && due <= range.end
-  })
-}
-
-function findPeriodForDate(dueDateStr: string, periods: Period[]): Period {
-  if (!dueDateStr || !periods.length) return periods[0]
-  const due = new Date(dueDateStr + 'T00:00:00')
-  if (isNaN(due.getTime())) return periods[periods.length - 1]
-  let best: Period | null = null
-  let bestDist = Infinity
-  for (const p of periods) {
-    if (!p.date.trim()) continue
-    const range = getPeriodDateRange(p)
-    if (range) {
-      if (due >= range.start && due <= range.end) return p
-      continue
-    }
-    const single = parseMDY(p.date.trim())
-    if (single) {
-      const dist = Math.abs(due.getTime() - single.getTime())
-      if (dist < bestDist) {
-        bestDist = dist
-        best = p
-      }
-    }
-  }
-  return best || periods[periods.length - 1]
-}
-
-let nextId = 1000
 function genId(): string {
-  return 'n' + (nextId++).toString()
+  return Math.random().toString(36).slice(2, 11)
 }
 
-function buildDefaultState(biweeklyIncome: number): Period {
+interface Worksheet {
+  monthlyIncome: number
+  items: Record<Bucket, LineItem[]>
+}
+
+function buildDefault(income: number): Worksheet {
+  const mk = (bucket: Bucket): LineItem[] =>
+    TEMPLATE[bucket].map(label => ({ id: genId(), label, amount: 0 }))
   return {
-    id: 1,
-    name: 'Bi-Weekly #1',
-    date: '',
-    income: [
-      { id: 'i1', label: 'Salary', est: biweeklyIncome || 2000, act: biweeklyIncome || 0 },
-      { id: 'i2', label: 'Side Hustle', est: 500, act: 0 },
-    ],
-    expenses: [],
+    monthlyIncome: Math.round((Number(income) || 0)),
+    items: { needs: mk('needs'), wants: mk('wants'), savings: mk('savings') },
   }
 }
 
-function loadState(): Period[] | null {
+function loadState(): Worksheet | null {
+  if (typeof window === 'undefined') return null
   try {
-    const d = localStorage.getItem(LS_KEY)
-    if (d) {
-      const p = JSON.parse(d)
-      if (p && p.periods) return p.periods
+    const raw = localStorage.getItem(LS_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Worksheet
+    if (!parsed || !parsed.items) return null
+    // Ensure all buckets exist even if stored data predates a bucket.
+    for (const b of BUCKETS) {
+      if (!Array.isArray(parsed.items[b.key])) parsed.items[b.key] = []
     }
-  } catch { /* ignore */ }
-  return null
+    return parsed
+  } catch {
+    return null
+  }
 }
 
-function saveState(periods: Period[]): void {
+function saveState(ws: Worksheet): void {
+  if (typeof window === 'undefined') return
   try {
-    localStorage.setItem(LS_KEY, JSON.stringify({ periods }))
-  } catch { /* ignore */ }
+    localStorage.setItem(LS_KEY, JSON.stringify(ws))
+  } catch { /* quota */ }
 }
 
 export default function InteractiveBudgetPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
-  const [periods, setPeriods] = useState<Period[]>([])
+
+  const [ws, setWs] = useState<Worksheet | null>(null)
   const [bills, setBills] = useState<Bill[]>([])
-  const [payees, setPayees] = useState<string[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('')
-  const [dateModalPeriodId, setDateModalPeriodId] = useState<number | null>(null)
-  const [dateStart, setDateStart] = useState('')
-  const [dateEnd, setDateEnd] = useState('')
-  const [openBillsFor, setOpenBillsFor] = useState<number | null>(null)
-  const billsMenuRef = useRef<HTMLDivElement>(null)
-  const filterRef = useRef<HTMLInputElement>(null)
+  const [openBuckets, setOpenBuckets] = useState<Set<Bucket>>(new Set(['needs']))
+  const [showBills, setShowBills] = useState<Bucket | null>(null)
 
   const fetchData = useCallback(async () => {
     let income = 2000
     try {
-      const [statsRes, billsRes, payeesRes] = await Promise.all([
+      const [statsRes, billsRes] = await Promise.all([
         fetch('/api/budget/stats').catch(() => null),
         fetch('/api/budget/bills').catch(() => null),
-        fetch('/api/budget/payees').catch(() => null),
       ])
       if (statsRes?.ok) {
         const d = await statsRes.json()
@@ -174,19 +106,18 @@ export default function InteractiveBudgetPage() {
       }
       if (billsRes?.ok) {
         const d = await billsRes.json()
-        setBills(d.bills)
-      }
-      if (payeesRes?.ok) {
-        const d = await payeesRes.json()
-        setPayees(d.payees.map((p: Payee) => p.name))
+        setBills(d.bills || [])
       }
     } catch { /* continue with defaults */ }
 
+    // A biweekly paycheck annualized to a month.
+    const monthly = Math.round((Number(income) || 0) * 12 / 26)
+
     const saved = loadState()
-    if (saved && saved.length > 0) {
-      setPeriods(saved)
+    if (saved) {
+      setWs(saved)
     } else {
-      setPeriods([buildDefaultState(income), { ...buildDefaultState(income), id: 2, name: 'Bi-Weekly #2' }])
+      setWs(buildDefault(monthly))
     }
     setLoading(false)
   }, [])
@@ -196,161 +127,132 @@ export default function InteractiveBudgetPage() {
     if (user) fetchData()
   }, [user, authLoading, fetchData])
 
-  const persist = useCallback((newPeriods: Period[]) => {
-    setPeriods(newPeriods)
-    saveState(newPeriods)
+  const persist = useCallback((next: Worksheet) => {
+    setWs(next)
+    saveState(next)
   }, [])
 
-  const updateValue = useCallback((pid: number, type: 'income' | 'expenses', iid: string, field: 'label' | 'est' | 'act', val: string | number) => {
-    persist(periods.map((p) => {
-      if (p.id !== pid) return p
-      const list = type === 'income' ? p.income : p.expenses
-      return {
-        ...p,
-        [type]: list.map((item) =>
-          item.id === iid ? { ...item, [field]: field === 'label' ? String(val) : parseFloat(String(val)) || 0 } : item
-        ),
+  const updateItem = useCallback((bucket: Bucket, id: string, field: 'label' | 'amount', val: string) => {
+    setWs(prev => {
+      if (!prev) return prev
+      const next: Worksheet = {
+        ...prev,
+        items: {
+          ...prev.items,
+          [bucket]: prev.items[bucket].map(i =>
+            i.id === id
+              ? { ...i, [field]: field === 'amount' ? (parseFloat(val) || 0) : val }
+              : i
+          ),
+        },
       }
-    }))
-  }, [periods, persist])
+      saveState(next)
+      return next
+    })
+  }, [])
 
-  const addItem = useCallback((pid: number, type: 'income' | 'expenses') => {
-    persist(periods.map((p) => {
-      if (p.id !== pid) return p
-      return {
-        ...p,
-        [type]: [...p[type], { id: genId(), label: type === 'income' ? 'New Income' : 'New Item', est: 0, act: 0 }],
+  const addItem = useCallback((bucket: Bucket) => {
+    setWs(prev => {
+      if (!prev) return prev
+      const next: Worksheet = {
+        ...prev,
+        items: {
+          ...prev.items,
+          [bucket]: [...prev.items[bucket], { id: genId(), label: 'New item', amount: 0 }],
+        },
       }
-    }))
-  }, [periods, persist])
+      saveState(next)
+      return next
+    })
+  }, [])
 
-  const deleteItem = useCallback((pid: number, type: 'income' | 'expenses', iid: string) => {
-    persist(periods.map((p) => {
-      if (p.id !== pid) return p
-      return { ...p, [type]: p[type].filter((x) => x.id !== iid) }
-    }))
-  }, [periods, persist])
-
-  const addBillItem = useCallback((pid: number, billId: number) => {
-    const bill = bills.find((b) => b.id === billId)
-    if (!bill) return
-    persist(periods.map((p) => {
-      if (p.id !== pid) return p
-      const exists = p.expenses.some((x) => x.label.toLowerCase() === (bill.payee_name || 'unknown').toLowerCase())
-      if (exists) return p
-      return {
-        ...p,
-        expenses: [...p.expenses, { id: genId(), label: bill.payee_name || 'Unknown', est: bill.amount || 0, act: 0 }],
+  const deleteItem = useCallback((bucket: Bucket, id: string) => {
+    setWs(prev => {
+      if (!prev) return prev
+      const next: Worksheet = {
+        ...prev,
+        items: { ...prev.items, [bucket]: prev.items[bucket].filter(i => i.id !== id) },
       }
-    }))
-  }, [periods, bills, persist])
+      saveState(next)
+      return next
+    })
+  }, [])
 
-  const addAllBillItems = useCallback((pid: number, billList: Bill[]) => {
-    persist(periods.map((p) => {
-      if (p.id !== pid) return p
-      const existingLabels = new Set(p.expenses.map((x) => x.label.toLowerCase()))
-      const toAdd = billList
-        .filter((b) => !existingLabels.has((b.payee_name || 'unknown').toLowerCase()))
-        .map((b) => ({ id: genId(), label: b.payee_name || 'Unknown', est: b.amount || 0, act: 0 }))
-      if (toAdd.length === 0) return p
-      return { ...p, expenses: [...p.expenses, ...toAdd] }
-    }))
-    setOpenBillsFor(null)
-  }, [periods, persist])
+  /** Pull an unpaid bill into a bucket, auto-categorized from its payee name. */
+  const addBill = useCallback((bill: Bill, bucket: Bucket) => {
+    setWs(prev => {
+      if (!prev) return prev
+      const label = bill.payee_name || 'Unknown payee'
+      if (prev.items[bucket].some(i => i.label.toLowerCase() === label.toLowerCase())) return prev
+      const next: Worksheet = {
+        ...prev,
+        items: {
+          ...prev.items,
+          [bucket]: [...prev.items[bucket], { id: genId(), label, amount: bill.amount || 0 }],
+        },
+      }
+      saveState(next)
+      return next
+    })
+    setShowBills(null)
+  }, [])
 
-  const addPeriod = useCallback(() => {
-    const newP: Period = {
-      id: Date.now(),
-      name: 'New Period',
-      date: '',
-      income: [{ id: genId(), label: 'New Income', est: 0, act: 0 }],
-      expenses: [{ id: genId(), label: 'New Item', est: 0, act: 0 }],
-    }
-    persist([...periods, newP])
-  }, [periods, persist])
-
-  const removePeriod = useCallback((pid: number) => {
-    if (!confirm('Remove this period?')) return
-    persist(periods.filter((p) => p.id !== pid))
-  }, [periods, persist])
+  const addAllBills = useCallback((bucket: Bucket) => {
+    setWs(prev => {
+      if (!prev) return prev
+      const existing = new Set(prev.items[bucket].map(i => i.label.toLowerCase()))
+      const additions = bills
+        .filter(b => !existing.has((b.payee_name || 'unknown payee').toLowerCase()))
+        .map(b => ({ id: genId(), label: b.payee_name || 'Unknown payee', amount: b.amount || 0 }))
+      if (additions.length === 0) return prev
+      const next: Worksheet = {
+        ...prev,
+        items: { ...prev.items, [bucket]: [...prev.items[bucket], ...additions] },
+      }
+      saveState(next)
+      return next
+    })
+    setShowBills(null)
+  }, [bills])
 
   const resetToDefault = useCallback(() => {
-    if (!confirm('Reset to defaults? Your edits will be lost.')) return
+    if (!confirm('Reset to a blank 50/30/20 worksheet? Your current numbers will be lost.')) return
     localStorage.removeItem(LS_KEY)
-    const income = stats?.biweekly_income || 2000
-    const newP = [buildDefaultState(income), { ...buildDefaultState(income), id: 2, name: 'Bi-Weekly #2' }]
-    setPeriods(newP)
-    saveState(newP)
-  }, [stats])
+    setWs(buildDefault(ws?.monthlyIncome || 2000))
+  }, [ws])
 
-  const openDateModal = useCallback((pid: number) => {
-    const p = periods.find((x) => x.id === pid)
-    setDateModalPeriodId(pid)
-    setDateStart('')
-    setDateEnd('')
-    if (p && p.date) {
-      const d = p.date.trim()
-      const rangeMatch = d.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})\s*[-–]\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/)
-      if (rangeMatch) {
-        setDateStart(`${rangeMatch[3]}-${rangeMatch[1].padStart(2, '0')}-${rangeMatch[2].padStart(2, '0')}`)
-        setDateEnd(`${rangeMatch[6]}-${rangeMatch[4].padStart(2, '0')}-${rangeMatch[5].padStart(2, '0')}`)
-      } else {
-        const singleMatch = d.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/)
-        if (singleMatch) {
-          setDateStart(`${singleMatch[3]}-${singleMatch[1].padStart(2, '0')}-${singleMatch[2].padStart(2, '0')}`)
-        }
-      }
-    }
-  }, [periods])
-
-  const saveDateModal = useCallback(() => {
-    if (!dateStart || dateModalPeriodId === null) return
-    const sp = dateStart.split('-')
-    const startFmt = `${sp[1]}/${sp[2]}/${sp[0]}`
-    let dateStr = startFmt
-    if (dateEnd) {
-      const ep = dateEnd.split('-')
-      dateStr = `${startFmt} - ${ep[1]}/${ep[2]}/${ep[0]}`
-    }
-    persist(periods.map((p) => p.id === dateModalPeriodId ? { ...p, date: dateStr } : p))
-    setDateModalPeriodId(null)
-  }, [dateStart, dateEnd, dateModalPeriodId, periods, persist])
-
-  const clearDateModal = useCallback(() => {
-    if (dateModalPeriodId !== null) {
-      persist(periods.map((p) => p.id === dateModalPeriodId ? { ...p, date: '' } : p))
-    }
-    setDateModalPeriodId(null)
-  }, [dateModalPeriodId, periods, persist])
-
-  useEffect(() => {
-    if (openBillsFor === null) return
-    const onClick = (e: MouseEvent) => {
-      if (billsMenuRef.current && !billsMenuRef.current.contains(e.target as Node)) {
-        setOpenBillsFor(null)
-      }
-    }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
-  }, [openBillsFor])
-
-  const handleKeyNav = (e: React.KeyboardEvent<HTMLInputElement>, el: HTMLInputElement) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      const tbody = el.closest('tbody')
-      if (!tbody) return
-      const inputs = Array.from(tbody.querySelectorAll('input[type="number"]'))
-      const idx = inputs.indexOf(el)
-      el.blur()
-      if (idx >= 0 && idx < inputs.length - 1) {
-        const next = inputs[idx + 1] as HTMLInputElement
-        next.focus()
-        next.select()
-      }
-    }
+  const toggleBucket = (bucket: Bucket) => {
+    setOpenBuckets(prev => {
+      const next = new Set(prev)
+      if (next.has(bucket)) next.delete(bucket)
+      else next.add(bucket)
+      return next
+    })
   }
 
-  if (loading) {
+  const totals = useMemo(() => {
+    const t: Record<Bucket, number> = { needs: 0, wants: 0, savings: 0 }
+    if (!ws) return t
+    for (const b of BUCKETS) {
+      t[b.key] = ws.items[b.key].reduce((s, i) => s + (Number(i.amount) || 0), 0)
+    }
+    return t
+  }, [ws])
+
+  const statuses = useMemo(
+    () => computeStatus(ws?.monthlyIncome || 0, totals),
+    [ws, totals]
+  )
+
+  const totalAllocated = useMemo(
+    () => BUCKETS.reduce((s, b) => s + (totals[b.key] || 0), 0),
+    [totals]
+  )
+
+  const remaining = (ws?.monthlyIncome || 0) - totalAllocated
+  const verdict = useMemo(() => budgetVerdict(ws?.monthlyIncome || 0, totals), [ws, totals])
+
+  if (loading || !ws) {
     return (
       <div className="flex justify-center py-16">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" />
@@ -358,10 +260,12 @@ export default function InteractiveBudgetPage() {
     )
   }
 
-  const LF = filter.toLowerCase()
-  const totalInc = periods.reduce((s, p) => s + p.income.reduce((x, i) => x + (i.act || 0), 0), 0)
-  const totalExp = periods.reduce((s, p) => s + p.expenses.reduce((x, i) => x + (i.act || 0), 0), 0)
-  const netBal = totalInc - totalExp
+  const barColorFor = (ratio: number, over: boolean) => {
+    if (over) return 'bg-red-500'
+    if (ratio >= 0.8) return 'bg-emerald-500'
+    if (ratio >= 0.5) return 'bg-amber-500'
+    return 'bg-amber-400'
+  }
 
   return (
     <div className="space-y-6">
@@ -372,359 +276,318 @@ export default function InteractiveBudgetPage() {
             <Wallet className="w-6 h-6 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Interactive Budget</h1>
-            <p className="text-sm text-gray-500">Real-time Financial Tracker</p>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Budget Calculator</h1>
+            <p className="text-sm text-gray-500">The 50/30/20 rule applied to your take-home pay</p>
           </div>
         </div>
         <div className="flex gap-2">
-          <Button onClick={addPeriod} size="sm"><Plus className="w-4 h-4 mr-1" /> Add Period</Button>
-          <Button onClick={() => window.print()} variant="secondary" size="sm"><Printer className="w-4 h-4 mr-1" /> Print</Button>
-          <Button onClick={resetToDefault} variant="secondary" size="sm"><RotateCcw className="w-4 h-4 mr-1" /> Reset</Button>
+          <Button onClick={() => window.print()} variant="secondary" size="sm">
+            <Printer className="w-4 h-4 mr-1" /> Print
+          </Button>
+          <Button onClick={resetToDefault} variant="secondary" size="sm">
+            <RotateCcw className="w-4 h-4 mr-1" /> Reset
+          </Button>
         </div>
       </div>
 
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-5 flex items-start justify-between gap-3">
+      {/* Income + summary */}
+      <Card className="border-blue-200 dark:border-blue-800">
+        <CardContent className="p-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div>
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Income</p>
-              <p className="text-2xl font-bold mt-1 text-emerald-600 dark:text-emerald-400" id="stat-total-income">{fmt(totalInc)}</p>
-            </div>
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400">
-              <ArrowUpCircle className="w-5 h-5" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Expenses</p>
-              <p className="text-2xl font-bold mt-1 text-red-600 dark:text-red-400" id="stat-total-expenses">{fmt(totalExp)}</p>
-            </div>
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400">
-              <ArrowDownCircle className="w-5 h-5" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-5 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Net Balance</p>
-              <p className={`text-2xl font-bold mt-1 ${netBal >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`} id="stat-net-balance">{fmt(netBal)}</p>
-            </div>
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
-              <DollarSign className="w-5 h-5" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filter */}
-      <div className="flex items-center gap-3">
-        <input
-          ref={filterRef}
-          type="text"
-          placeholder="Filter by period, income, or expense name..."
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="flex-1 max-w-md rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-
-      {/* Payee datalist for autocomplete */}
-      <datalist id="payee-datalist">
-        {payees.map((name, i) => (
-          <option key={i} value={name} />
-        ))}
-      </datalist>
-
-      {/* Periods */}
-      {periods.map((period) => {
-        const pIncEst = period.income.reduce((s, i) => s + i.est, 0)
-        const pIncAct = period.income.reduce((s, i) => s + i.act, 0)
-        const pExpEst = period.expenses.reduce((s, i) => s + i.est, 0)
-        const pExpAct = period.expenses.reduce((s, i) => s + i.act, 0)
-
-        const filteredInc = period.income.filter((i) => !LF || i.label.toLowerCase().includes(LF))
-        const filteredExp = period.expenses.filter((i) => !LF || i.label.toLowerCase().includes(LF))
-        const periodMatch = !LF || period.name.toLowerCase().includes(LF) || period.date.toLowerCase().includes(LF)
-        if (LF && !periodMatch && filteredInc.length === 0 && filteredExp.length === 0) return null
-
-        const periodBills = billsInPeriod(period, bills)
-
-        return (
-          <Card key={period.id}>
-            {/* Period Header */}
-            <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-700">
-              <div className="flex items-center gap-3 flex-wrap">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400 mb-1">
+                Monthly take-home pay
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-2xl font-bold text-gray-300">$</span>
                 <input
-                  type="text"
-                  value={period.name}
-                  onChange={(e) => updateValue(period.id, 'income', period.income[0]?.id || '', 'label', period.name)}
-                  onBlur={(e) => persist(periods.map((p) => p.id === period.id ? { ...p, name: e.target.value || p.name } : p))}
-                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
-                  className="text-base font-semibold text-gray-900 dark:text-white bg-transparent border-none focus:outline-none focus:ring-0 p-0"
-                />
-                <button
-                  onClick={() => openDateModal(period.id)}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-indigo-500 text-white hover:bg-indigo-600 transition-colors cursor-pointer"
-                >
-                  <Calendar className="w-3 h-3" />
-                  {period.date || 'Set Date'}
-                </button>
-              </div>
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-xs text-gray-400">Inc: {fmt(pIncEst)} est / {fmt(pIncAct)} act</span>
-                <span className="text-xs text-gray-400">|</span>
-                <span className="text-xs text-gray-400">Exp: {fmt(pExpEst)} est / {fmt(pExpAct)} act</span>
-                <button onClick={() => removePeriod(period.id)} className="p-1 text-gray-400 hover:text-red-500 transition-colors" title="Remove period">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <CardContent className="p-0">
-              <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-100 dark:divide-gray-700">
-                {/* Income */}
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
-                      <ArrowUpCircle className="w-4 h-4 text-emerald-500" /> Income
-                    </h3>
-                    <button onClick={() => addItem(period.id, 'income')} className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline">+ Add</button>
-                  </div>
-                  <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-xs text-gray-400 border-b border-gray-100 dark:border-gray-700">
-                        <th className="text-left px-2 py-1.5 font-medium">Source</th>
-                        <th className="text-right px-2 py-1.5 font-medium">Est.</th>
-                        <th className="text-right px-2 py-1.5 font-medium">Actual</th>
-                        <th className="text-right px-2 py-1.5 font-medium">Diff</th>
-                        <th className="w-8"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredInc.map((item) => {
-                        const diff = item.act - item.est
-                        return (
-                          <tr key={item.id} className="border-b border-gray-50 dark:border-gray-800">
-                            <td className="px-2 py-1.5">
-                              <input
-                                type="text"
-                                value={item.label}
-                                onChange={(e) => updateValue(period.id, 'income', item.id, 'label', e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); const tbody = (e.target as HTMLElement).closest('tbody'); const inputs = tbody ? Array.from(tbody.querySelectorAll('input[type="number"]')) as HTMLInputElement[] : []; if (inputs.length) { inputs[0].focus(); inputs[0].select() } } }}
-                                className="w-full bg-transparent border-none text-sm text-gray-900 dark:text-white focus:outline-none p-0"
-                              />
-                            </td>
-                            <td className="px-2 py-1.5">
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={item.est}
-                                onChange={(e) => updateValue(period.id, 'income', item.id, 'est', e.target.value)}
-                                onKeyDown={(e) => handleKeyNav(e, e.target as HTMLInputElement)}
-                                onFocus={(e) => e.target.select()}
-                                className="w-full bg-transparent border-none border-b border-transparent focus:border-blue-500 text-sm text-right text-gray-900 dark:text-white focus:outline-none p-0"
-                              />
-                            </td>
-                            <td className="px-2 py-1.5">
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={item.act}
-                                onChange={(e) => updateValue(period.id, 'income', item.id, 'act', e.target.value)}
-                                onKeyDown={(e) => handleKeyNav(e, e.target as HTMLInputElement)}
-                                onFocus={(e) => e.target.select()}
-                                className="w-full bg-transparent border-none border-b border-transparent focus:border-blue-500 text-sm text-right text-gray-900 dark:text-white focus:outline-none p-0"
-                              />
-                            </td>
-                            <td className={`px-2 py-1.5 text-right text-sm font-semibold ${diff >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
-                              {fmt(diff)}
-                            </td>
-                            <td className="px-2 py-1.5 text-right">
-                              <button onClick={() => deleteItem(period.id, 'income', item.id)} className="p-0.5 text-gray-400 hover:text-red-500">
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                      {filteredInc.length === 0 && (
-                        <tr><td colSpan={5} className="text-center text-gray-400 py-3 text-xs">No items</td></tr>
-                      )}
-                    </tbody>
-                    <tfoot>
-                      <tr className="font-bold border-t border-gray-200 dark:border-gray-700">
-                        <td className="px-2 py-2 text-sm">Total</td>
-                        <td className="px-2 py-2 text-sm text-right">{fmt(pIncEst)}</td>
-                        <td className="px-2 py-2 text-sm text-right">{fmt(pIncAct)}</td>
-                        <td className={`px-2 py-2 text-sm text-right ${pIncAct - pIncEst >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>{fmt(pIncAct - pIncEst)}</td>
-                        <td></td>
-                      </tr>
-                     </tfoot>
-                  </table>
-                  </div>
-                </div>
-
-                {/* Expenses */}
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
-                      <ArrowDownCircle className="w-4 h-4 text-red-500" /> Expenses
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      {periodBills.length > 0 && (
-                        <div className="relative" ref={billsMenuRef}>
-                          <button
-                            onClick={() => setOpenBillsFor(openBillsFor === period.id ? null : period.id)}
-                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
-                          >
-                            Bills ▾
-                            <span className="rounded-full bg-blue-100 dark:bg-blue-900/40 px-1.5 text-[10px]">{periodBills.length}</span>
-                          </button>
-                          {openBillsFor === period.id && (
-                            <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20 min-w-[220px] max-h-[300px] overflow-y-auto">
-                              <button
-                                onClick={() => addAllBillItems(period.id, periodBills)}
-                                className="w-full text-left px-3 py-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700"
-                              >
-                                + Add All ({periodBills.length}) Bills
-                              </button>
-                              {periodBills.map((b) => (
-                                <button
-                                  key={b.id}
-                                  onClick={() => { addBillItem(period.id, b.id); }}
-                                  className="w-full text-left px-3 py-2 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between gap-2"
-                                >
-                                  <span className="truncate">{b.payee_name || 'Unknown'}</span>
-                                  <span className="text-gray-400 shrink-0">{b.due_date ? b.due_date.slice(5) : ''} {fmt(b.amount)}</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <button onClick={() => addItem(period.id, 'expenses')} className="text-xs text-red-600 dark:text-red-400 hover:underline">+ Add</button>
-                    </div>
-                  </div>
-                  <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-xs text-gray-400 border-b border-gray-100 dark:border-gray-700">
-                        <th className="text-left px-2 py-1.5 font-medium">Item</th>
-                        <th className="text-right px-2 py-1.5 font-medium">Est.</th>
-                        <th className="text-right px-2 py-1.5 font-medium">Actual</th>
-                        <th className="text-right px-2 py-1.5 font-medium">Diff</th>
-                        <th className="w-8"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredExp.map((item) => {
-                        const diff = item.est - item.act
-                        return (
-                          <tr key={item.id} className="border-b border-gray-50 dark:border-gray-800">
-                            <td className="px-2 py-1.5">
-                              <input
-                                type="text"
-                                list="payee-datalist"
-                                value={item.label}
-                                onChange={(e) => updateValue(period.id, 'expenses', item.id, 'label', e.target.value)}
-                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); const tbody = (e.target as HTMLElement).closest('tbody'); const inputs = tbody ? Array.from(tbody.querySelectorAll('input[type="number"]')) as HTMLInputElement[] : []; if (inputs.length) { inputs[0].focus(); inputs[0].select() } } }}
-                                className="w-full bg-transparent border-none text-sm text-gray-900 dark:text-white focus:outline-none p-0"
-                              />
-                            </td>
-                            <td className="px-2 py-1.5">
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={item.est}
-                                onChange={(e) => updateValue(period.id, 'expenses', item.id, 'est', e.target.value)}
-                                onKeyDown={(e) => handleKeyNav(e, e.target as HTMLInputElement)}
-                                onFocus={(e) => e.target.select()}
-                                className="w-full bg-transparent border-none border-b border-transparent focus:border-blue-500 text-sm text-right text-gray-900 dark:text-white focus:outline-none p-0"
-                              />
-                            </td>
-                            <td className="px-2 py-1.5">
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={item.act}
-                                onChange={(e) => updateValue(period.id, 'expenses', item.id, 'act', e.target.value)}
-                                onKeyDown={(e) => handleKeyNav(e, e.target as HTMLInputElement)}
-                                onFocus={(e) => e.target.select()}
-                                className="w-full bg-transparent border-none border-b border-transparent focus:border-blue-500 text-sm text-right text-gray-900 dark:text-white focus:outline-none p-0"
-                              />
-                            </td>
-                            <td className={`px-2 py-1.5 text-right text-sm font-semibold ${diff >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>
-                              {fmt(diff)}
-                            </td>
-                            <td className="px-2 py-1.5 text-right">
-                              <button onClick={() => deleteItem(period.id, 'expenses', item.id)} className="p-0.5 text-gray-400 hover:text-red-500">
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                      {filteredExp.length === 0 && (
-                        <tr><td colSpan={5} className="text-center text-gray-400 py-3 text-xs">No items</td></tr>
-                      )}
-                    </tbody>
-                    <tfoot>
-                      <tr className="font-bold border-t border-gray-200 dark:border-gray-700">
-                        <td className="px-2 py-2 text-sm">Total</td>
-                        <td className="px-2 py-2 text-sm text-right">{fmt(pExpEst)}</td>
-                        <td className="px-2 py-2 text-sm text-right">{fmt(pExpAct)}</td>
-                        <td className={`px-2 py-2 text-sm text-right ${pExpEst - pExpAct >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}`}>{fmt(pExpEst - pExpAct)}</td>
-                        <td></td>
-                      </tr>
-                     </tfoot>
-                  </table>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )
-      })}
-
-      {/* Date Range Modal */}
-      {dateModalPeriodId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm mx-4 p-5">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">Set Period Dates</h3>
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Start Date</label>
-                <input
-                  type="date"
-                  value={dateStart}
-                  onChange={(e) => setDateStart(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
+                  type="number"
+                  step="50"
+                  value={ws.monthlyIncome}
+                  onChange={e => persist({ ...ws, monthlyIncome: Number(e.target.value) || 0 })}
+                  onFocus={e => e.target.select()}
+                  className="w-full pl-9 pr-3 py-2 text-3xl font-bold text-gray-900 dark:text-white bg-transparent border-b-2 border-blue-200 dark:border-blue-900 focus:outline-none focus:border-blue-500 tabular-nums"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">End Date</label>
-                <input
-                  type="date"
-                  value={dateEnd}
-                  onChange={(e) => setDateEnd(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <p className="text-xs text-gray-400 mt-1">Leave blank for a 14-day period from start</p>
-              </div>
+              {stats && stats.biweekly_income > 0 && (
+                <p className="text-[11px] text-gray-400 mt-1">
+                  From your biweekly paycheck ({fmtRound(stats.biweekly_income)} × 26 ÷ 12)
+                </p>
+              )}
             </div>
-            <div className="flex justify-end gap-2 mt-5">
-              <Button variant="secondary" size="sm" onClick={clearDateModal}>Clear</Button>
-              <Button size="sm" onClick={saveDateModal} disabled={!dateStart}>Save</Button>
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Total allocated</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white tabular-nums">{fmt(totalAllocated)}</p>
+              <p className="text-[11px] text-gray-400 mt-1">
+                {ws.monthlyIncome > 0
+                  ? `${((totalAllocated / ws.monthlyIncome) * 100).toFixed(0)}% of income`
+                  : 'Enter income to see the percentage'}
+              </p>
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                {remaining >= 0 ? 'Left to allocate' : 'Over budget by'}
+              </p>
+              <p className={`text-3xl font-bold tabular-nums ${remaining >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                {fmt(Math.abs(remaining))}
+              </p>
+              <p className="text-[11px] text-gray-400 mt-1">
+                {remaining >= 0 ? 'Unassigned income' : 'Income does not cover these numbers'}
+              </p>
             </div>
           </div>
-        </div>
-      )}
+        </CardContent>
+      </Card>
+
+      {/* Verdict */}
+      <Card
+        className={
+          verdict.tone === 'good'
+            ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-950/20'
+            : verdict.tone === 'bad'
+              ? 'border-red-300 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20'
+              : 'border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20'
+        }
+      >
+        <CardContent className="p-4 flex items-start gap-3">
+          {verdict.tone === 'good'
+            ? <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+            : <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />}
+          <div>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">{verdict.title}</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">{verdict.detail}</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Allocation bar */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Where your income goes</p>
+            <p className="text-[11px] text-gray-400">Bar width is each bucket's share of your income</p>
+          </div>
+          <div className="flex h-8 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+            {statuses.map(s => {
+              const w = Math.min(s.percentOfIncome, 100)
+              if (w <= 0) return null
+              const cls = s.key === 'needs' ? 'bg-blue-500' : s.key === 'wants' ? 'bg-amber-500' : 'bg-emerald-500'
+              return (
+                <div
+                  key={s.key}
+                  className={`${cls} flex items-center justify-center text-[10px] font-semibold text-white min-w-0`}
+                  style={{ width: `${w}%` }}
+                  title={`${s.key}: ${fmt(s.actual)} (${s.percentOfIncome.toFixed(0)}%)`}
+                >
+                  {w > 8 ? `${s.percentOfIncome.toFixed(0)}%` : ''}
+                </div>
+              )
+            })}
+            {ws.monthlyIncome > totalAllocated && (
+              <div
+                className="bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[10px] font-semibold text-gray-500 dark:text-gray-400"
+                style={{ width: `${Math.max(0, ((ws.monthlyIncome - totalAllocated) / ws.monthlyIncome) * 100)}%` }}
+              >
+                Unassigned
+              </div>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+            {statuses.map(s => {
+              const cls = s.key === 'needs' ? 'bg-blue-500' : s.key === 'wants' ? 'bg-amber-500' : 'bg-emerald-500'
+              return (
+                <span key={s.key} className="text-[11px] text-gray-500 dark:text-gray-400 inline-flex items-center gap-1.5">
+                  <span className={`w-2.5 h-2.5 rounded-sm ${cls}`} />
+                  {s.key === 'savings' ? 'Savings & Debt' : s.key.charAt(0).toUpperCase() + s.key.slice(1)} {fmt(s.actual)}
+                </span>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Three buckets */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {statuses.map(status => {
+          const def = BUCKETS.find(b => b.key === status.key)!
+          const items = ws.items[status.key]
+          const isOpen = openBuckets.has(status.key)
+          const barColor = barColorFor(status.ratio, status.overBy)
+
+          return (
+            <Card key={status.key} className="flex flex-col">
+              {/* Bucket header */}
+              <button
+                onClick={() => toggleBucket(status.key)}
+                className="w-full text-left p-5 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <h2 className="text-base font-bold text-gray-900 dark:text-white">{def.title}</h2>
+                      <span className={`text-sm font-bold ${def.textColor}`}>{def.percent}%</span>
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-0.5">Target {fmt(status.target)}</p>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform mt-1 ${isOpen ? 'rotate-180' : ''}`} />
+                </div>
+
+                <p className={`text-2xl font-bold mt-2 tabular-nums ${def.textColor}`}>{fmt(status.actual)}</p>
+
+                {/* Target comparison bar */}
+                <div className="mt-3">
+                  <div className="relative h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${barColor}`}
+                      style={{ width: `${Math.min(status.ratio * 100, 100)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] mt-1">
+                    <span className={status.diff < 0 ? 'text-red-500 font-medium' : 'text-emerald-600 dark:text-emerald-400 font-medium'}>
+                      {status.diff < 0
+                        ? `${fmt(Math.abs(status.diff))} over`
+                        : `${fmt(status.diff)} under`}
+                    </span>
+                    <span className="text-gray-400">{status.percentOfIncome.toFixed(0)}% of income</span>
+                  </div>
+                </div>
+              </button>
+
+              {/* Bucket body */}
+              {isOpen && (
+                <CardContent className="p-4 flex-1 flex flex-col">
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-3 leading-relaxed">
+                    {def.description}
+                  </p>
+
+                  <div className="space-y-1.5 flex-1">
+                    {items.map(item => (
+                      <div key={item.id} className="flex items-center gap-1.5 group">
+                        <input
+                          type="text"
+                          value={item.label}
+                          onChange={e => updateItem(status.key, item.id, 'label', e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              const el = (e.target as HTMLInputElement).closest('.group')?.querySelector('input[type="number"]') as HTMLInputElement | null
+                              el?.focus()
+                              el?.select()
+                            }
+                          }}
+                          className="flex-1 min-w-0 bg-transparent border-none text-sm text-gray-900 dark:text-white focus:outline-none p-0 truncate"
+                        />
+                        <span className="text-gray-300 text-sm">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={item.amount}
+                          onChange={e => updateItem(status.key, item.id, 'amount', e.target.value)}
+                          onFocus={e => e.target.select()}
+                          className="w-24 bg-transparent border-b border-transparent focus:border-blue-500 text-sm text-right tabular-nums text-gray-900 dark:text-white focus:outline-none p-0"
+                        />
+                        <button
+                          onClick={() => deleteItem(status.key, item.id)}
+                          className="p-0.5 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Remove"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 space-y-2">
+                    <button
+                      onClick={() => addItem(status.key)}
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" /> Add item
+                    </button>
+                    {bills.length > 0 && (
+                      <>
+                        <button
+                          onClick={() => setShowBills(showBills === status.key ? null : status.key)}
+                          className="text-xs text-gray-500 dark:text-gray-400 hover:underline block"
+                        >
+                          Pull from your unpaid bills ({bills.filter(b => !b.is_paid).length}) ▾
+                        </button>
+                        {showBills === status.key && (
+                          <div className="rounded-lg border border-gray-200 dark:border-gray-700 max-h-56 overflow-y-auto">
+                            <button
+                              onClick={() => addAllBills(status.key)}
+                              className="w-full text-left px-3 py-2 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700"
+                            >
+                              + Add all unpaid bills to {def.title}
+                            </button>
+                            {bills.filter(b => !b.is_paid).map(b => {
+                              const auto = categorize(b.payee_name || '')
+                              return (
+                                <button
+                                  key={b.id}
+                                  onClick={() => addBill(b, status.key)}
+                                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between gap-2"
+                                >
+                                  <span className="truncate">{b.payee_name || 'Unknown payee'}</span>
+                                  <span className="text-gray-400 shrink-0 tabular-nums">
+                                    {b.due_date ? b.due_date.slice(5) : ''} {fmt(b.amount)}
+                                  </span>
+                                  {auto !== status.key && (
+                                    <Badge variant="warning" className="text-[9px] shrink-0">
+                                      suggests {auto}
+                                    </Badge>
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* Explainer */}
+      <Card>
+        <CardContent className="p-5">
+          <CardTitle2 />
+          <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mb-3">
+            The 50/30/20 rule is a starting point, not a law. It works because the three buckets have very
+            different consequences when they run out: needs failing means you cannot pay rent, wants failing
+            means you cut something optional, and savings failing means the next emergency hits your credit.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {BUCKETS.map(b => (
+              <div key={b.key} className="p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                <p className={`text-xs font-bold ${b.textColor} mb-1`}>{b.percent}% {b.title}</p>
+                <ul className="text-[11px] text-gray-600 dark:text-gray-400 space-y-0.5">
+                  {b.examples.map(e => <li key={e}>· {e}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-gray-400 mt-3 flex items-start gap-1.5">
+            <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+            Use take-home pay, not gross. Pulling a bill from your Bills page uses the payee name to guess
+            the right bucket, but you decide where it goes.
+          </p>
+        </CardContent>
+      </Card>
     </div>
+  )
+}
+
+function CardTitle2() {
+  return (
+    <p className="text-sm font-semibold text-gray-900 dark:text-white mb-2 flex items-center gap-2">
+      <Target className="w-4 h-4" /> How the 50/30/20 rule works
+    </p>
   )
 }
