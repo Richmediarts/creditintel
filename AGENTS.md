@@ -126,3 +126,16 @@ Maintain credit-dashboard Next.js app with accurate report parsing, multi-bureau
 - `/home/rich/credit-dashboard/src/components/layout/Sidebar.tsx`: budget links (Wallet/Banknote icons)
 - `/home/rich/credit-dashboard/src/app/help/page.tsx`: Budget section added
 - `/home/rich/credit-dashboard/src/app/api/users/[id]/route.ts`: PATCH handler for admin user updates
+
+### Shared Household Biweekly Pay-Period System (2026-10-31)
+- Built a shared-household biweekly budget engine on top of the existing budget tables:
+  - `src/lib/utils/payperiod.ts` — pure calculation engine (14-day windows, carry-over, unknown-amount handling, splits, plain-language explanations).
+  - `src/lib/payperiod-planner.ts` — DB bridge: maps bills/incomes/reserves/allowances/credit-card minimums into the plan; fuzzy card-to-bill matching so minimum estimates never double-count card bills.
+  - `src/lib/household-db.ts` — households, members, privacy share levels, per-spouse income schedules, reserves, credit tasks, contributions.
+- New schema in `db-postgres.ts` (auto-migrates): `budget_households`, `budget_income_schedules`, `budget_reserves`, `budget_credit_tasks`, `budget_member_contributions`; users get `household_id` + `budget_share_level`; `budget_bills` gains `owner`, `share_percent`, `responsible_user_id`, `planned_payment_date`, `amount_status`, `due_date_status`, `paid_amount` (partial payments), `payment_account_id`.
+- Key money rules (all covered by tests): unknown amounts are NEVER zero; received income is inside the balance snapshot and never added twice; negative carry-over keeps shortfalls visible; planned payment date is kept separate from due date (fund a bill early).
+- New pages: `/budget` rewritten as the Pay-Period Dashboard (timeline chips, per-period money math with explanations, income schedules, reserves, alerts), `/budget/household` (members/sharing/contributions), `/budget/credit-plan` (debt per period, utilization, credit tasks, dispute progress). `/budget/bills` gained Category | Pay Period | Calendar views, owner + confidence pills, planned-payment-date column, partial payments.
+- New APIs: `/api/budget/dashboard`, `/api/budget/schedules[/id]`, `/api/budget/reserves[/id]`, `/api/budget/household`, `/api/budget/credit-tasks[/id]`. Bill add/update extended for the new columns (PUT is partial-update).
+- Visual design tokens added to `globals.css` (accent palette income/bills/spending/savings/credit/shared, `money-hero`, `chip-*`, `.pill-*` status pills with icons + text, `.lift` hover); `components/ui/status.tsx` (StatusPill, OwnerPill).
+- Tests: vitest installed (`npm test`); suites in `src/tests/payperiod.test.ts` + `planner.test.ts` (26 tests) covering period boundaries, carry-over, double-counting, unknown amounts, splits, calendar math.
+- Design choice: household budget rows stay owned by the budget owner (household `created_by`); members see the shared plan via `resolveBudgetUserId` and never need Plaid.

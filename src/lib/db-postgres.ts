@@ -342,6 +342,133 @@ export async function initPostgresSchema() {
     ALTER TABLE budget_plaid_items ADD COLUMN IF NOT EXISTS needs_reconnection BOOLEAN DEFAULT FALSE;
   `
 
+  // --- Shared household + biweekly pay-period planning (2026-10-31) ---
+  // Bills gain household-aware fields:
+  //   owner              'me' | 'wife' | 'shared' (whose bill/group it is)
+  //   responsible_user_id who actually pays it (null when shared)
+  //   share_percent      percentage of a shared bill owed by "me"
+  //   planned_payment_date  the pay-from-paycheck date, kept separate from the
+  //                      contractual due_date so a bill can be funded early
+  //   amount_status / due_date_status  'confirmed' | 'estimated' | 'missing' —
+  //                      an unknown amount is NEVER stored as 0
+  //   payment_account_id bank account the bill is paid from (account TEXT name kept too)
+  await sql`
+    ALTER TABLE budget_bills ADD COLUMN IF NOT EXISTS planned_payment_date DATE;
+  `
+  await sql`
+    ALTER TABLE budget_bills ADD COLUMN IF NOT EXISTS owner TEXT DEFAULT 'me';
+  `
+  await sql`
+    ALTER TABLE budget_bills ADD COLUMN IF NOT EXISTS responsible_user_id INTEGER;
+  `
+  await sql`
+    ALTER TABLE budget_bills ADD COLUMN IF NOT EXISTS share_percent REAL DEFAULT 50;
+  `
+  await sql`
+    ALTER TABLE budget_bills ADD COLUMN IF NOT EXISTS amount_status TEXT DEFAULT 'confirmed';
+  `
+  await sql`
+    ALTER TABLE budget_bills ADD COLUMN IF NOT EXISTS due_date_status TEXT DEFAULT 'confirmed';
+  `
+  await sql`
+    ALTER TABLE budget_bills ADD COLUMN IF NOT EXISTS payment_account_id INTEGER;
+  `
+
+  // Partial settlements: paid_amount is how much of this bill's amount has
+  // actually been paid so far. The bill stays unpaid until the full amount
+  // is covered, and the planner counts amount - paid_amount as still owed.
+  await sql`
+    ALTER TABLE budget_bills ADD COLUMN IF NOT EXISTS paid_amount REAL DEFAULT 0;
+  `
+
+  // Income schedules: separate per-spouse anchors for biweekly pay generation.
+  // Expected income lives here; actual received money is recorded in
+  // budget_paychecks, so a paycheck never double-counts as a schedule.
+  await sql`
+    CREATE TABLE IF NOT EXISTS budget_income_schedules (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      name TEXT NOT NULL DEFAULT 'Paycheck',
+      spouse TEXT NOT NULL DEFAULT 'me',
+      pay_start_date DATE,
+      frequency TEXT NOT NULL DEFAULT 'biweekly',
+      net_amount REAL DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `
+
+  // Money set aside across multiple paychecks toward larger future bills.
+  await sql`
+    CREATE TABLE IF NOT EXISTS budget_reserves (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      name TEXT NOT NULL,
+      target_amount REAL DEFAULT 0,
+      target_date DATE,
+      amount_saved REAL DEFAULT 0,
+      per_period REAL DEFAULT 0,
+      status TEXT DEFAULT 'estimated',
+      bill_id INTEGER,
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `
+
+  // Credit improvement tasks (report reviews, disputes to file, etc.)
+  await sql`
+    CREATE TABLE IF NOT EXISTS budget_credit_tasks (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      title TEXT NOT NULL,
+      type TEXT DEFAULT 'report_review',
+      status TEXT DEFAULT 'pending',
+      target_date DATE,
+      bureau TEXT,
+      notes TEXT,
+      completed_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `
+
+  // One household row per couple. All budget_* tables stay owned by the
+  // creating (admin) user — members see the household through that user id.
+  await sql`
+    CREATE TABLE IF NOT EXISTS budget_households (
+      id SERIAL PRIMARY KEY,
+      created_by INTEGER NOT NULL REFERENCES users(id),
+      name TEXT NOT NULL DEFAULT 'Our Household',
+      unconfirmed_reserve REAL DEFAULT 0,
+      cushion_target REAL DEFAULT 0,
+      split_mode TEXT DEFAULT '50/50',
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `
+
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS household_id INTEGER;
+  `
+
+  // Per-member privacy: what a spouse shares with the household.
+  // 'details' = individual bills visible, 'totals' = monthly contribution
+  // total only, 'none' = nothing shared.
+  await sql`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS budget_share_level TEXT DEFAULT 'totals';
+  `
+
+  // Simple "here's my money toward the household" entries from a member who
+  // does not want to connect accounts or itemized bills.
+  await sql`
+    CREATE TABLE IF NOT EXISTS budget_member_contributions (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      amount REAL DEFAULT 0,
+      notes TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `
+
   const serialTables = [
     'users',
     'disputes',
@@ -355,6 +482,11 @@ export async function initPostgresSchema() {
     'budget_transactions',
     'budget_plaid_items',
     'budget_modified_income',
+    'budget_income_schedules',
+    'budget_reserves',
+    'budget_credit_tasks',
+    'budget_households',
+    'budget_member_contributions',
   ]
 
   for (const table of serialTables) {

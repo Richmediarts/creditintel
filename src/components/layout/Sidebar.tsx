@@ -9,8 +9,9 @@ import {
   AlertTriangle, Search, Brain, Mail, TrendingUp, Download,
   Sun, Moon, Menu, X, ChevronLeft, ChevronRight,
   Gavel, Shield, LogIn, LogOut, User, Activity, HelpCircle,
-  Wallet, Banknote, Receipt, Landmark, CreditCard, Users, Tag,
+  Banknote, Receipt, Landmark, CreditCard, Users, Tag,
   PieChart, Target, FileUp, Plug, FolderArchive, ListChecks, Home, Globe,
+  CalendarClock, HeartHandshake,
 } from 'lucide-react'
 import { useCredit } from '@/lib/store/creditStore'
 import { useAuth } from '@/lib/auth-context'
@@ -48,18 +49,20 @@ const navItems = [
 ]
 
 const budgetItems = [
-  { href: '/budget', label: 'Budget Dashboard', icon: Wallet },
+  { href: '/budget', label: 'Pay-Period Plan', icon: CalendarClock },
+  { href: '/budget/bills', label: 'Household Bills', icon: Receipt },
+  { href: '/budget/household', label: 'Shared Household', icon: HeartHandshake },
+  { href: '/budget/credit-plan', label: 'Credit Plan', icon: Target },
+  { href: '/budget/paychecks', label: 'Paychecks', icon: Banknote },
   { href: '/budget/affordability', label: 'Home Affordability', icon: Home },
   { href: '/budget/interactive', label: 'Interactive Budget', icon: PieChart },
-  { href: '/budget/paychecks', label: 'Paychecks', icon: Banknote },
-  { href: '/budget/bills', label: 'Bills', icon: Receipt },
   { href: '/budget/bank-accounts', label: 'Bank Accounts', icon: Landmark },
   { href: '/budget/credit-cards', label: 'Credit Cards', icon: CreditCard },
   { href: '/budget/payees', label: 'Payees', icon: Users },
   { href: '/budget/categories', label: 'Categories', icon: Tag },
   { href: '/budget/reports', label: 'Reports', icon: BarChart3 },
   { href: '/budget/modified-income', label: 'Modified Income', icon: FileUp },
-  { href: '/budget/goals', label: 'Goals & Net Worth', icon: Target },
+  { href: '/budget/goals', label: 'Goals & Net Worth', icon: TrendingUp },
   { href: '/budget/import-statement', label: 'Import Statement', icon: Upload },
   { href: '/budget/plaid-settings', label: 'Acct Link Settings', icon: Plug },
 ]

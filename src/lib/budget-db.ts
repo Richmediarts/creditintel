@@ -219,6 +219,16 @@ export interface BudgetBill {
   account?: string
   credit_card_id?: number
   url?: string
+  // Household / pay-period planning fields
+  planned_payment_date?: string | null
+  owner?: string
+  responsible_user_id?: number | null
+  share_percent?: number
+  amount_status?: string
+  due_date_status?: string
+  payment_account_id?: number | null
+  /** How much of the amount has actually been paid (partial payments). */
+  paid_amount?: number
 }
 
 export interface BudgetCategory {
@@ -285,7 +295,7 @@ function normalizePaycheckDates(row: Record<string, unknown>): Record<string, un
 // @vercel/postgres returns Postgres DATE columns as full ISO strings
 // ("2026-08-07T04:00:00.000Z"), so strip every bill date down to YYYY-MM-DD.
 function normalizeBillDates(row: Record<string, unknown>): Record<string, unknown> {
-  for (const f of ['due_date', 'paid_date']) {
+  for (const f of ['due_date', 'paid_date', 'planned_payment_date']) {
     if (row[f] !== undefined && row[f] !== null) {
       row[f] = toDateString(row[f])
     }
@@ -807,12 +817,15 @@ export async function addBill(userId: number, data: Partial<BudgetBill>): Promis
   const db = getDb()
   const today = new Date().toISOString().split('T')[0]
   const result = await db.prepare(
-    'INSERT INTO budget_bills (user_id, payee_id, payee_name, amount, due_date, is_paid, paid_date, is_recurring, recurrence_type, notes, category_id, account, credit_card_id, url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id'
+    `INSERT INTO budget_bills (user_id, payee_id, payee_name, amount, due_date, is_paid, paid_date,
+      is_recurring, recurrence_type, notes, category_id, account, credit_card_id, url,
+      planned_payment_date, owner, responsible_user_id, share_percent, amount_status, due_date_status, payment_account_id, paid_amount)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
   ).run(
     userId,
     data.payee_id || null,
     data.payee_name || '',
-    data.amount || 0,
+    data.amount === null || data.amount === undefined ? 0 : data.amount,
     data.due_date || today,
     data.is_paid || 0,
     data.paid_date || null,
@@ -822,38 +835,62 @@ export async function addBill(userId: number, data: Partial<BudgetBill>): Promis
     data.category_id || null,
     data.account || '',
     data.credit_card_id || null,
-    data.url || null
+    data.url || null,
+    data.planned_payment_date || null,
+    data.owner || 'me',
+    data.responsible_user_id || null,
+    data.share_percent ?? 50,
+    data.amount_status || 'confirmed',
+    data.due_date_status || 'confirmed',
+    data.payment_account_id || null,
+    data.paid_amount != null ? Math.max(0, Number(data.paid_amount) || 0) : 0
   )
   return Number(result.lastInsertRowid)
 }
 
 export async function updateBill(userId: number, id: number, data: Partial<BudgetBill>): Promise<void> {
   const db = getDb()
-  await db.prepare(
-    'UPDATE budget_bills SET payee_id = ?, payee_name = ?, amount = ?, due_date = ?, is_paid = ?, paid_date = ?, is_recurring = ?, recurrence_type = ?, notes = ?, category_id = ?, account = ?, credit_card_id = ?, url = ? WHERE user_id = ? AND id = ?'
-  ).run(
-    data.payee_id || null,
-    data.payee_name || '',
-    data.amount || 0,
-    data.due_date || '',
-    data.is_paid || 0,
-    data.paid_date || null,
-    data.is_recurring || 0,
-    data.recurrence_type || '',
-    data.notes || '',
-    data.category_id || null,
-    data.account || '',
-    data.credit_card_id || null,
-    data.url || null,
-    userId,
-    id
-  )
+  // Only touch columns the caller actually sent — richer household fields are
+  // optional, so a plain edit from the old UI must not wipe them to defaults.
+  const updates: string[] = []
+  const values: unknown[] = []
+  const setField = (col: string, value: unknown) => {
+    updates.push(`${col} = ?`)
+    values.push(value)
+  }
+  if (data.payee_id !== undefined) setField('payee_id', data.payee_id || null)
+  if (data.payee_name !== undefined) setField('payee_name', data.payee_name || '')
+  if (data.amount !== undefined) setField('amount', data.amount ?? 0)
+  if (data.due_date !== undefined) setField('due_date', data.due_date || '')
+  if (data.is_paid !== undefined) setField('is_paid', data.is_paid || 0)
+  if (data.paid_date !== undefined) setField('paid_date', data.paid_date || null)
+  if (data.is_recurring !== undefined) setField('is_recurring', data.is_recurring || 0)
+  if (data.recurrence_type !== undefined) setField('recurrence_type', data.recurrence_type || '')
+  if (data.notes !== undefined) setField('notes', data.notes || '')
+  if (data.category_id !== undefined) setField('category_id', data.category_id || null)
+  if (data.account !== undefined) setField('account', data.account || '')
+  if (data.credit_card_id !== undefined) setField('credit_card_id', data.credit_card_id || null)
+  if (data.url !== undefined) setField('url', data.url || null)
+  if (data.planned_payment_date !== undefined) setField('planned_payment_date', data.planned_payment_date || null)
+  if (data.owner !== undefined) setField('owner', data.owner || 'me')
+  if (data.responsible_user_id !== undefined) setField('responsible_user_id', data.responsible_user_id || null)
+  if (data.share_percent !== undefined) setField('share_percent', data.share_percent ?? 50)
+  if (data.amount_status !== undefined) setField('amount_status', data.amount_status || 'confirmed')
+  if (data.due_date_status !== undefined) setField('due_date_status', data.due_date_status || 'confirmed')
+  if (data.payment_account_id !== undefined) setField('payment_account_id', data.payment_account_id || null)
+  if (data.paid_amount !== undefined) setField('paid_amount', Math.max(0, Number(data.paid_amount) || 0))
+  if (updates.length === 0) return
+  values.push(userId, id)
+  await db.prepare(`UPDATE budget_bills SET ${updates.join(', ')} WHERE user_id = ? AND id = ?`).run(...values)
 }
 
 export async function updateBillField(userId: number, id: number, field: string, value: unknown): Promise<void> {
   const db = getDb()
-  const allowedFields = ['payee_id', 'payee_name', 'amount', 'due_date', 'is_paid', 'paid_date', 'is_recurring', 'recurrence_type', 'notes', 'category_id', 'account', 'credit_card_id', 'url']
+  const allowedFields = ['payee_id', 'payee_name', 'amount', 'due_date', 'is_paid', 'paid_date', 'is_recurring', 'recurrence_type', 'notes', 'category_id', 'account', 'credit_card_id', 'url', 'planned_payment_date', 'owner', 'responsible_user_id', 'share_percent', 'amount_status', 'due_date_status', 'payment_account_id', 'paid_amount']
   if (!allowedFields.includes(field)) return
+  // Empty planned/due dates come in as '' — store NULL so the planner treats
+  // them as "no date yet" instead of silently inventing one.
+  if (value === '' && (field === 'planned_payment_date')) value = null
   await db.prepare(`UPDATE budget_bills SET ${field} = ? WHERE user_id = ? AND id = ?`).run(value, userId, id)
 }
 
