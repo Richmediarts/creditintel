@@ -266,7 +266,7 @@ export default function BudgetDashboardPage() {
   const periodLabel = `${shortDate(dashboard.anchoredPayday)} → ${shortDate(nextAfterPayday(dashboard.anchoredPayday))}`
 
   return (
-    <div className="space-y-6">
+    <div className="wealth-budget space-y-6">
       {/* ============================ HERO ============================ */}
       <div className="money-hero rounded-2xl p-6 sm:p-8 shadow-lg">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -275,11 +275,12 @@ export default function BudgetDashboardPage() {
               Household Pay-Period Plan
             </p>
             <h1 className="mt-1 text-2xl sm:text-3xl font-bold text-white leading-snug">
-              Between this payday and the next — what needs to be paid,
-              what have we reserved, and what can we still spend?
+              Your next two weeks,
+              with a clearer plan.
             </h1>
             <p className="mt-2 text-sm text-blue-200">
-              Pay window {periodLabel} · anchored to your {dashboard.paydaySource}
+              Bills covered. Money reserved. Room to move.
+              <span className="block mt-1">Pay window {periodLabel} · anchored to your {dashboard.paydaySource}</span>
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
@@ -293,6 +294,12 @@ export default function BudgetDashboardPage() {
           </div>
         </div>
       </div>
+
+      <nav aria-label="Household budget shortcuts" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Link href="/budget/bills" className="wealth-shortcut"><Receipt className="h-5 w-5 text-rose-600 dark:text-rose-300" /><span><strong>Bills this pay period</strong><small>See due dates and payment plans</small></span><ChevronRight className="h-4 w-4 ml-auto" /></Link>
+        <Link href="/budget/household" className="wealth-shortcut"><Users className="h-5 w-5 text-cyan-700 dark:text-cyan-300" /><span><strong>Plan together</strong><small>Shared costs, with room for unknowns</small></span><ChevronRight className="h-4 w-4 ml-auto" /></Link>
+        <Link href="/budget/credit-plan" className="wealth-shortcut"><TrendingUp className="h-5 w-5 text-violet-600 dark:text-violet-300" /><span><strong>Build your credit plan</strong><small>Connect this paycheck to your goals</small></span><ChevronRight className="h-4 w-4 ml-auto" /></Link>
+      </nav>
 
       {notice && (
         <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400 flex items-center gap-2">

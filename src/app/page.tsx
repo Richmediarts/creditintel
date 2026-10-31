@@ -21,8 +21,8 @@ function LandingOption({
 }) {
   return (
     <Link href={href} className="block group">
-      <div className="border border-gray-200 dark:border-gray-800 rounded-xl p-6 flex flex-col items-center text-center hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-md transition-all">
-        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 bg-${color}-100 dark:bg-${color}-900/30 text-${color}-600 dark:text-${color}-400`}>
+      <div className="wealth-card border border-gray-200 dark:border-gray-800 rounded-xl p-6 flex flex-col items-center text-center hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-md transition-all">
+        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${color === 'blue' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'}`}>
           <Icon className="w-8 h-8" />
         </div>
         <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">{title}</h2>

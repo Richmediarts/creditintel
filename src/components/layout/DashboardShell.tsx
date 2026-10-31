@@ -14,9 +14,10 @@ function DashboardSwitcher() {
   const onCreditDashboard = pathname.startsWith('/dashboard') || pathname.startsWith('/ai-analysis') || pathname.startsWith('/comparison') || pathname.startsWith('/derogatory') || pathname.startsWith('/dispute') || pathname.startsWith('/export') || pathname.startsWith('/fico-scores') || pathname.startsWith('/getting-started') || pathname.startsWith('/inquiries') || pathname.startsWith('/letters') || pathname.startsWith('/opt-out') || pathname.startsWith('/report-viewer') || pathname.startsWith('/score-simulator') || pathname.startsWith('/settings') || pathname.startsWith('/summary') || pathname.startsWith('/upload')
 
   return (
-    <div className="flex justify-center gap-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950">
+    <div className="wealth-switcher flex flex-wrap justify-center gap-2 px-3 py-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950">
       <Link
         href="/dashboard"
+        aria-current={onCreditDashboard ? "page" : undefined}
         className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
           onCreditDashboard
             ? 'bg-blue-600 text-white'
@@ -27,6 +28,7 @@ function DashboardSwitcher() {
       </Link>
       <Link
         href="/budget"
+        aria-current={pathname.startsWith("/budget") ? "page" : undefined}
         className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
           pathname.startsWith('/budget')
             ? 'bg-emerald-600 text-white'
@@ -50,7 +52,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
   const isExample = !!user.isExample
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="wealth-shell min-h-screen bg-gray-50 dark:bg-gray-950">
       <Sidebar
         darkMode={darkMode}
         toggleDarkMode={toggleDarkMode}

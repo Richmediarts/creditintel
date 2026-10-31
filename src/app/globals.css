@@ -150,3 +150,72 @@ h1, h2, h3 { letter-spacing: -0.01em; }
   opacity: 0.7;
   cursor: not-allowed;
 }
+
+/* RETTEEE Wealth: shared visual system for credit and household budgeting. */
+.wealth-shell {
+  background: radial-gradient(ellipse at 5% 0%, #e0e7ff 0%, transparent 38%),
+    radial-gradient(ellipse at 100% 35%, #ccfbf1 0%, transparent 40%), #f5f7fc;
+}
+.dark .wealth-shell {
+  background: radial-gradient(ellipse at 5% 0%, #1e1b4b 0%, transparent 40%),
+    radial-gradient(ellipse at 100% 35%, #082f49 0%, transparent 45%), #080e1c;
+}
+.wealth-sidebar {
+  background: linear-gradient(165deg, #fff 0%, #f5f3ff 60%, #ecfeff 100%);
+  box-shadow: 8px 0 36px rgb(49 46 129 / 5%);
+}
+.dark .wealth-sidebar { background: linear-gradient(165deg, #111827, #171332 65%, #0b2630); }
+.wealth-sidebar nav a { border: 1px solid transparent; }
+.wealth-sidebar nav a[aria-current="page"] {
+  background: linear-gradient(110deg, #ede9fe, #e0f2fe);
+  color: #4338ca; border-color: #c7d2fe; font-weight: 700;
+  box-shadow: 0 3px 12px rgb(79 70 229 / 10%);
+}
+.dark .wealth-sidebar nav a[aria-current="page"] {
+  background: linear-gradient(110deg, #312e81, #164e63); color: #e0e7ff; border-color: #6366f1;
+}
+.wealth-header { background: rgb(255 255 255 / 92%); backdrop-filter: blur(16px); }
+.dark .wealth-header { background: rgb(17 24 39 / 94%); }
+.wealth-switcher { background: transparent; }
+.wealth-switcher a { min-height: 44px; display: inline-flex; align-items: center; border-radius: 999px; }
+.wealth-switcher a[aria-current="page"] { box-shadow: 0 4px 14px rgb(79 70 229 / 17%); }
+.wealth-card {
+  border-radius: 1.15rem;
+  box-shadow: 0 4px 22px rgb(30 41 59 / 5%);
+  transition: box-shadow 180ms ease, border-color 180ms ease;
+}
+.dark .wealth-card { box-shadow: 0 4px 22px rgb(0 0 0 / 15%); }
+.wealth-button { border-radius: .8rem; transition: background-color 180ms ease, box-shadow 180ms ease; }
+.wealth-button.bg-blue-600 { background: linear-gradient(115deg, #4f46e5, #2563eb); box-shadow: 0 3px 10px rgb(79 70 229 / 17%); }
+.wealth-button.bg-blue-600:hover { background: linear-gradient(115deg, #4338ca, #1d4ed8); }
+.money-hero {
+  background: radial-gradient(ellipse at 95% 0%, rgb(45 212 191 / 28%), transparent 48%),
+    linear-gradient(115deg, #312e81 0%, #1e40af 58%, #115e59 100%);
+  border: 1px solid rgb(165 180 252 / 35%);
+  box-shadow: 0 14px 32px rgb(49 46 129 / 16%);
+}
+.money-hero .stat-label { color: #e0e7ff; }
+.money-hero .stat-value.text-rose-300 { color: #fda4af; }
+.wealth-shortcut {
+  display: flex; align-items: center; gap: .75rem; min-width: 0;
+  padding: 1rem; border: 1px solid #dce3ef; border-radius: 1rem;
+  background: rgb(255 255 255 / 90%); color: #334155;
+  box-shadow: 0 3px 14px rgb(30 41 59 / 4%);
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+.wealth-shortcut svg { flex-shrink: 0; }
+.wealth-shortcut strong { display: block; font-size: .8rem; }
+.wealth-shortcut small { display: block; margin-top: .2rem; font-size: .68rem; color: #64748b; }
+.wealth-shortcut:hover { border-color: #818cf8; box-shadow: 0 5px 20px rgb(79 70 229 / 10%); }
+.dark .wealth-shortcut { background: #172033; color: #e2e8f0; border-color: #334155; }
+.dark .wealth-shortcut small { color: #cbd5e1; }
+.wealth-shell :is(a, button, input, select, textarea):focus-visible { outline: 3px solid #6366f1; outline-offset: 3px; }
+.wealth-budget input, .wealth-budget select { border-radius: .65rem; }
+@media (prefers-reduced-motion: reduce) {
+  .wealth-card, .wealth-button, .wealth-shortcut, .period-chip, .lift { transition: none; animation: none; }
+  .period-chip:hover, .lift:hover { transform: none; }
+}
+@media print {
+  .wealth-shell, .money-hero { background: white !important; color: black !important; box-shadow: none; }
+  .money-hero :is(p, h1) { color: black !important; }
+}
