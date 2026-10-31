@@ -61,6 +61,7 @@ export default function HouseholdPage() {
   const [cushionInput, setCushionInput] = useState('')
   const [splitMode, setSplitMode] = useState('50/50')
   const [joinEmail, setJoinEmail] = useState('')
+  const [inviteCode, setInviteCode] = useState('')
   const [contributionInput, setContributionInput] = useState('')
   const [contributionNote, setContributionNote] = useState('')
 
@@ -119,12 +120,21 @@ export default function HouseholdPage() {
     await fetchAll()
   }
 
+  const createInvite = async () => {
+    try {
+      const response = await fetch('/api/budget/household', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ create_invite: true }) })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Unable to create invitation.')
+      setInviteCode(data.invite_code)
+    } catch (error) { setError(error instanceof Error ? error.message : 'Unable to create invitation.') }
+  }
+
   const joinHousehold = async (e: React.FormEvent) => {
     e.preventDefault()
     const res = await fetch('/api/budget/household', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ owner_email: joinEmail }),
+      body: JSON.stringify({ invite_code: joinEmail }),
     })
     const data = await res.json()
     if (res.ok) {
@@ -293,13 +303,13 @@ export default function HouseholdPage() {
               <Share2 className="w-5 h-5 text-cyan-600 dark:text-cyan-400" /> Join your spouse&apos;s household
             </CardTitle>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-              Enter the budget owner&apos;s email (the account whose bank accounts power the shared plan).
+              Enter the one-time invitation code supplied by the household owner.
               You keep your own login and privacy settings.
             </p>
             <form onSubmit={joinHousehold} className="flex flex-wrap gap-2">
               <input
-                type="email" required
-                placeholder="owner@example.com"
+                type="text" required aria-label="Household invitation code"
+                placeholder="Invitation code"
                 value={joinEmail}
                 onChange={(e) => setJoinEmail(e.target.value)}
                 className="flex-1 min-w-48 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -309,6 +319,8 @@ export default function HouseholdPage() {
           </CardContent>
         </Card>
       )}
+
+      {isOwner && <Card><CardContent><CardTitle>Invite your spouse</CardTitle><p className="mt-2 mb-3 text-sm text-gray-500 dark:text-gray-400">Create a one-time code, valid for 24 hours, and share it with your spouse. Joining grants access to this household’s shared plan.</p><Button onClick={createInvite}>Create invitation code</Button>{inviteCode && <div role="status" className="mt-3"><label className="block text-xs font-semibold mb-1" htmlFor="household-invite">Copy this code for your spouse</label><input id="household-invite" readOnly value={inviteCode} className="w-full rounded-lg border border-indigo-300 bg-indigo-50 p-3 font-mono text-xs text-indigo-950" onFocus={e => e.target.select()} /><p className="mt-2 text-xs text-gray-500">Generating another code replaces this one.</p></div>}</CardContent></Card>}
 
       {/* Household settings (owner) */}
       {isOwner ? (

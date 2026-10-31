@@ -51,6 +51,7 @@ const navItems = [
 const budgetItems = [
   { href: '/budget', label: 'Pay-Period Plan', icon: CalendarClock },
   { href: '/budget/bills', label: 'Household Bills', icon: Receipt },
+  { href: '/budget/reconciliation', label: 'Spending vs Plan', icon: PieChart },
   { href: '/budget/household', label: 'Shared Household', icon: HeartHandshake },
   { href: '/budget/credit-plan', label: 'Credit Plan', icon: Target },
   { href: '/budget/paychecks', label: 'Paychecks', icon: Banknote },

@@ -241,3 +241,12 @@ describe('splitAmount (shared household)', () => {
     expect(splitAmount({ amount: 100, owner: 'shared', sharePercent: 70 })).toEqual({ me: 70, wife: 30 })
   })
 })
+
+describe('overdrawn bank snapshots', () => {
+  it('preserves a negative balance and its shortfall instead of resetting it to zero', () => {
+    const result = buildPeriodPlan({ anchoredPayday: '2026-11-06', periods: 1, today: '2026-11-06', bankBalance: -75, bills: [], incomes: [] })
+    expect(result.totalBankBalance).toBe(-75)
+    expect(result.periods[0].availableNow).toBe(-75)
+    expect(result.periods[0].shortfall).toBe(75)
+  })
+})

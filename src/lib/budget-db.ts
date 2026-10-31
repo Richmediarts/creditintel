@@ -1229,9 +1229,62 @@ export async function getDistinctTransactionCategories(userId: number, startDate
   return rows.map((r) => r.category)
 }
 
+// ---------------------------------------------------------------------------
+// Reconciliation (pay-period planned vs actual)
+// ---------------------------------------------------------------------------
+
+export interface ReconTxRow {
+  id: number
+  date: string
+  description: string
+  amount: number
+  category: string | null
+  categoryDetail: string | null
+  accountKind: 'bank' | 'credit' | null
+  accountName: string | null
+  accountOwner: 'me' | 'wife' | 'shared' | null
+}
+
+/** Scope both account joins to this user. Legacy collisions stay unresolved
+ * until a sync provides account_kind; guessing would misstate spending. */
+export async function getReconciliationTransactions(
+  userId: number, startDate: string, endDate: string
+): Promise<ReconTxRow[]> {
+  const rows = await getDb().prepare(`
+    SELECT t.id, t.date, t.description, t.amount, t.category, t.category_detail,
+      CASE WHEN t.account_kind = 'bank' THEN b.name
+           WHEN t.account_kind = 'credit' THEN c.name
+           WHEN b.id IS NOT NULL AND c.id IS NULL THEN b.name
+           WHEN c.id IS NOT NULL AND b.id IS NULL THEN c.name END AS account_name,
+      CASE WHEN t.account_kind = 'bank' AND b.id IS NOT NULL THEN 'bank'
+           WHEN t.account_kind = 'credit' AND c.id IS NOT NULL THEN 'credit'
+           WHEN t.account_kind IS NULL AND b.id IS NOT NULL AND c.id IS NULL THEN 'bank'
+           WHEN t.account_kind IS NULL AND c.id IS NOT NULL AND b.id IS NULL THEN 'credit' END AS resolved_kind,
+      CASE WHEN t.account_kind = 'bank' THEN b.owner
+           WHEN t.account_kind = 'credit' THEN c.owner
+           WHEN b.id IS NOT NULL AND c.id IS NULL THEN b.owner
+           WHEN c.id IS NOT NULL AND b.id IS NULL THEN c.owner END AS account_owner
+    FROM budget_transactions t
+    LEFT JOIN budget_bank_accounts b ON b.id = t.account_id AND b.user_id = t.user_id
+    LEFT JOIN budget_credit_cards c ON c.id = t.account_id AND c.user_id = t.user_id
+    WHERE t.user_id = ? AND t.date >= ? AND t.date <= ?
+    ORDER BY t.date, t.id
+  `).all(userId, startDate, endDate) as {
+    id: number; date: string; description: string; amount: number;
+    category: string | null; category_detail: string | null;
+    account_name: string | null; resolved_kind: 'bank' | 'credit' | null;
+    account_owner: 'me' | 'wife' | 'shared' | null;
+  }[]
+  return rows.map(r => ({
+    id: r.id, date: toDateString(r.date) || '', description: r.description,
+    amount: Number(r.amount), category: r.category, categoryDetail: r.category_detail,
+    accountName: r.account_name, accountKind: r.resolved_kind, accountOwner: r.account_owner,
+  }))
+}
+
 export async function addTransactions(userId: number, accountId: number, transactionsList: { date: string; description: string; amount: number; balance: number }[]) {
   const db = getDb()
-  const insert = db.prepare('INSERT INTO budget_transactions (user_id, account_id, date, description, amount, balance) VALUES (?, ?, ?, ?, ?, ?)')
+  const insert = db.prepare('INSERT INTO budget_transactions (user_id, account_id, date, description, amount, balance, account_kind) VALUES (?, ?, ?, ?, ?, ?, \'bank\')')
   let count = 0
   for (const tx of transactionsList) {
     if (tx.date && tx.amount !== 0) {
@@ -1320,9 +1373,9 @@ export async function upsertPlaidTransaction(userId: number, localAccountId: num
   const db = getDb()
   const existing = (await db.prepare('SELECT id FROM budget_transactions WHERE plaid_transaction_id = ?').get(plaidTxId)) as { id: number } | undefined
   if (existing) {
-    await db.prepare('UPDATE budget_transactions SET date=?, description=?, amount=?, balance=?, category=?, category_detail=? WHERE plaid_transaction_id=?').run(date, description, amount, runningBalance, category, categoryDetail, plaidTxId)
+    await db.prepare('UPDATE budget_transactions SET date=?, description=?, amount=?, balance=?, category=?, category_detail=?, account_kind=?, account_id=? WHERE user_id=? AND plaid_transaction_id=?').run(date, description, amount, runningBalance, category, categoryDetail, isCreditCard ? 'credit' : 'bank', localAccountId, userId, plaidTxId)
   } else {
-    await db.prepare('INSERT INTO budget_transactions (user_id, account_id, date, description, amount, balance, plaid_transaction_id, category, category_detail) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(userId, localAccountId, date, description, amount, runningBalance, plaidTxId, category, categoryDetail)
+    await db.prepare('INSERT INTO budget_transactions (user_id, account_id, date, description, amount, balance, plaid_transaction_id, category, category_detail, account_kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').run(userId, localAccountId, date, description, amount, runningBalance, plaidTxId, category, categoryDetail, isCreditCard ? 'credit' : 'bank')
   }
 }
 

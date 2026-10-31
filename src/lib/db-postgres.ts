@@ -342,6 +342,19 @@ export async function initPostgresSchema() {
     ALTER TABLE budget_plaid_items ADD COLUMN IF NOT EXISTS needs_reconnection BOOLEAN DEFAULT FALSE;
   `
 
+  // Preserve account identity: bank/card primary keys can overlap.
+  await sql`ALTER TABLE budget_transactions ADD COLUMN IF NOT EXISTS account_kind TEXT;`
+
+  // --- Expense reconciliation (2026-10-31) ---
+  // Accounts carry an owner so actual spending can be attributed per spouse
+  // ('me' | 'wife' | 'shared'); existing rows belong to the budget owner.
+  await sql`
+    ALTER TABLE budget_bank_accounts ADD COLUMN IF NOT EXISTS owner TEXT DEFAULT 'me';
+  `
+  await sql`
+    ALTER TABLE budget_credit_cards ADD COLUMN IF NOT EXISTS owner TEXT DEFAULT 'me';
+  `
+
   // --- Shared household + biweekly pay-period planning (2026-10-31) ---
   // Bills gain household-aware fields:
   //   owner              'me' | 'wife' | 'shared' (whose bill/group it is)
@@ -501,4 +514,7 @@ export async function initPostgresSchema() {
   }
 
   console.log('Postgres schema initialized')
+  await sql`ALTER TABLE budget_households ADD COLUMN IF NOT EXISTS invite_hash TEXT;`
+  await sql`ALTER TABLE budget_households ADD COLUMN IF NOT EXISTS invite_expires_at TIMESTAMP;`
+
 }

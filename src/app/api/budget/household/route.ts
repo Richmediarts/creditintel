@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
 import { getDb } from '@/lib/db'
@@ -46,6 +47,16 @@ export async function PATCH(request: NextRequest) {
   }
   try {
     const data = await request.json()
+    if (data.create_invite) {
+      const household = await getOrCreateHousehold(auth.userId)
+      if (household.created_by !== auth.userId || auth.isExample) {
+        return NextResponse.json({ error: 'Only the household owner can invite a spouse.' }, { status: 403 })
+      }
+      const code = randomBytes(24).toString('hex')
+      const hash = createHash('sha256').update(code).digest('hex')
+      await getDb().prepare("UPDATE budget_households SET invite_hash = ?, invite_expires_at = NOW() + INTERVAL '24 hours' WHERE id = ? AND created_by = ?").run(hash, household.id, auth.userId)
+      return NextResponse.json({ invite_code: code })
+    }
 
     if (data.share_level) {
       await setShareLevel(auth.userId, data.share_level)
@@ -84,17 +95,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
   }
   try {
-    const { owner_email } = await request.json()
-    const db = getDb()
-    const owner = (await db.prepare(
-      'SELECT id FROM users WHERE email = ?'
-    ).get(String(owner_email || '').trim().toLowerCase())) as { id: number } | undefined
-    if (!owner) {
-      return NextResponse.json({ error: 'No household found for that email' }, { status: 404 })
+    const { invite_code } = await request.json()
+    const code = String(invite_code || '').trim()
+    if (!/^[a-f0-9]{48}$/.test(code)) {
+      return NextResponse.json({ error: 'Ask the household owner for a valid invitation code.' }, { status: 400 })
     }
-    const household = await getOrCreateHousehold(owner.id)
-    await getDb().prepare('UPDATE users SET household_id = ? WHERE id = ?').run(household.id, auth.userId)
-    return NextResponse.json({ success: true, household_id: household.id })
+    const hash = createHash('sha256').update(code).digest('hex')
+    // Single SQL statement consumes the invitation atomically, then links the member.
+    const joined = await getDb().prepare(`
+      WITH accepted AS (
+        UPDATE budget_households SET invite_hash = NULL, invite_expires_at = NULL
+        WHERE invite_hash = ? AND invite_expires_at > NOW() AND created_by <> ?
+        RETURNING id
+      )
+      UPDATE users SET household_id = accepted.id FROM accepted
+      WHERE users.id = ? RETURNING accepted.id AS household_id
+    `).get(hash, auth.userId, auth.userId) as { household_id: number } | undefined
+    if (!joined) return NextResponse.json({ error: 'The invitation is invalid or expired. Ask the owner for a new one.' }, { status: 400 })
+    return NextResponse.json({ success: true, household_id: joined.household_id })
   } catch (error) {
     console.error('household join POST', error)
     return NextResponse.json({ error: 'Failed to join household' }, { status: 500 })

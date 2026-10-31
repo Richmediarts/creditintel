@@ -263,7 +263,7 @@ export default function BudgetDashboardPage() {
     dashboard.periods.find(p => !p.historical) ||
     dashboard.periods[0]
 
-  const periodLabel = `${shortDate(dashboard.anchoredPayday)} → ${shortDate(nextAfterPayday(dashboard.anchoredPayday))}`
+  const periodLabel = current.period.label
 
   return (
     <div className="wealth-budget space-y-6">
@@ -279,7 +279,7 @@ export default function BudgetDashboardPage() {
               with a clearer plan.
             </h1>
             <p className="mt-2 text-sm text-blue-200">
-              Bills covered. Money reserved. Room to move.
+              See what is due, what you have set aside, and what remains.
               <span className="block mt-1">Pay window {periodLabel} · anchored to your {dashboard.paydaySource}</span>
             </p>
           </div>
@@ -306,6 +306,8 @@ export default function BudgetDashboardPage() {
           <Check className="w-4 h-4 flex-shrink-0" /> {notice}
         </div>
       )}
+
+      <Link href="/budget/reconciliation" className="wealth-shortcut"><Receipt className="h-5 w-5 text-indigo-600" /><span><strong>See where this paycheck went</strong><small>Compare recorded spending by category, account, and spouse</small></span><ChevronRight className="h-4 w-4 ml-auto" /></Link>
 
       {/* ============================ ALERTS ============================ */}
       {((current.shortfall > 0) || current.bills.some(a => a.overdue) || current.belowCushion ||

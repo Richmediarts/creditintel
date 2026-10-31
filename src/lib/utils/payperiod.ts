@@ -334,7 +334,7 @@ export function buildPeriodPlan(input: BuildPlanInput): PlanSummary {
   const cushionTarget = Math.max(0, input.cushionTarget || 0)
   const startIndex = Math.max(0, input.startFromIndex ?? 0)
 
-  let startBalance = Math.max(0, input.bankBalance)
+  let startBalance = Number.isFinite(input.bankBalance) ? input.bankBalance : 0
   let currentPeriodIndex = -1
 
   const plans: PeriodPlan[] = []
@@ -493,7 +493,7 @@ export function buildPeriodPlan(input: BuildPlanInput): PlanSummary {
     anchoredPayday: input.anchoredPayday,
     currentPeriodIndex,
     periods: plans,
-    totalBankBalance: Math.max(0, input.bankBalance),
+    totalBankBalance: Number.isFinite(input.bankBalance) ? input.bankBalance : 0,
     unconfirmedReserve,
     cushionTarget,
     unknownAmountCount: unknownN,

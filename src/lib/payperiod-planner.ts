@@ -7,7 +7,7 @@
  */
 
 import { getDb } from '@/lib/db'
-import { getBills, getBudgetCategories, getCreditCards } from '@/lib/budget-db'
+import { getBills, getBudgetCategories, getCreditCards, getReconciliationTransactions } from '@/lib/budget-db'
 import { normalizeBillName } from '@/lib/utils/billCategories'
 import {
   getOrCreateHousehold, getIncomeSchedules, getReserves,
@@ -17,6 +17,10 @@ import {
   buildPeriodPlan, PERIOD_LENGTH_DAYS, money,
   type PlanBill, type PlanIncome, type PlanSummary,
 } from '@/lib/utils/payperiod'
+import {
+  reconcilePlanPeriods, reconcileTotals,
+  type ReconTx, type SpouseKey, type WindowReconcile, type ReconcileTotals,
+} from '@/lib/utils/reconcile'
 import { toDateString as clockToDateString } from '@/lib/utils/recurrence'
 
 function isoDate(v: unknown): string | undefined {
@@ -115,7 +119,7 @@ export async function getPayPeriodDashboard(
     `SELECT COALESCE(SUM(current_balance), 0) as t FROM budget_bank_accounts
      WHERE user_id = ? AND is_active = 1 AND account_type != 'loan'`
   ).get(userId)) as { t: number }
-  const bankBalance = Math.max(0, Number(bankRow.t) || 0)
+  const bankBalance = round2(Number(bankRow.t) || 0)
 
   // Anchor payday: explicit, else earliest active schedule, else last paycheck.
   const schedules = await getIncomeSchedules(userId)
@@ -338,3 +342,88 @@ function round2(n: number): number {
 }
 
 export { money }
+
+// ---------------------------------------------------------------------------
+// Pay-period reconciliation: planned vs actual using budget_transactions.
+// Reuses the dashboard's anchor + period windows so the "actual" columns land
+// in exactly the same windows the plan shows.
+// ---------------------------------------------------------------------------
+
+export interface PayPeriodReconciliation {
+  anchoredPayday: string
+  currentPeriodIndex: number
+  windows: WindowReconcile[]
+  totals: ReconcileTotals
+  /** Transactions skipped because their account no longer exists locally. */
+  skippedUnknownAccount: number
+  rules: string[]
+}
+
+export async function getPayPeriodReconciliation(
+  userId: number,
+  opts: { payday?: string; periods?: number } = {}
+): Promise<PayPeriodReconciliation> {
+  const dashboard = await getPayPeriodDashboard(userId, opts)
+  const plans = dashboard.periods
+  if (plans.length === 0) {
+    return {
+      anchoredPayday: dashboard.anchoredPayday,
+      currentPeriodIndex: dashboard.currentPeriodIndex,
+      windows: [],
+      totals: {
+        planned: 0, spendingActual: 0, incomeActual: 0, cardPayments: 0,
+        transfersOut: 0, transfersIn: 0, cardCredits: 0,
+        uncategorizedSpendingCount: 0, delta: 0,
+      },
+      skippedUnknownAccount: 0,
+      rules: [],
+    }
+  }
+  const first = plans[0].period
+  const last = plans[plans.length - 1].period
+  const rows = await getReconciliationTransactions(userId, first.start, last.end)
+  const skippedUnknownAccount = rows.filter(r => !r.accountName || !r.accountKind).length
+  const cards = await getCreditCards(userId)
+  const cardNames = cards
+    .map((c) => normalizeBillName(c.name))
+    .filter((n) => !!n)
+
+  const reconTxs: ReconTx[] = rows.filter(r => r.accountName && r.accountKind).map((r) => ({
+    id: r.id,
+    date: r.date,
+    description: r.description,
+    amount: r.amount,
+    category: r.category,
+    categoryDetail: r.categoryDetail,
+    accountKind: r.accountKind!,
+    accountName: r.accountName!,
+    accountOwner: (r.accountOwner as SpouseKey) || null,
+  }))
+
+  const windows = reconcilePlanPeriods(
+    plans.map((p) => ({
+      index: p.period.index,
+      start: p.period.start,
+      end: p.period.end,
+      totalOutgoing: p.totalOutgoing,
+      expectedTotal: p.incoming.expectedTotal,
+      receivedTotal: p.incoming.receivedTotal,
+    })),
+    reconTxs,
+    cardNames
+  )
+
+  return {
+    anchoredPayday: dashboard.anchoredPayday,
+    currentPeriodIndex: dashboard.currentPeriodIndex,
+    windows,
+    totals: reconcileTotals(windows),
+    skippedUnknownAccount,
+    rules: [
+      'Credit-card purchases count once, when the card is charged.',
+      'The later card payment in the bank stream is cash leaving the bank — shown separately, never spending again.',
+      'Transfers between your own accounts are neither income nor spending.',
+      'Uncategorized spending is still counted, and flagged until it is named.',
+    ],
+  }
+}

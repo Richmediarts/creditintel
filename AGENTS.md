@@ -139,3 +139,11 @@ Maintain credit-dashboard Next.js app with accurate report parsing, multi-bureau
 - Visual design tokens added to `globals.css` (accent palette income/bills/spending/savings/credit/shared, `money-hero`, `chip-*`, `.pill-*` status pills with icons + text, `.lift` hover); `components/ui/status.tsx` (StatusPill, OwnerPill).
 - Tests: vitest installed (`npm test`); suites in `src/tests/payperiod.test.ts` + `planner.test.ts` (26 tests) covering period boundaries, carry-over, double-counting, unknown amounts, splits, calendar math.
 - Design choice: household budget rows stay owned by the budget owner (household `created_by`); members see the shared plan via `resolveBudgetUserId` and never need Plaid.
+
+### Completed interrupted reconciliation (2026-10-31)
+- `/budget/reconciliation` and `/api/budget/reconciliation`: recorded spending by category/account/spouse; owner-only account assignments; authenticated/validated API; example accounts remain read-only.
+- `budget_transactions.account_kind` preserves bank/card identity on Plaid sync and bank imports. Legacy overlapping ids remain unresolved and visibly excluded until synced; account joins always include user_id.
+- Purchases count once; card payments, transfers, and card credits are separate. Comparison allocations include reserves and are not cash available to spend.
+- Household enrollment now requires an owner-issued, hashed, single-use invitation code expiring in 24 hours. Email alone never authorizes joining.
+- Negative bank snapshots are preserved; hero dates follow the selected pay period. UI refresh applied from `0487bea` as `6d96bec`.
+- 49 tests cover finance rules, database identity mapping, API authorization, and invitation access. Production build and Chrome desktop/phone checks pass. Usage/recovery details: `docs/household-budgeting.md`.
