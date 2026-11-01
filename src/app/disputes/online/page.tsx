@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -11,6 +11,7 @@ import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
+import { copyText } from '@/lib/utils/copy-text'
 import { useCredit } from '@/lib/store/creditStore'
 import { onlineDisputeOptions, prefillOnlineDispute } from '@/lib/utils/online-dispute-items'
 import { disputeLink } from '@/lib/utils/disputeLetters'
@@ -75,6 +76,9 @@ export default function OnlineDisputePage() {
   const [letterType, setLetterType] = useState<LetterType>('dispute')
   const [inaccuracies, setInaccuracies] = useState<string[]>([])
   const [copied, setCopied] = useState(false)
+  const [showSummary, setShowSummary] = useState(false)
+  const [copyMessage, setCopyMessage] = useState('')
+  const summaryField = useRef<HTMLTextAreaElement>(null)
   const [created, setCreated] = useState<{ id: number; method: string } | null>(null)
 
   const verdict = useMemo(
@@ -125,8 +129,7 @@ export default function OnlineDisputePage() {
     } finally { setSaving(false) }
   }
 
-  const copySummary = async () => {
-    const text = [
+  const summaryText = useMemo(() => [
       `CREDIT REPORT DISPUTE — FCRA §611(a)(1)(A)`,
       ``,
       `Creditor / Furnisher: ${creditorName}`,
@@ -138,10 +141,22 @@ export default function OnlineDisputePage() {
       `Pursuant to FCRA §623(b), I request written notice of the results of your investigation.`,
       ``,
       `If you cannot verify these items within 30 days, they must be corrected or deleted.`,
-    ].join('\n')
-    await navigator.clipboard.writeText(text)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    ].join('\n'), [creditorName, bureau, inaccuracies])
+
+  useEffect(() => { setCopied(false); setCopyMessage('') }, [summaryText])
+
+  const selectSummary = () => {
+    summaryField.current?.focus()
+    summaryField.current?.select()
+    summaryField.current?.setSelectionRange(0, summaryText.length)
+  }
+
+  const copySummary = async () => {
+    setShowSummary(true)
+    const success = await copyText(summaryText)
+    setCopied(success)
+    setCopyMessage(success ? 'Dispute summary copied.' : 'Automatic copying is blocked in this browser. Choose Select summary, then press Ctrl+C (Windows) or Command+C (Mac), or use your device’s Copy action.')
+    if (success) setTimeout(() => setCopied(false), 2000)
   }
 
   if (authLoading) return <div className="text-center py-20 text-gray-500">Loading...</div>
@@ -326,6 +341,13 @@ export default function OnlineDisputePage() {
                 {copied ? 'Copied' : 'Copy dispute summary'}
               </Button>
             </div>
+
+            {copyMessage && <p role="status" aria-live="polite" className="text-sm text-gray-700 dark:text-gray-200">{copyMessage}</p>}
+            {showSummary && <div className="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900">
+              <label htmlFor="dispute-summary-text" className="block text-sm font-semibold">Dispute summary</label>
+              <textarea id="dispute-summary-text" ref={summaryField} readOnly value={summaryText} rows={10} onFocus={e => e.target.select()} className="w-full rounded-lg border border-gray-300 bg-white p-3 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-950 dark:text-gray-100" />
+              <div className="flex flex-wrap gap-2"><Button variant="secondary" size="sm" onClick={selectSummary}>Select summary</Button><Button variant="ghost" size="sm" onClick={() => setShowSummary(false)}>Hide summary</Button></div>
+            </div>}
 
             <p className="text-xs text-gray-500 dark:text-gray-400">The selection fills this app&apos;s form. Complete your review and submission on the bureau website, then save its confirmation number in the Dispute Tracker.</p>
             {error && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">{error}</p>}
