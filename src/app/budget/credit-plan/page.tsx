@@ -11,6 +11,7 @@ import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { StatusPill } from '@/components/ui/status'
 import { useAuth } from '@/lib/auth-context'
+import { normalizeCreditPlanScores } from '@/lib/utils/credit-plan-scores'
 
 interface PeriodPlan {
   period: { index: number; start: string; end: string; label: string }
@@ -49,10 +50,10 @@ interface CreditTask {
 
 interface Dispute {
   id: number
-  creditor_name: string
+  creditorName: string
   bureau: string
   status: string
-  letter_type: string
+  letterType: string
 }
 
 interface FicoScore {
@@ -89,24 +90,27 @@ export default function CreditPlanPage() {
   const [loading, setLoading] = useState(true)
   const [showTaskForm, setShowTaskForm] = useState(false)
   const [notice, setNotice] = useState('')
+  const [loadError, setLoadError] = useState('')
   const [taskForm, setTaskForm] = useState({ title: '', type: 'report_review', bureau: '', target_date: '' })
 
   const fetchAll = useCallback(async () => {
-    const [dRes, cRes, tRes, disRes, fRes] = await Promise.all([
-      fetch('/api/budget/dashboard'),
-      fetch('/api/budget/credit-cards').catch(() => null),
-      fetch('/api/budget/credit-tasks'),
-      fetch('/api/disputes').catch(() => null),
-      fetch('/api/fico-scores').catch(() => null),
-    ])
-    if (dRes.ok) {
-      const d = await dRes.json()
-      setDashboard(d.dashboard)
+    setLoadError('')
+    const paths = ['/api/budget/dashboard', '/api/budget/credit-cards', '/api/budget/credit-tasks', '/api/disputes', '/api/fico-scores']
+    const results = await Promise.allSettled(paths.map(async path => {
+      const response = await fetch(path)
+      if (!response.ok) throw new Error('Unable to load ' + path)
+      return response.json()
+    }))
+    const [dashboardResult, cardsResult, tasksResult, disputesResult, scoresResult] = results
+    if (dashboardResult.status === 'fulfilled') {
+      const value = dashboardResult.value.dashboard
+      setDashboard(value && Array.isArray(value.periods) ? value : null)
     }
-    if (cRes && cRes.ok) { const d = await cRes.json(); setCards(d.cards || []) }
-    if (tRes.ok) { const d = await tRes.json(); setTasks(d.tasks || []) }
-    if (disRes && disRes.ok) { const d = await disRes.json(); setDisputes(d.disputes || []) }
-    if (fRes && fRes.ok) { const d = await fRes.json(); setScores(d.scores || []) }
+    if (cardsResult.status === 'fulfilled') setCards(Array.isArray(cardsResult.value.cards) ? cardsResult.value.cards : [])
+    if (tasksResult.status === 'fulfilled') setTasks(Array.isArray(tasksResult.value.tasks) ? tasksResult.value.tasks : [])
+    if (disputesResult.status === 'fulfilled') setDisputes(Array.isArray(disputesResult.value.disputes) ? disputesResult.value.disputes : [])
+    if (scoresResult.status === 'fulfilled') setScores(normalizeCreditPlanScores(scoresResult.value.scores))
+    if (results.some(result => result.status === 'rejected')) setLoadError('Some credit-plan information could not be loaded. Please refresh to try again; unavailable sections may be incomplete.')
     setLoading(false)
   }, [])
 
@@ -183,6 +187,8 @@ export default function CreditPlanPage() {
         </div>
         <Link href="/budget"><Button variant="secondary">← Back to Pay-Period Dashboard</Button></Link>
       </div>
+
+      {loadError && <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">{loadError}</div>}
 
       {notice && (
         <div className="rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
@@ -389,8 +395,8 @@ export default function CreditPlanPage() {
                 <div key={d.id} className="rounded-xl border border-gray-100 dark:border-gray-700 p-4">
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{d.creditor_name}</p>
-                      <p className="text-xs text-gray-400">{d.bureau} · {d.letter_type}</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{d.creditorName}</p>
+                      <p className="text-xs text-gray-400">{d.bureau} · {d.letterType}</p>
                     </div>
                     <span className="pill pill-estimated capitalize">{d.status}</span>
                   </div>
