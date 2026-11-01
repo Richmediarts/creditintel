@@ -1,3 +1,4 @@
+import { cardHasPlannedBill } from '@/lib/utils/card-bill-links'
 /**
  * Pay-period planner — the bridge between the budget_* tables and the pure
  * calculation engine in lib/utils/payperiod.ts.
@@ -279,16 +280,9 @@ export async function getPayPeriodDashboard(
   // only covers cards with no planned card bill. Loan/school-debt bills are
   // likewise counted in billsTotal where they land, never here.
   // ======================================================================
-  const unpaidDebtBills = planBills.filter(
-    (b) => !b.isPaid && b.isDebtPayment && b.amountStatus !== 'missing' && !!b.amount
-  )
   let estimatedMinimumDebt = 0
   for (const card of cards) {
-    const key = normalizeBillName(card.name)
-    const hasBill = unpaidDebtBills.some((b) => {
-      const bn = normalizeBillName(b.name)
-      return bn && (bn === key || bn.includes(key) || key.includes(bn))
-    })
+    const hasBill = cardHasPlannedBill(card.id, bills, cards)
     if (hasBill) continue
     const balance = Math.max(0, Number(card.current_balance) || 0)
     if (balance > 0) {

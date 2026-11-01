@@ -517,4 +517,12 @@ export async function initPostgresSchema() {
   await sql`ALTER TABLE budget_households ADD COLUMN IF NOT EXISTS invite_hash TEXT;`
   await sql`ALTER TABLE budget_households ADD COLUMN IF NOT EXISTS invite_expires_at TIMESTAMP;`
 
+  await sql`CREATE TABLE IF NOT EXISTS budget_card_bill_history (
+    id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL, credit_card_id INTEGER NOT NULL,
+    canonical_bill_id INTEGER NOT NULL, original_bill_id INTEGER NOT NULL,
+    original_bill JSONB NOT NULL, archived_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id,original_bill_id));`
+  await sql`CREATE UNIQUE INDEX IF NOT EXISTS budget_one_recurring_bill_per_card
+    ON budget_bills (user_id,credit_card_id) WHERE credit_card_id IS NOT NULL AND is_recurring=1;`
+
 }

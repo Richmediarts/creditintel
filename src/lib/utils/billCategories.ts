@@ -83,6 +83,7 @@ export function nameMatchesCategory(payee: string | undefined, categoryName: str
 }
 
 export interface GroupableBill {
+  credit_card_id?: number | null
   id: number
   payee_name?: string
   amount: number
@@ -127,6 +128,9 @@ export function groupBillsByCategory<T extends GroupableBill>(
           }
         }
       }
+    }
+    if (cat.title === 'Credit Cards') {
+      for (const bill of bills) if (bill.credit_card_id && !used.has(bill.id)) { items.push(bill); used.add(bill.id) }
     }
     items.sort((a, b) => (a.due_date || '').localeCompare(b.due_date || ''))
     groups.push({ title: cat.title, items })

@@ -13,6 +13,8 @@ import { useAuth } from '@/lib/auth-context'
 import { PlaidLinkButton } from '@/components/PlaidLinkButton'
 
 interface CreditCardType {
+  household_bill_id?: number | null
+  bill_history?: { id: number; payee_name?: string; paid_date?: string | null; paid_amount?: number }[]
   id: number
   name: string
   last_four: string
@@ -272,6 +274,13 @@ export default function CreditCardsPage() {
       setLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    const hash = window.location.hash
+    if (/^#credit-card-\d+$/.test(hash)) {
+      document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'center' })
+    }
+  }, [cards])
 
   const fetchPlaidItems = useCallback(async () => {
     try {
@@ -765,7 +774,7 @@ export default function CreditCardsPage() {
                         const numDisplay = `••••  ••••  ••••  ${card.last_four ? card.last_four.padStart(4, '•') : '••••'}`
 
                         return (
-                          <div key={card.id} className="flex flex-col w-[500px] max-w-full">
+                          <div key={card.id} id={`credit-card-${card.id}`} className="flex flex-col w-[500px] max-w-full scroll-mt-28 rounded-2xl target:ring-2 target:ring-indigo-500 target:ring-offset-4 dark:target:ring-offset-gray-950">
                             {/* Card mockup */}
                             <div className="rounded-2xl p-[1px] bg-gradient-to-br from-white/50 dark:from-white/15 via-transparent to-black/10 shadow-inner max-w-[500px] mx-auto lg:mx-0">
                               <div className={`relative overflow-hidden rounded-[15px] p-4 sm:p-5 aspect-[400/253] flex flex-col justify-between bg-gradient-to-br ${theme.gradient} shadow-lg`}>
@@ -829,6 +838,12 @@ export default function CreditCardsPage() {
                               </div>
                             </div>
 
+                            {card.household_bill_id && <Link href={`/budget/bills?bill=${card.household_bill_id}`} className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-blue-700 underline dark:text-blue-300"><Receipt className="h-4 w-4" /> View household bill</Link>}
+                            {!!card.bill_history?.length && <details className="mt-2 rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
+                              <summary className="cursor-pointer font-medium">Archived bill records ({card.bill_history.length})</summary>
+                              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Original duplicate records are preserved here and excluded from budget totals.</p>
+                              {card.bill_history.map(record => <div key={record.id} className="mt-2 border-t border-gray-100 pt-2 dark:border-gray-700"><p className="font-medium">{record.payee_name || 'Previous bill'}</p>{record.paid_date && <p className="text-xs text-gray-600 dark:text-gray-300">Recorded payment date: {String(record.paid_date).slice(0,10)}</p>}{Number(record.paid_amount)>0 && <p className="text-xs">Recorded partial payment: {fmt(Number(record.paid_amount))}</p>}</div>)}
+                            </details>}
                             {/* Detail footer */}
                             <div className="mt-3 rounded-xl border border-gray-200 dark:border-gray-700 p-3 flex-1">
                               <div className="grid grid-cols-2 md:grid-cols-4 gap-x-3 gap-y-2">

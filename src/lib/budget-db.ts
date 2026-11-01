@@ -1,3 +1,4 @@
+import { matchBillCard, DuplicateCardBillError } from '@/lib/utils/card-bill-links'
 import { getDb } from '@/lib/db'
 import { nextDueDate } from '@/lib/utils/recurrence'
 
@@ -661,7 +662,7 @@ export async function clearBankAccountPlaid(userId: number, id: number): Promise
 // Credit Cards
 export async function getCreditCards(userId: number): Promise<BudgetCreditCard[]> {
   const db = getDb()
-  return ((await db.prepare('SELECT * FROM budget_credit_cards WHERE user_id = ? ORDER BY name').all(userId)) as BudgetCreditCard[]).map((c) => {
+  return ((await db.prepare('SELECT c.*, COALESCE((SELECT jsonb_agg(h.original_bill ORDER BY h.id) FROM budget_card_bill_history h WHERE h.user_id=c.user_id AND h.credit_card_id=c.id), \'[]\'::jsonb) AS bill_history, (SELECT b.id FROM budget_bills b WHERE b.user_id=c.user_id AND b.credit_card_id=c.id ORDER BY b.is_recurring DESC,b.id LIMIT 1) AS household_bill_id FROM budget_credit_cards c WHERE c.user_id = ? ORDER BY c.name').all(userId)) as BudgetCreditCard[]).map((c) => {
     const row = c as unknown as Record<string, unknown>
     if (row.due_date !== undefined && row.due_date !== null && row.due_date !== '') row.due_date = toDateString(row.due_date)
     return c
@@ -764,16 +765,25 @@ export async function getBillsByCreditCard(userId: number, creditCardId: number)
 
 export async function ensureCreditCardBill(userId: number, cardId: number): Promise<void> {
   const db = getDb()
-  const existing = ((await db.prepare('SELECT id FROM budget_bills WHERE user_id = ? AND credit_card_id = ?').all(userId, cardId)) as any[]).length
-  if (existing === 0) {
-    const card = ((await db.prepare('SELECT * FROM budget_credit_cards WHERE user_id = ? AND id = ?').all(userId, cardId)) as any[])[0]
-    if (card) {
-      await db.prepare(`
-        INSERT INTO budget_bills (user_id, payee_name, amount, due_date, is_paid, is_recurring, recurrence_type, credit_card_id)
-        VALUES (?, ?, ?, ?, 0, 1, 'monthly', ?)
-      `).run(userId, card.name, card.current_balance ?? 0, card.due_date ?? null, cardId)
-    }
+  const existing = await db.prepare('SELECT id FROM budget_bills WHERE user_id = ? AND credit_card_id = ? AND is_recurring = 1').get(userId, cardId)
+  if (existing) return
+  const card = await getCreditCard(userId, cardId)
+  if (!card) return
+  const cards = await getCreditCards(userId)
+  const bills = await getBills(userId)
+  const matches = bills.filter(b => b.is_recurring === 1 && !b.credit_card_id && matchBillCard(b, cards) === cardId)
+  if (matches.length === 1) {
+    await db.prepare('UPDATE budget_bills SET credit_card_id = ? WHERE user_id = ? AND id = ?').run(cardId, userId, matches[0].id)
+    return
   }
+  if (matches.length > 1) return // Never guess between separate bills with history.
+  // Unknown card dates stay unknown; do not invent a date or insert invalid text.
+  if (!card.due_date || !/^\d{4}-\d{2}-\d{2}$/.test(card.due_date)) return
+  await db.prepare(`
+    INSERT INTO budget_bills (user_id, payee_name, amount, amount_status, due_date, is_paid, is_recurring, recurrence_type, credit_card_id)
+    VALUES (?, ?, 0, 'missing', ?, 0, 1, 'monthly', ?)
+    ON CONFLICT (user_id, credit_card_id) WHERE credit_card_id IS NOT NULL AND is_recurring=1 DO NOTHING
+  `).run(userId, card.name, card.due_date, cardId)
 }
 
 export async function syncAllCreditCardsToBills(userId: number): Promise<void> {
@@ -815,6 +825,12 @@ export async function getBill(userId: number, id: number): Promise<BudgetBill | 
 
 export async function addBill(userId: number, data: Partial<BudgetBill>): Promise<number> {
   const db = getDb()
+  const linkedCardId = data.credit_card_id || (data.is_recurring
+    ? matchBillCard({ ...data, id: 0 }, await getCreditCards(userId)) : null)
+  if (linkedCardId && data.is_recurring) {
+    const existing = await db.prepare('SELECT id FROM budget_bills WHERE user_id = ? AND credit_card_id = ? AND is_recurring = 1').get(userId, linkedCardId) as { id: number } | undefined
+    if (existing) throw new DuplicateCardBillError(existing.id)
+  }
   const today = new Date().toISOString().split('T')[0]
   const result = await db.prepare(
     `INSERT INTO budget_bills (user_id, payee_id, payee_name, amount, due_date, is_paid, paid_date,
@@ -834,7 +850,7 @@ export async function addBill(userId: number, data: Partial<BudgetBill>): Promis
     data.notes || '',
     data.category_id || null,
     data.account || '',
-    data.credit_card_id || null,
+    linkedCardId || null,
     data.url || null,
     data.planned_payment_date || null,
     data.owner || 'me',

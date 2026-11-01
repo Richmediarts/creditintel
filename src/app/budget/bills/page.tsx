@@ -495,6 +495,11 @@ function BillsContent() {
       const b = byName.get(name)
       if (b && !usedIds.has(b.id)) { items.push(b); usedIds.add(b.id) }
     }
+    if (section.title === 'Credit Cards') {
+      for (const bill of visibleBills) {
+        if (bill.credit_card_id && !usedIds.has(bill.id)) { items.push(bill); usedIds.add(bill.id) }
+      }
+    }
     sectionGroups.push({
       title: section.title,
       items: items.sort((a, b) => effectivePayDate(a)?.localeCompare(effectivePayDate(b) || '', undefined, { numeric: true }) || 0),
@@ -581,6 +586,7 @@ function BillsContent() {
           </div>
           <div className="flex flex-wrap items-center gap-1 mt-1 pl-7.5">
             <OwnerPill owner={bill.owner || 'me'} />
+            {bill.credit_card_id && <Link href={`/budget/credit-cards#credit-card-${bill.credit_card_id}`} className="pill pill-info underline" aria-label={`View linked card for ${bill.payee_name || 'bill'}`}>View linked card</Link>}
             {bill.is_paid
               ? <StatusPill status="paid" />
               : isUnknown
