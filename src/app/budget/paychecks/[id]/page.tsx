@@ -87,9 +87,9 @@ const fmtRate = (n: number | undefined): string =>
 
 function IdCell({ label, val }: { label: string; val?: string }) {
   return (
-    <div className="px-3 py-2 border-r border-[#d8d3c8] last:border-r-0">
-      <div className="text-[10px] uppercase tracking-widest text-[#6b6558] font-mono mb-0.5">{label}</div>
-      <div className="text-xs font-medium text-[#1a1814] font-mono">{val || '—'}</div>
+    <div className="px-3 py-2 border-r border-slate-200 dark:border-slate-600 last:border-r-0">
+      <div className="text-xs uppercase tracking-widest text-slate-600 dark:text-slate-300 font-mono mb-0.5">{label}</div>
+      <div className="text-sm font-medium text-slate-900 dark:text-slate-100 font-mono break-words">{val || '—'}</div>
     </div>
   )
 }
@@ -193,21 +193,21 @@ export default function PaycheckViewPage() {
         </div>
       </div>
 
-      <Card className="overflow-hidden">
-        <div className="bg-[#1a1814] text-white px-8 py-6 flex justify-between items-start flex-wrap gap-4">
+      <Card className="paycheck-statement overflow-hidden">
+        <div className="bg-slate-900 text-white px-8 py-6 flex justify-between items-start flex-wrap gap-4">
           <div>
             <div className="font-mono text-xl font-semibold">{pc.company || 'NCR VOYIX'}</div>
-            <div className="font-mono text-[10px] text-[#a09890] mt-2 leading-relaxed">
+            <div className="font-mono text-xs text-slate-300 mt-2 leading-relaxed">
               864 Spring St NW, Atlanta, GA 30308<br />+1 (800) 225-5627
             </div>
           </div>
           <div className="text-right">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#a09890]">Pay Statement</div>
+            <div className="font-mono text-xs uppercase tracking-widest text-slate-300">Pay Statement</div>
             <div className="font-mono text-lg font-semibold mt-1">{pc.check_date || pc.pay_date || ''}</div>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 lg:grid-cols-6 border-b-2 border-[#1a1814] bg-white dark:bg-gray-800">
+        <div className="grid grid-cols-3 lg:grid-cols-6 border-b-2 border-slate-300 dark:border-slate-500 bg-white dark:bg-gray-800">
           <IdCell label="Employee Name" val={pc.employee_name} />
           <IdCell label="Company" val={pc.company || 'NCR Voyix Corp.'} />
           <IdCell label="Employee ID" val={pc.employee_id} />
@@ -218,7 +218,7 @@ export default function PaycheckViewPage() {
 
         {/* Summary strip */}
         <div className="bg-white dark:bg-gray-800">
-          <div className="grid grid-cols-3 lg:grid-cols-7 bg-[#1a1814]">
+          <div className="grid grid-cols-3 lg:grid-cols-7 bg-slate-900">
             {[
               { label: 'Period', right: false },
               { label: 'Hours Worked', right: true },
@@ -228,12 +228,12 @@ export default function PaycheckViewPage() {
               { label: 'Post-Tax Ded.', right: true },
               { label: 'Net Pay', right: true },
             ].map((h) => (
-              <div key={h.label} className={`px-3 py-2 text-[10px] uppercase tracking-widest text-[#a09890] font-mono ${h.right ? 'text-right' : 'text-left'}`}>
+              <div key={h.label} className={`px-3 py-2 text-xs uppercase tracking-widest text-slate-300 font-mono ${h.right ? 'text-right' : 'text-left'}`}>
                 {h.label}
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-3 lg:grid-cols-7 bg-[#1a1814]">
+          <div className="grid grid-cols-3 lg:grid-cols-7 bg-slate-900">
             {[
               { label: 'Current', val: '', money: false },
               { label: '', val: String(hours), money: true },
@@ -243,36 +243,36 @@ export default function PaycheckViewPage() {
               { label: '', val: fmt(pc.post_tax_deductions), money: true },
               { label: '', val: fmt(pc.net_pay), money: true },
             ].map((c, i) => (
-              <div key={i} className={`px-3 py-2 text-xs font-medium text-white font-mono ${c.money ? 'text-right' : 'text-left text-[#a09890] uppercase'}`}>
+              <div key={i} className={`px-3 py-2 text-sm font-medium text-white font-mono ${c.money ? 'text-right' : 'text-left text-slate-300 uppercase'}`}>
                 {c.label}{c.money ? c.val : c.val}
               </div>
             ))}
           </div>
         </div>
 
-        <CardContent className="p-6 bg-[#f5f3ee] dark:bg-gray-900">
-          <div className="max-w-[960px] mx-auto bg-[#fffef9] dark:bg-gray-800 border border-[#d8d3c8] dark:border-gray-700 shadow-lg rounded-sm">
+        <CardContent className="p-6 bg-slate-100 dark:bg-slate-950">
+          <div className="max-w-[960px] mx-auto bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 border border-slate-200 dark:border-slate-600 dark:border-gray-700 shadow-lg rounded-sm">
             {/* Net pay hero */}
-            <div className="mx-6 my-4 bg-[#e8f5ee] border border-[#b8deca] rounded px-6 py-4 flex justify-between items-center flex-wrap gap-4">
+            <div className="mx-6 my-4 bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-700 rounded px-6 py-4 flex justify-between items-center flex-wrap gap-4">
               <div>
-                <div className="font-mono text-[10px] uppercase tracking-widest text-[#1a6b3a]">Net Pay — Current Period</div>
-                <div className="font-mono text-3xl font-semibold text-[#1a6b3a] mt-1">{fmt(netPay)}</div>
+                <div className="font-mono text-xs uppercase tracking-widest text-emerald-800 dark:text-emerald-200">Net Pay — Current Period</div>
+                <div className="font-mono text-3xl font-semibold text-emerald-800 dark:text-emerald-200 mt-1">{fmt(netPay)}</div>
               </div>
-              <div className="text-right font-mono text-xs text-[#6b6558]">
+              <div className="text-right font-mono text-sm text-slate-600 dark:text-slate-300">
                 Year-to-Date Net Pay
-                <span className="block text-base font-semibold text-[#1a1814] mt-0.5">{fmt(pc.net_pay)}</span>
+                <span className="block text-base font-semibold text-slate-900 dark:text-slate-100 mt-0.5">{fmt(pc.net_pay)}</span>
               </div>
             </div>
 
             {/* Earnings */}
             <div className="px-6 pb-2">
               <div className="flex items-center gap-3 mb-3">
-                <h2 className="font-mono text-[10px] uppercase tracking-widest text-[#6b6558]">Earnings</h2>
-                <div className="flex-1 h-px bg-[#d8d3c8]" />
+                <h2 className="font-mono text-xs uppercase tracking-widest text-slate-600 dark:text-slate-300">Earnings</h2>
+                <div className="flex-1 h-px bg-slate-200 dark:bg-slate-600" />
               </div>
-              <div className="overflow-x-auto"><table className="w-full text-xs">
+              <div className="overflow-x-auto"><table className="w-full text-sm">
                 <thead>
-                  <tr className="text-[10px] uppercase tracking-widest text-[#6b6558] border-b border-[#d8d3c8]">
+                  <tr className="text-xs uppercase tracking-widest text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-600">
                     <th className="text-left py-1.5 pr-2 font-medium">Description</th>
                     <th className="text-right py-1.5 px-2 font-medium">Hours</th>
                     <th className="text-right py-1.5 px-2 font-medium">Rate</th>
@@ -281,21 +281,21 @@ export default function PaycheckViewPage() {
                 </thead>
                 <tbody>
                   {earnings.length > 0 ? earnings.map((e) => (
-                    <tr key={e.label} className="border-b border-[#d8d3c8]">
-                      <td className="py-1.5 pr-2 text-[#1a1814]">{e.label}</td>
-                      <td className="text-right py-1.5 px-2 font-mono text-[#6b6558]">{e.label === 'Salary' && e.hours === undefined ? salaryHours : fmtHours(e.hours)}</td>
-                      <td className="text-right py-1.5 px-2 font-mono text-[#6b6558]">{e.label === 'Salary' ? '—' : fmtRate(e.rate)}</td>
-                      <td className="text-right py-1.5 px-2 font-mono font-medium text-[#1a1814]">{fmt(e.amount)}</td>
+                    <tr key={e.label} className="border-b border-slate-200 dark:border-slate-600">
+                      <td className="py-1.5 pr-2 text-slate-900 dark:text-slate-100">{e.label}</td>
+                      <td className="text-right py-1.5 px-2 font-mono text-slate-600 dark:text-slate-300">{e.label === 'Salary' && e.hours === undefined ? salaryHours : fmtHours(e.hours)}</td>
+                      <td className="text-right py-1.5 px-2 font-mono text-slate-600 dark:text-slate-300">{e.label === 'Salary' ? '—' : fmtRate(e.rate)}</td>
+                      <td className="text-right py-1.5 px-2 font-mono font-medium text-slate-900 dark:text-slate-100">{fmt(e.amount)}</td>
                     </tr>
                   )) : (
-                    <tr><td colSpan={4} className="py-3 text-[#6b6558] text-center">No earnings breakdown recorded.</td></tr>
+                    <tr><td colSpan={4} className="py-3 text-slate-600 dark:text-slate-300 text-center">No earnings breakdown recorded.</td></tr>
                   )}
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td className="py-1.5 pr-2 font-semibold text-[#1a1814] border-t-2 border-[#1a1814]">Total Earnings</td>
-                    <td colSpan={2} className="border-t-2 border-[#1a1814]" />
-                    <td className="text-right py-1.5 px-2 font-mono font-semibold text-[#1a1814] border-t-2 border-[#1a1814]">{fmt(pc.gross_pay)}</td>
+                    <td className="py-1.5 pr-2 font-semibold text-slate-900 dark:text-slate-100 border-t-2 border-slate-300 dark:border-slate-500">Total Earnings</td>
+                    <td colSpan={2} className="border-t-2 border-slate-300 dark:border-slate-500" />
+                    <td className="text-right py-1.5 px-2 font-mono font-semibold text-slate-900 dark:text-slate-100 border-t-2 border-slate-300 dark:border-slate-500">{fmt(pc.gross_pay)}</td>
                   </tr>
                 </tfoot>
               </table></div>
@@ -305,31 +305,31 @@ export default function PaycheckViewPage() {
             <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <div className="flex items-center gap-3 mb-3">
-                  <h2 className="font-mono text-[10px] uppercase tracking-widest text-[#6b6558]">Pre-Tax Deductions</h2>
-                  <div className="flex-1 h-px bg-[#d8d3c8]" />
-                  <span className="font-mono text-[10px] uppercase px-2 py-0.5 rounded-full bg-[#f9ece8] text-[#c8401a] font-semibold">Pre-Tax</span>
+                  <h2 className="font-mono text-xs uppercase tracking-widest text-slate-600 dark:text-slate-300">Pre-Tax Deductions</h2>
+                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-600" />
+                  <span className="font-mono text-xs uppercase px-2 py-0.5 rounded-full bg-orange-50 text-orange-800 dark:bg-orange-950 dark:text-orange-200 font-semibold">Pre-Tax</span>
                 </div>
-                <div className="overflow-x-auto"><table className="w-full text-xs">
+                <div className="overflow-x-auto"><table className="w-full text-sm">
                   <thead>
-                    <tr className="text-[10px] uppercase tracking-widest text-[#6b6558] border-b border-[#d8d3c8]">
+                    <tr className="text-xs uppercase tracking-widest text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-600">
                       <th className="text-left py-1.5 pr-2 font-medium">Description</th>
                       <th className="text-right py-1.5 px-2 font-medium">Amount</th>
                     </tr>
                   </thead>
                   <tbody>
                     {preTax.length > 0 ? preTax.map((d) => (
-                      <tr key={d.label} className="border-b border-[#d8d3c8]">
-                        <td className="py-1.5 pr-2 text-[#1a1814]">{d.label}</td>
-                        <td className="text-right py-1.5 px-2 font-mono text-[#1a1814]">{fmt(d.amount)}</td>
+                      <tr key={d.label} className="border-b border-slate-200 dark:border-slate-600">
+                        <td className="py-1.5 pr-2 text-slate-900 dark:text-slate-100">{d.label}</td>
+                        <td className="text-right py-1.5 px-2 font-mono text-slate-900 dark:text-slate-100">{fmt(d.amount)}</td>
                       </tr>
                     )) : (
-                      <tr><td colSpan={2} className="py-3 text-[#6b6558] text-center">None</td></tr>
+                      <tr><td colSpan={2} className="py-3 text-slate-600 dark:text-slate-300 text-center">None</td></tr>
                     )}
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td className="py-1.5 pr-2 font-semibold border-t-2 border-[#1a1814]">Total</td>
-                      <td className="text-right py-1.5 px-2 font-mono font-semibold border-t-2 border-[#1a1814]">{fmt(pc.pre_tax_deductions)}</td>
+                      <td className="py-1.5 pr-2 font-semibold border-t-2 border-slate-300 dark:border-slate-500">Total</td>
+                      <td className="text-right py-1.5 px-2 font-mono font-semibold border-t-2 border-slate-300 dark:border-slate-500">{fmt(pc.pre_tax_deductions)}</td>
                     </tr>
                   </tfoot>
                 </table></div>
@@ -337,31 +337,31 @@ export default function PaycheckViewPage() {
 
               <div>
                 <div className="flex items-center gap-3 mb-3">
-                  <h2 className="font-mono text-[10px] uppercase tracking-widest text-[#6b6558]">Post-Tax Deductions</h2>
-                  <div className="flex-1 h-px bg-[#d8d3c8]" />
-                  <span className="font-mono text-[10px] uppercase px-2 py-0.5 rounded-full bg-[#e8eef5] text-[#1a3a6b] font-semibold">Post-Tax</span>
+                  <h2 className="font-mono text-xs uppercase tracking-widest text-slate-600 dark:text-slate-300">Post-Tax Deductions</h2>
+                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-600" />
+                  <span className="font-mono text-xs uppercase px-2 py-0.5 rounded-full bg-blue-50 text-blue-800 dark:bg-blue-950 dark:text-blue-200 font-semibold">Post-Tax</span>
                 </div>
-                <div className="overflow-x-auto"><table className="w-full text-xs">
+                <div className="overflow-x-auto"><table className="w-full text-sm">
                   <thead>
-                    <tr className="text-[10px] uppercase tracking-widest text-[#6b6558] border-b border-[#d8d3c8]">
+                    <tr className="text-xs uppercase tracking-widest text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-600">
                       <th className="text-left py-1.5 pr-2 font-medium">Description</th>
                       <th className="text-right py-1.5 px-2 font-medium">Amount</th>
                     </tr>
                   </thead>
                   <tbody>
                     {postTax.length > 0 ? postTax.map((d) => (
-                      <tr key={d.label} className="border-b border-[#d8d3c8]">
-                        <td className="py-1.5 pr-2 text-[#1a1814]">{d.label}</td>
-                        <td className="text-right py-1.5 px-2 font-mono text-[#1a1814]">{fmt(d.amount)}</td>
+                      <tr key={d.label} className="border-b border-slate-200 dark:border-slate-600">
+                        <td className="py-1.5 pr-2 text-slate-900 dark:text-slate-100">{d.label}</td>
+                        <td className="text-right py-1.5 px-2 font-mono text-slate-900 dark:text-slate-100">{fmt(d.amount)}</td>
                       </tr>
                     )) : (
-                      <tr><td colSpan={2} className="py-3 text-[#6b6558] text-center">None</td></tr>
+                      <tr><td colSpan={2} className="py-3 text-slate-600 dark:text-slate-300 text-center">None</td></tr>
                     )}
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td className="py-1.5 pr-2 font-semibold border-t-2 border-[#1a1814]">Total</td>
-                      <td className="text-right py-1.5 px-2 font-mono font-semibold border-t-2 border-[#1a1814]">{fmt(pc.post_tax_deductions)}</td>
+                      <td className="py-1.5 pr-2 font-semibold border-t-2 border-slate-300 dark:border-slate-500">Total</td>
+                      <td className="text-right py-1.5 px-2 font-mono font-semibold border-t-2 border-slate-300 dark:border-slate-500">{fmt(pc.post_tax_deductions)}</td>
                     </tr>
                   </tfoot>
                 </table></div>
@@ -371,30 +371,30 @@ export default function PaycheckViewPage() {
             {/* Employee taxes */}
             <div className="px-6 pb-4">
               <div className="flex items-center gap-3 mb-3">
-                <h2 className="font-mono text-[10px] uppercase tracking-widest text-[#6b6558]">Employee Taxes</h2>
-                <div className="flex-1 h-px bg-[#d8d3c8]" />
+                <h2 className="font-mono text-xs uppercase tracking-widest text-slate-600 dark:text-slate-300">Employee Taxes</h2>
+                <div className="flex-1 h-px bg-slate-200 dark:bg-slate-600" />
               </div>
-              <div className="overflow-x-auto"><table className="w-full text-xs">
+              <div className="overflow-x-auto"><table className="w-full text-sm">
                 <thead>
-                  <tr className="text-[10px] uppercase tracking-widest text-[#6b6558] border-b border-[#d8d3c8]">
+                  <tr className="text-xs uppercase tracking-widest text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-600">
                     <th className="text-left py-1.5 pr-2 font-medium">Description</th>
                     <th className="text-right py-1.5 px-2 font-medium">Amount</th>
                   </tr>
                 </thead>
                 <tbody>
                   {taxes.length > 0 ? taxes.map((t) => (
-                    <tr key={t.label} className="border-b border-[#d8d3c8]">
-                      <td className="py-1.5 pr-2 text-[#1a1814]">{t.label}</td>
-                      <td className="text-right py-1.5 px-2 font-mono text-[#1a1814]">{fmt(t.amount)}</td>
+                    <tr key={t.label} className="border-b border-slate-200 dark:border-slate-600">
+                      <td className="py-1.5 pr-2 text-slate-900 dark:text-slate-100">{t.label}</td>
+                      <td className="text-right py-1.5 px-2 font-mono text-slate-900 dark:text-slate-100">{fmt(t.amount)}</td>
                     </tr>
                   )) : (
-                    <tr><td colSpan={2} className="py-3 text-[#6b6558] text-center">None</td></tr>
+                    <tr><td colSpan={2} className="py-3 text-slate-600 dark:text-slate-300 text-center">None</td></tr>
                   )}
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td className="py-1.5 pr-2 font-semibold border-t-2 border-[#1a1814]">Total Employee Taxes</td>
-                    <td className="text-right py-1.5 px-2 font-mono font-semibold border-t-2 border-[#1a1814]">{fmt(pc.employee_taxes)}</td>
+                    <td className="py-1.5 pr-2 font-semibold border-t-2 border-slate-300 dark:border-slate-500">Total Employee Taxes</td>
+                    <td className="text-right py-1.5 px-2 font-mono font-semibold border-t-2 border-slate-300 dark:border-slate-500">{fmt(pc.employee_taxes)}</td>
                   </tr>
                 </tfoot>
               </table></div>
@@ -403,24 +403,24 @@ export default function PaycheckViewPage() {
             {/* Direct deposit */}
             <div className="px-6 pb-6">
               <div className="flex items-center gap-3 mb-3">
-                <h2 className="font-mono text-[10px] uppercase tracking-widest text-[#6b6558]">Direct Deposit</h2>
-                <div className="flex-1 h-px bg-[#d8d3c8]" />
+                <h2 className="font-mono text-xs uppercase tracking-widest text-slate-600 dark:text-slate-300">Direct Deposit</h2>
+                <div className="flex-1 h-px bg-slate-200 dark:bg-slate-600" />
               </div>
               <div className="flex gap-4 flex-wrap">
                 {(pc.bank_name || (pc.deposit_amount || 0) > 0) && (
-                  <div className="flex-1 min-w-[180px] border border-[#d8d3c8] rounded px-4 py-3 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#c8401a]" />
-                    <div className="font-mono text-[10px] uppercase tracking-widest text-[#6b6558]">{pc.bank_name || 'Primary Bank'}</div>
-                    <div className="font-mono text-xs text-[#6b6558] my-1">Account ······{pc.account_number || '****'}</div>
-                    <div className="font-mono text-lg font-semibold">{fmt(pc.deposit_amount)} <span className="text-[10px] text-[#6b6558]">USD</span></div>
+                  <div className="flex-1 min-w-[180px] border border-slate-200 dark:border-slate-600 rounded px-4 py-3 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-[3px] bg-orange-500" />
+                    <div className="font-mono text-xs uppercase tracking-widest text-slate-600 dark:text-slate-300">{pc.bank_name || 'Primary Bank'}</div>
+                    <div className="font-mono text-sm text-slate-600 dark:text-slate-300 my-1">Account ······{pc.account_number || '****'}</div>
+                    <div className="font-mono text-lg font-semibold">{fmt(pc.deposit_amount)} <span className="text-xs text-slate-600 dark:text-slate-300">USD</span></div>
                   </div>
                 )}
                 {(pc.bank2_name || (pc.deposit2_amount || 0) > 0) && (
-                  <div className="flex-1 min-w-[180px] border border-[#d8d3c8] rounded px-4 py-3 relative overflow-hidden">
-                    <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#1a3a6b]" />
-                    <div className="font-mono text-[10px] uppercase tracking-widest text-[#6b6558]">{pc.bank2_name || 'Secondary Bank'}</div>
-                    <div className="font-mono text-xs text-[#6b6558] my-1">Account ······{pc.account2_number || '****'}</div>
-                    <div className="font-mono text-lg font-semibold">{fmt(pc.deposit2_amount)} <span className="text-[10px] text-[#6b6558]">USD</span></div>
+                  <div className="flex-1 min-w-[180px] border border-slate-200 dark:border-slate-600 rounded px-4 py-3 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 right-0 h-[3px] bg-blue-500" />
+                    <div className="font-mono text-xs uppercase tracking-widest text-slate-600 dark:text-slate-300">{pc.bank2_name || 'Secondary Bank'}</div>
+                    <div className="font-mono text-sm text-slate-600 dark:text-slate-300 my-1">Account ······{pc.account2_number || '****'}</div>
+                    <div className="font-mono text-lg font-semibold">{fmt(pc.deposit2_amount)} <span className="text-xs text-slate-600 dark:text-slate-300">USD</span></div>
                   </div>
                 )}
               </div>
