@@ -1,5 +1,7 @@
 'use client'
 
+import { formatSyncedAt } from '@/lib/utils/sync-timestamp'
+
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -64,19 +66,6 @@ function normalizeUrl(url: string): string {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
 }
 
-function formatSyncedAt(v: string | null | undefined): string {
-  if (!v) return ''
-  const d = new Date(v)
-  if (isNaN(d.getTime())) return ''
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const mm = pad(d.getMonth() + 1)
-  const dd = pad(d.getDate())
-  const yy = String(d.getFullYear()).slice(-2)
-  let h = d.getHours()
-  const ap = h >= 12 ? 'pm' : 'am'
-  h = h % 12 || 12
-  return `${mm}/${dd}/${yy} ${pad(h)}:${pad(d.getMinutes())}${ap}`
-}
 
 export default function BankAccountsPage() {
   const { user, loading: authLoading } = useAuth()

@@ -565,7 +565,7 @@ export async function getPayeeByName(userId: number, name: string): Promise<Budg
 // Bank Accounts
 export async function getBankAccounts(userId: number): Promise<BudgetBankAccount[]> {
   const db = getDb()
-  return (await db.prepare('SELECT * FROM budget_bank_accounts WHERE user_id = ? ORDER BY name').all(userId)) as BudgetBankAccount[]
+  return (await db.prepare('SELECT a.*, a.last_synced_at AT TIME ZONE \'UTC\' AS last_synced_at FROM budget_bank_accounts a WHERE user_id = ? ORDER BY name').all(userId)) as BudgetBankAccount[]
 }
 
 export async function getBankAccount(userId: number, id: number): Promise<BudgetBankAccount | null> {
