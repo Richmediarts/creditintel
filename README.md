@@ -43,3 +43,5 @@ Credit-plan score loading and favicon fixes included.
 Improved paycheck readability in light and dark modes.
 
 Bank sync times now display in Eastern time.
+
+Added household bill filters.
