@@ -12,6 +12,7 @@ import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { StatusPill, OwnerPill } from '@/components/ui/status'
 import { useAuth } from '@/lib/auth-context'
+import { filterBills, EMPTY_BILL_FILTERS, type BillFilters } from '@/lib/utils/bill-filters'
 import { BILL_CATEGORIES as SECTIONS } from '@/lib/utils/billCategories'
 import {
   RECURRENCE_OPTIONS, recurrenceLabel, nextDueDate, formatDueDate,
@@ -130,6 +131,9 @@ function BillsContent() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const [bills, setBills] = useState<Bill[]>([])
+  const [filters, setFilters] = useState<BillFilters>(EMPTY_BILL_FILTERS)
+  const visibleBills = useMemo(() => filterBills(bills, filters), [bills, filters])
+  const filtersActive = Object.values(filters).some(value => value !== '')
   const [accounts, setAccounts] = useState<BankAccount[]>([])
   const [anchor, setAnchor] = useState<string>('')
   const [view, setView] = useState<'category' | 'period' | 'calendar'>('category')
@@ -439,15 +443,15 @@ function BillsContent() {
 
   // ---------------- summary ----------------
 
-  const totalUnpaid = bills.reduce((s, b) => s + owed(b), 0)
-  const unknownAmounts = bills.filter((b) => !b.is_paid && (b.amount_status === 'missing' || !(Number(b.amount) > 0))).length
-  const missingDates = bills.filter((b) => !b.is_paid && !b.due_date).length
-  const overdueBills = bills.filter((b) => !b.is_paid && b.due_date && daysUntil(b.due_date) < 0)
+  const totalUnpaid = visibleBills.reduce((s, b) => s + owed(b), 0)
+  const unknownAmounts = visibleBills.filter((b) => !b.is_paid && (b.amount_status === 'missing' || !(Number(b.amount) > 0))).length
+  const missingDates = visibleBills.filter((b) => !b.is_paid && !b.due_date).length
+  const overdueBills = visibleBills.filter((b) => !b.is_paid && b.due_date && daysUntil(b.due_date) < 0)
 
   const now = new Date()
   const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]
-  const totalPaidThisMonth = bills
+  const totalPaidThisMonth = visibleBills
     .filter((b) => b.is_paid && b.paid_date && b.paid_date >= monthStart && b.paid_date <= monthEnd)
     .reduce((s, b) => s + (Number(b.paid_amount) || Number(b.amount) || 0), 0)
 
@@ -477,7 +481,7 @@ function BillsContent() {
   // ---------------- view: by category (existing style) ----------------
 
   const byName = new Map<string, Bill>()
-  for (const b of bills) {
+  for (const b of visibleBills) {
     const key = normalizeName(b.payee_name)
     const prev = byName.get(key)
     if (!prev || b.id < prev.id) byName.set(key, b)
@@ -497,7 +501,7 @@ function BillsContent() {
       total: items.reduce((s, b) => s + owed(b), 0),
     })
   }
-  for (const b of bills) {
+  for (const b of visibleBills) {
     if (!usedIds.has(b.id)) { unmatched.push(b); usedIds.add(b.id) }
   }
   unmatched.sort((a, b) => effectivePayDate(a)?.localeCompare(effectivePayDate(b) || '', undefined, { numeric: true }) || 0)
@@ -509,7 +513,7 @@ function BillsContent() {
     const today = toDateString(new Date())
     const todayStr2 = today
     for (const w of biweeklyWindows) {
-      const items = bills.filter((b) => billInWindow(b, w))
+      const items = visibleBills.filter((b) => billInWindow(b, w))
       const sorted = items.sort((a, b) => effectivePayDate(a)?.localeCompare(effectivePayDate(b) || 'z', undefined, { numeric: true }) || 0)
       periodGroups.push({
         window: w,
@@ -519,12 +523,12 @@ function BillsContent() {
       })
     }
   }
-  const undefinedDateBills = bills.filter((b) => !b.is_paid && owed(b) > 0 && !effectivePayDate(b))
+  const undefinedDateBills = visibleBills.filter((b) => !b.is_paid && owed(b) > 0 && !effectivePayDate(b))
 
   // ---------------- view: month calendar ----------------
 
   const billsOn = (date: string): Bill[] =>
-    bills.filter((b) => effectivePayDate(b) === date && (b.is_paid ? !b.is_paid || b.paid_date === date : true))
+    visibleBills.filter((b) => effectivePayDate(b) === date && (b.is_paid ? !b.is_paid || b.paid_date === date : true))
 
   // ---------------- row renderer ----------------
 
@@ -812,6 +816,37 @@ function BillsContent() {
         </div>
       </div>
 
+      <Card>
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <CardTitle className="text-base flex items-center gap-2"><ListFilter className="h-5 w-5 text-indigo-600 dark:text-indigo-300" /> Filter household bills</CardTitle>
+            <Button variant="secondary" size="sm" disabled={!filtersActive} onClick={() => setFilters(EMPTY_BILL_FILTERS)}>Clear filters</Button>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <label className="text-sm font-medium">Payee
+              <input type="search" aria-label="Filter by payee" value={filters.payee} onChange={e => setFilters(f => ({ ...f, payee: e.target.value }))} placeholder="Search payee name" className="mt-1 w-full min-h-11 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100" />
+            </label>
+            <label className="text-sm font-medium">Who&apos;s bill is it?
+              <select aria-label="Filter by bill owner" value={filters.owner} onChange={e => setFilters(f => ({ ...f, owner: e.target.value }))} className="mt-1 w-full min-h-11 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+                <option value="">Everyone</option><option value="me">Mine</option><option value="wife">Spouse&apos;s</option><option value="shared">Shared household</option>
+              </select>
+            </label>
+            {([
+              { title: 'Due', from: 'dueFrom', to: 'dueTo', type: 'date' },
+              { title: 'Planned', from: 'plannedFrom', to: 'plannedTo', type: 'date' },
+              { title: 'Amount', from: 'minAmount', to: 'maxAmount', type: 'number' },
+            ] as const).map(range => <fieldset key={range.title} className="min-w-0"><legend className="text-sm font-medium">{range.title}</legend><div className="mt-1 grid grid-cols-2 gap-2">
+              {([range.from, range.to] as const).map((field, i) => <label key={field} className="min-w-0 text-xs text-gray-600 dark:text-gray-300">{range.type === 'number' ? (i ? 'Maximum ($)' : 'Minimum ($)') : (i ? 'To' : 'From')}
+                <input aria-label={`${range.title} ${range.type === 'number' ? (i ? 'maximum' : 'minimum') : (i ? 'to' : 'from')}`} type={range.type} min={range.type === 'number' ? '0' : undefined} step={range.type === 'number' ? '0.01' : undefined} placeholder={range.type === 'number' ? 'Any' : undefined} value={filters[field]} onChange={e => setFilters(f => ({ ...f, [field]: e.target.value }))} className="mt-1 w-full min-w-0 min-h-11 rounded-lg border border-gray-300 bg-white px-2 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100" />
+              </label>)}
+            </div></fieldset>)}
+          </div>
+          <p role="status" aria-live="polite" className="mt-4 text-sm text-gray-600 dark:text-gray-300">Showing <strong>{visibleBills.length}</strong> of {bills.length} bills. {filtersActive ? 'Views and summary totals reflect these filters.' : 'Filters apply to all three views.'}</p>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Bills with unknown amounts or dates will not match a range filter for that field. Planned filters use the planned payment date.</p>
+        </CardContent>
+      </Card>
+      {filtersActive && visibleBills.length === 0 && <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 text-sm text-indigo-900 dark:border-indigo-800 dark:bg-indigo-950 dark:text-indigo-100">No bills match these filters. Adjust the ranges or choose Clear filters.</div>}
+
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <SummaryChip icon={<Receipt className="w-5 h-5" />} label="Still to pay" value={fmt(totalUnpaid)} chip="chip-bills" />
@@ -992,7 +1027,7 @@ function BillsContent() {
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-2">
               <CardTitle className="text-sm">By Category</CardTitle>
-              <span className="text-xs text-gray-400">{bills.length} bill{bills.length !== 1 ? 's' : ''}</span>
+              <span className="text-xs text-gray-400">{visibleBills.length} bill{visibleBills.length !== 1 ? 's' : ''}</span>
             </div>
             <div>
               {sectionGroups.map((g) => renderSection(g))}
