@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { creditorName, bureau, inaccuracies, filedDate, notes, status, letterType, method } = await request.json()
+    const { creditorName, bureau, inaccuracies, filedDate, notes, status, letterType, method, prepareOnly } = await request.json()
 
     if (!creditorName || !bureau) {
       return NextResponse.json({ error: 'Creditor name and bureau required' }, { status: 400 })
@@ -111,8 +111,8 @@ export async function POST(request: NextRequest) {
     const db = getDb()
     const now = new Date().toISOString().split('T')[0]
     const lt = letterType || 'validation'
-    const effectiveFiledDate = filedDate || now
-    const expectedDate = calculateExpectedResponseDateFrom(lt, effectiveFiledDate)
+    const effectiveFiledDate = prepareOnly === true ? null : (filedDate || now)
+    const expectedDate = effectiveFiledDate ? calculateExpectedResponseDateFrom(lt, effectiveFiledDate) : null
 
     // Determine the filing channel. An explicit `method` from the client wins,
     // otherwise fall back to the routing engine's verdict.
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
 
     // Online disputes are filed the moment they are created; mail disputes are
     // only "filed" once the letter is actually sent.
-    const initialStatus = finalMethod === 'online' ? 'sent' : (status || 'printed')
+    const initialStatus = prepareOnly === true ? 'pending' : finalMethod === 'online' ? 'sent' : (status || 'printed')
 
     const result = await db.run(`
       INSERT INTO disputes (user_id, creditor_name, bureau, inaccuracies, status, letter_type, method, requires_mail, filed_date, expected_response_date, notes, sent_at)
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
       effectiveFiledDate,
       expectedDate,
       notes || '',
-      finalMethod === 'online' ? now : null,
+      finalMethod === 'online' && prepareOnly !== true ? now : null,
     ])
 
     return NextResponse.json({ id: result.lastInsertRowid, method: finalMethod, routing }, { status: 201 })

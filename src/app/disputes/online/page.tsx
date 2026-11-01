@@ -11,6 +11,9 @@ import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
+import { useCredit } from '@/lib/store/creditStore'
+import { onlineDisputeOptions, prefillOnlineDispute } from '@/lib/utils/online-dispute-items'
+import { disputeLink } from '@/lib/utils/disputeLetters'
 import { routeDispute } from '@/lib/utils/disputeRouting'
 import type { Bureau, LetterType, DisputeTracking } from '@/types'
 
@@ -47,6 +50,24 @@ const MAIL_ONLY = new Set(['identity_theft'])
 export default function OnlineDisputePage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
+  const { state: creditState } = useCredit()
+  const accountOptions = useMemo(() => onlineDisputeOptions(creditState.creditData?.disputeItems || []), [creditState.creditData])
+  const [selectedId, setSelectedId] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const selectedAccount = accountOptions.find(option => option.id === selectedId)
+  const selectAccount = (id: string) => {
+    setSelectedId(id)
+    setCreated(null)
+    setError('')
+    const selected = accountOptions.find(option => option.id === id)
+    if (!selected) { setCredorName(''); setInaccuracies([]); return }
+    const fields = prefillOnlineDispute(selected.item)
+    setCredorName(fields.creditorName)
+    setBureau(fields.bureau)
+    setLetterType(fields.letterType)
+    setInaccuracies(fields.inaccuracies)
+  }
 
   const [disputes, setDisputes] = useState<DisputeTracking[]>([])
   const [creditorName, setCredorName] = useState('')
@@ -67,30 +88,41 @@ export default function OnlineDisputePage() {
     fetch('/api/disputes').then(r => r.json()).then(d => setDisputes(d.disputes || [])).catch(() => {})
   }, [user, authLoading])
 
-  const toggle = (v: string) =>
+  const toggle = (v: string) => {
+    setCreated(null)
     setInaccuracies(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])
+  }
 
   const trackAndOpen = async () => {
-    const res = await fetch('/api/disputes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        creditorName: creditorName.trim(),
-        bureau,
-        inaccuracies,
-        letterType,
-        method: verdict.method,
-        notes: verdict.reasons.join(' '),
-      }),
-    })
-    const data = await res.json()
-    if (data.id) {
+    if (!creditorName.trim() || inaccuracies.length === 0 || saving) return
+    setSaving(true)
+    setError('')
+    // Reserve a tab during the user gesture; no report data is sent to the portal.
+    const portal = verdict.requiresMail ? null : window.open('about:blank', '_blank')
+    if (portal) portal.opener = null
+    try {
+      const res = await fetch('/api/disputes', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creditorName: creditorName.trim(), bureau, inaccuracies, letterType,
+          method: verdict.method, prepareOnly: true,
+          notes: ['Prepared only; submission must be completed by the user.', selectedAccount ? `Report item: ${selectedAccount.label}.` : '', verdict.reasons.join(' ')].filter(Boolean).join(' '),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.id) throw new Error(data.error || 'Unable to prepare this dispute. Please try again.')
       setCreated({ id: data.id, method: data.method })
+      if (verdict.requiresMail) {
+        router.push(disputeLink(bureau, creditorName.trim(), 'account'))
+      } else if (portal) {
+        portal.location.href = verdict.portalUrl
+      }
       const refreshed = await fetch('/api/disputes')
-      const j = await refreshed.json()
-      setDisputes(j.disputes || [])
-    }
-    window.open(verdict.portalUrl, '_blank', 'noopener,noreferrer')
+      if (refreshed.ok) { const result = await refreshed.json(); setDisputes(Array.isArray(result.disputes) ? result.disputes : []) }
+    } catch (error) {
+      portal?.close()
+      setError(error instanceof Error ? error.message : 'Unable to prepare this dispute.')
+    } finally { setSaving(false) }
   }
 
   const copySummary = async () => {
@@ -165,14 +197,33 @@ export default function OnlineDisputePage() {
         {/* Builder */}
         <Card className="lg:col-span-2">
           <CardContent className="p-5 space-y-4">
-            <CardTitle className="text-sm">1. Describe the dispute</CardTitle>
+            <CardTitle className="text-base">1. Choose a derogatory account</CardTitle>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Choose an item from your uploaded reports. Review the prefilled details and suggested reasons before continuing.</p>
+            <label htmlFor="derogatory-account" className="block text-sm font-medium">Account to dispute</label>
+            <select disabled={saving} id="derogatory-account" value={selectedId} onChange={e => selectAccount(e.target.value)} className="w-full min-h-11 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100">
+              <option value="">Enter an account manually</option>
+              {accountOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+            </select>
+            {creditState.loading || creditState.isAnalyzing ? <p role="status" className="text-sm text-gray-500">Loading report items…</p> : accountOptions.length === 0 ? <p className="text-sm text-gray-600 dark:text-gray-300">No derogatory items are available in the loaded reports. You can enter details manually or <Link href="/upload" className="text-blue-600 underline dark:text-blue-300">upload a credit report</Link>.</p> : <details className="rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+              <summary className="cursor-pointer text-sm font-medium">Or choose from a radio list ({accountOptions.length} items)</summary>
+              <fieldset className="mt-3 max-h-72 space-y-2 overflow-y-auto"><legend className="sr-only">Derogatory accounts</legend>
+                {accountOptions.map(option => <label key={option.id} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${selectedId === option.id ? 'border-indigo-400 bg-indigo-50 dark:bg-indigo-950' : 'border-gray-200 dark:border-gray-700'}`}>
+                  <input disabled={saving} type="radio" name="derogatory-item" value={option.id} checked={selectedId === option.id} onChange={() => selectAccount(option.id)} className="mt-1 h-4 w-4 shrink-0" />
+                  <span className="min-w-0 text-sm"><strong className="block break-words">{option.item.creditorName}</strong><span className="text-gray-600 dark:text-gray-300">{option.item.bureau} · {option.item.derogatoryType}</span></span>
+                </label>)}
+              </fieldset>
+            </details>}
+            {selectedAccount && <p role="status" className="rounded-lg bg-indigo-50 p-3 text-sm text-indigo-900 dark:bg-indigo-950 dark:text-indigo-100">Selected: {selectedAccount.label}. Reasons below are suggestions to review; choose only the information you believe is inaccurate.</p>}
+            <CardTitle className="pt-3 text-base">2. Review the dispute details</CardTitle>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Creditor / Furnisher</label>
                 <input
+                  disabled={saving}
+                  aria-label="Creditor / Furnisher"
                   value={creditorName}
-                  onChange={e => setCredorName(e.target.value)}
+                  onChange={e => { setCredorName(e.target.value); setSelectedId(''); setCreated(null) }}
                   placeholder="e.g. Capital One"
                   className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white"
                 />
@@ -180,8 +231,10 @@ export default function OnlineDisputePage() {
               <div>
                 <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Bureau</label>
                 <select
+                  disabled={saving}
+                  aria-label="Dispute bureau"
                   value={bureau}
-                  onChange={e => setBureau(e.target.value as Bureau)}
+                  onChange={e => { setBureau(e.target.value as Bureau); setSelectedId(''); setCreated(null) }}
                   className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white"
                 >
                   {BUREAUS.map(b => <option key={b} value={b}>{b}</option>)}
@@ -192,8 +245,9 @@ export default function OnlineDisputePage() {
             <div>
               <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Letter type</label>
               <select
+                disabled={saving}
                 value={letterType}
-                onChange={e => setLetterType(e.target.value as LetterType)}
+                onChange={e => { setLetterType(e.target.value as LetterType); setCreated(null) }}
                 className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white"
               >
                 <option value="dispute">CRA Dispute &amp; Deletion Demand</option>
@@ -209,6 +263,8 @@ export default function OnlineDisputePage() {
                 {INACCURACIES.map(i => (
                   <button
                     key={i}
+                    disabled={saving}
+                    aria-pressed={inaccuracies.includes(i)}
                     type="button"
                     onClick={() => toggle(i)}
                     className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
@@ -259,11 +315,11 @@ export default function OnlineDisputePage() {
             <div className="flex flex-wrap gap-2 pt-1">
               <Button
                 onClick={trackAndOpen}
-                disabled={!creditorName.trim()}
+                disabled={!creditorName.trim() || inaccuracies.length === 0 || saving || !!user.isExample}
                 variant={verdict.requiresMail ? 'secondary' : 'primary'}
               >
                 {verdict.requiresMail ? <Mail className="w-4 h-4 mr-2" /> : <Globe className="w-4 h-4 mr-2" />}
-                {verdict.requiresMail ? 'Track & Generate Letter' : `Open ${bureau} Portal`}
+                {saving ? 'Preparing…' : verdict.requiresMail ? 'Prepare & Generate Letter' : `Continue to ${bureau} Portal`}
               </Button>
               <Button variant="secondary" onClick={copySummary}>
                 {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
@@ -271,12 +327,15 @@ export default function OnlineDisputePage() {
               </Button>
             </div>
 
+            <p className="text-xs text-gray-500 dark:text-gray-400">The selection fills this app&apos;s form. Complete your review and submission on the bureau website, then save its confirmation number in the Dispute Tracker.</p>
+            {error && <p role="alert" className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950 dark:text-red-200">{error}</p>}
             {created && (
               <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                Tracked as dispute #{created.id} via {created.method === 'online' ? 'online portal' : 'physical letter'}. Save the confirmation number the bureau gives you.
+                Prepared as dispute #{created.id}. Complete submission {created.method === 'online' ? 'on the bureau portal' : 'using the letter workflow'}, then record the confirmation in your tracker.
               </p>
             )}
+            {created?.method === 'online' && <a href={verdict.portalUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-blue-700 underline dark:text-blue-300">Open {bureau} portal if the tab did not open <ExternalLink className="h-4 w-4" /></a>}
           </CardContent>
         </Card>
 
