@@ -51,3 +51,4 @@ Fixed credit-card loading.
 Linked credit-card bills and preserved duplicate history.
 
 Added derogatory account selection to Online Dispute Center.
+Fixed dispute summary copying.
