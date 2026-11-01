@@ -37,3 +37,4 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 ## Household budgeting
 
 See the [household budgeting guide](docs/household-budgeting.md) for biweekly planning, shared expenses, and spending comparisons.
+Credit-plan score loading and favicon fixes included.
