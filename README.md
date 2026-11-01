@@ -45,3 +45,5 @@ Improved paycheck readability in light and dark modes.
 Bank sync times now display in Eastern time.
 
 Added household bill filters.
+
+Fixed credit-card loading.
