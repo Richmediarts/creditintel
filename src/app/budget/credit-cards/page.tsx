@@ -238,6 +238,8 @@ export default function CreditCardsPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const [cards, setCards] = useState<CreditCardType[]>([])
+  const [cardsLoaded, setCardsLoaded] = useState(false)
+  const [cardsLoadError, setCardsLoadError] = useState('')
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<CreditCardType | 'new' | null>(null)
   const [form, setForm] = useState({ ...EMPTY_FORM })
@@ -256,12 +258,19 @@ export default function CreditCardsPage() {
   const [plaidItemIds, setPlaidItemIds] = useState<Map<number, boolean>>(new Map())
 
   const fetchCards = useCallback(async () => {
-    const res = await fetch('/api/budget/credit-cards', { cache: 'no-store' })
-    if (res.ok) {
+    try {
+      const res = await fetch('/api/budget/credit-cards', { cache: 'no-store' })
+      if (!res.ok) throw new Error('Unable to load your credit cards. Please try again.')
       const data = await res.json()
+      if (!Array.isArray(data.cards)) throw new Error('The card list could not be read. Please try again.')
       setCards(data.cards)
+      setCardsLoaded(true)
+      setCardsLoadError('')
+    } catch (error) {
+      setCardsLoadError(error instanceof Error ? error.message : 'Unable to load your credit cards. Please try again.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [])
 
   const fetchPlaidItems = useCallback(async () => {
@@ -474,6 +483,17 @@ export default function CreditCardsPage() {
   const totalAvailable = totalLimit - totalDebt
   const avgUtil = totalLimit > 0 ? (totalDebt / totalLimit) * 100 : 0
 
+  if (!loading && !cardsLoaded && cardsLoadError) {
+    return <div className="space-y-4">
+      <h1 className="text-xl font-bold">Credit Cards</h1>
+      <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+        <p className="font-semibold">Your card list could not be loaded.</p>
+        <p className="mt-1 text-sm">{cardsLoadError} A loading error does not mean your cards were deleted.</p>
+        <div className="mt-3"><Button onClick={() => { setLoading(true); void fetchCards() }}>Retry loading cards</Button></div>
+      </div>
+    </div>
+  }
+
   if (loading) {
     return (
       <div className="flex justify-center py-16">
@@ -522,6 +542,10 @@ export default function CreditCardsPage() {
           {txMessage}
         </div>
       )}
+      {cardsLoadError && <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+        <p>{cardsLoadError} Showing the last loaded card information; it may be out of date.</p>
+        <div className="mt-2"><Button size="sm" variant="secondary" onClick={() => void fetchCards()}>Retry loading cards</Button></div>
+      </div>}
       {error && (
         <div className="rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-300">
           {error}
