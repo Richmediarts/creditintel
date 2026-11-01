@@ -47,3 +47,5 @@ Bank sync times now display in Eastern time.
 Added household bill filters.
 
 Fixed credit-card loading.
+
+Linked credit-card bills and preserved duplicate history.
