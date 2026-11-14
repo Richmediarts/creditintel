@@ -10,10 +10,10 @@ import {
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
-import { estimateLiability } from '@/lib/utils/liability'
+import { sumLiens, type MortgageLien, estimateLiability } from '@/lib/utils/liability'
 
 interface BankAccount {
-  id: number; name: string; account_type: string; current_balance: number; interest_rate: number | null; monthly_payment?: number | null
+  id: number; name: string; account_type: string; current_balance: number; interest_rate: number | null; monthly_payment?: number | null; liens?: MortgageLien[]; loan_kind?: string; principal_interest_payment?: number | null
 }
 interface CreditCardAcc {
   id: number; name: string; current_balance: number; credit_limit: number; interest_rate: number
@@ -92,7 +92,7 @@ export default function GoalsPage() {
   const loanAccounts = accounts.filter(a => a.account_type === 'loan')
   const totalAssets = assetAccounts.reduce((s, a) => s + (a.current_balance || 0), 0)
   const totalCredit = cards.reduce((s, c) => s + (c.current_balance || 0), 0)
-  const totalLoans = loanAccounts.reduce((s, a) => s + (a.current_balance || 0), 0)
+  const totalLoans = loanAccounts.reduce((s, a) => s + (a.current_balance || 0) + sumLiens(a.liens), 0)
   const totalDebt = totalLoans + totalCredit
   const netWorth = totalAssets - totalDebt
   const monthlyIncome = stats ? stats.last_paycheck_net * 26 / 12 : 0
@@ -102,7 +102,9 @@ export default function GoalsPage() {
 
   // Build debts
   const allDebts: DebtItem[] = [
-    ...loanAccounts.map(a => ({ id: 'loan_' + a.id, name: a.name, type: 'Loan', balance: a.current_balance || 0, rate: a.interest_rate ?? 0, unknownRate: a.interest_rate == null, minPmt: debtPayments['loan_' + a.id] ?? a.monthly_payment ?? 0 })),
+    ...loanAccounts.flatMap(a => [{ id: 'loan_' + a.id, name: a.name, type: 'Loan', balance: a.current_balance || 0, rate: a.interest_rate ?? 0, unknownRate: a.interest_rate == null, minPmt: debtPayments['loan_' + a.id] ?? (a.loan_kind === 'mortgage' ? a.principal_interest_payment : a.monthly_payment) ?? 0 },
+      ...(a.liens ?? []).map((lien, index) => ({ id: 'lien_' + a.id + '_' + index, name: a.name + ' — ' + lien.name, type: 'Property lien', balance: lien.amount, rate: 0, unknownRate: true, minPmt: debtPayments['lien_' + a.id + '_' + index] ?? 0 })),
+    ]),
     ...cards.map(c => ({ id: 'card_' + c.id, name: c.name, type: 'Credit Card', balance: c.current_balance || 0, rate: c.interest_rate || 0, minPmt: debtPayments['card_' + c.id] || 0 })),
   ].filter(d => d.balance > 0)
 

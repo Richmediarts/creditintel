@@ -153,6 +153,8 @@ export async function initPostgresSchema() {
   await sql`ALTER TABLE budget_bank_accounts ADD COLUMN IF NOT EXISTS include_in_available INTEGER NOT NULL DEFAULT 1`;
   await sql`ALTER TABLE budget_bank_accounts ADD COLUMN IF NOT EXISTS loan_kind TEXT NOT NULL DEFAULT 'other'`;
   await sql`ALTER TABLE budget_bank_accounts ADD COLUMN IF NOT EXISTS monthly_payment REAL`;
+  await sql`ALTER TABLE budget_bank_accounts ADD COLUMN IF NOT EXISTS liens JSONB NOT NULL DEFAULT '[]'::jsonb`;
+  await sql`ALTER TABLE budget_bank_accounts ADD COLUMN IF NOT EXISTS principal_interest_payment REAL`;
   await sql`
     CREATE TABLE IF NOT EXISTS budget_credit_cards (
       id SERIAL PRIMARY KEY,

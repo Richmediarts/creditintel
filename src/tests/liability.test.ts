@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { estimateLiability, validateLiabilityTerms } from '@/lib/utils/liability'
+import { estimateLiability, validateLiabilityTerms, sumLiens } from '@/lib/utils/liability'
 
 describe('liability interest estimates', () => {
   it('keeps an unknown APR distinct from zero interest', () => {
@@ -45,5 +45,43 @@ describe('liability input validation', () => {
     { account_type: 'loan', current_balance: -1 }, { account_type: 'loan' },
   ])('rejects invalid loan terms %j', input => {
     expect(validateLiabilityTerms(input)).toBeTruthy()
+  })
+})
+
+describe('mortgage and linked lien accounting', () => {
+  const liens = [
+    { name: 'HUD FHA partial claim', amount: 20441.75 },
+    { name: 'Midland judgment (Ella)', amount: 7106.10 },
+  ]
+  it('totals the attached liens once, separately from the mortgage balance', () => {
+    expect(sumLiens(liens)).toBe(27547.85)
+    expect(221897.84 + sumLiens(liens)).toBe(249445.69)
+    expect(sumLiens()).toBe(0)
+  })
+  it('accepts mortgage terms with a separate principal-and-interest payment', () => {
+    expect(validateLiabilityTerms({ account_type: 'loan', loan_kind: 'mortgage', current_balance: 221897.84,
+      interest_rate: 3.125, monthly_payment: 1776.46, principal_interest_payment: 1093.60, liens })).toBeNull()
+  })
+  it('rejects duplicated liens instead of double-counting', () => {
+    expect(validateLiabilityTerms({ account_type: 'loan', loan_kind: 'mortgage', current_balance: 100,
+      liens: [{ name: 'HUD', amount: 10 }, { name: ' hud ', amount: 10 }] })).toBeTruthy()
+  })
+  it.each([
+    { name: '', amount: 10 }, { name: 'HUD', amount: null }, { name: 'HUD', amount: -10 },
+  ])('does not treat missing lien amounts as zero', lien => {
+    expect(validateLiabilityTerms({ account_type: 'loan', loan_kind: 'mortgage', current_balance: 100, liens: [lien] })).toBeTruthy()
+  })
+  it('prevents liens from being attached to cash or other loan accounts', () => {
+    expect(validateLiabilityTerms({ account_type: 'checking', loan_kind: 'mortgage', liens })).toBeTruthy()
+    expect(validateLiabilityTerms({ account_type: 'loan', loan_kind: 'auto', current_balance: 100, liens })).toBeTruthy()
+  })
+  it('rejects principal and interest greater than the full payment', () => {
+    expect(validateLiabilityTerms({ monthly_payment: 100, principal_interest_payment: 101 })).toBeTruthy()
+  })
+  it('does not use unknown or escrow-inclusive payments to claim a mortgage payoff', () => {
+    expect(estimateLiability(221897.84, 3.125, null).payoffMonths).toBeNull()
+    const pi = estimateLiability(221897.84, 3.125, 1093.60)
+    const total = estimateLiability(221897.84, 3.125, 1776.46)
+    expect(pi.payoffMonths).toBeGreaterThan(total.payoffMonths!)
   })
 })

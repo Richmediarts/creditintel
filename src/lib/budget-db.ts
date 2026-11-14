@@ -183,7 +183,9 @@ export interface BudgetBankAccount {
   is_active: number
   is_income_account: number
   interest_rate: number | null
-  loan_kind?: 'auto' | 'settlement' | 'other'
+  loan_kind?: 'auto' | 'settlement' | 'mortgage' | 'other'
+  liens?: { name: string; amount: number }[]
+  principal_interest_payment?: number | null
   monthly_payment?: number | null
   plaid_account_id?: string
   plaid_item_id?: number
@@ -399,7 +401,7 @@ export async function getBudgetStats(userId: number): Promise<BudgetStats> {
   const db = getDb()
 
   const totalBank = (await db.prepare('SELECT COALESCE(SUM(current_balance), 0) as t FROM budget_bank_accounts WHERE user_id = ? AND is_active = 1 AND account_type != ?').get(userId, 'loan') as { t: number }).t
-  const totalLoans = (await db.prepare("SELECT COALESCE(SUM(current_balance), 0) as t FROM budget_bank_accounts WHERE user_id = ? AND is_active = 1 AND account_type = 'loan'").get(userId) as { t: number }).t
+  const totalLoans = (await db.prepare("SELECT COALESCE(SUM(COALESCE(current_balance, 0) + COALESCE((SELECT SUM((lien->>'amount')::numeric) FROM jsonb_array_elements(liens) lien), 0)), 0) as t FROM budget_bank_accounts WHERE user_id = ? AND is_active = 1 AND account_type = 'loan'").get(userId) as { t: number }).t
   const totalCredit = (await db.prepare('SELECT COALESCE(SUM(current_balance), 0) as t FROM budget_credit_cards WHERE user_id = ? AND is_active = 1').get(userId) as { t: number }).t
 
   const totalIncomeAccounts = (await db.prepare('SELECT COALESCE(SUM(current_balance), 0) as t FROM budget_bank_accounts WHERE user_id = ? AND is_active = 1 AND is_income_account = 1').get(userId) as { t: number }).t
@@ -606,7 +608,7 @@ export async function mergeBankAccountPlaid(userId: number, accountId: number, d
 export async function addBankAccount(userId: number, data: Partial<BudgetBankAccount>): Promise<number> {
   const db = getDb()
   const result = await db.prepare(
-    'INSERT INTO budget_bank_accounts (user_id, name, account_type, institution, account_number_last4, current_balance, website, is_active, is_income_account, interest_rate, plaid_account_id, plaid_item_id, loan_kind, monthly_payment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id'
+    'INSERT INTO budget_bank_accounts (user_id, name, account_type, institution, account_number_last4, current_balance, website, is_active, is_income_account, interest_rate, plaid_account_id, plaid_item_id, loan_kind, monthly_payment, liens, principal_interest_payment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id'
   ).run(
     userId,
     data.name || '',
@@ -621,7 +623,9 @@ export async function addBankAccount(userId: number, data: Partial<BudgetBankAcc
     data.plaid_account_id || null,
     data.plaid_item_id || null,
     data.loan_kind || 'other',
-    data.monthly_payment ?? null
+    data.monthly_payment ?? null,
+    JSON.stringify(data.liens ?? []),
+    data.principal_interest_payment ?? null
   )
   return Number(result.lastInsertRowid)
 }
@@ -630,12 +634,12 @@ export async function updateBankAccount(userId: number, id: number, data: Partia
   // Update only supplied fields so Plaid refreshes preserve manually entered liability terms.
   const columns = ['name', 'account_type', 'institution', 'account_number_last4', 'current_balance',
     'website', 'is_active', 'is_income_account', 'interest_rate', 'plaid_account_id', 'plaid_item_id',
-    'loan_kind', 'monthly_payment'] as const
+    'loan_kind', 'monthly_payment', 'liens', 'principal_interest_payment'] as const
   const selected = columns.filter(column => data[column] !== undefined)
   if (!selected.length) return
   await getDb().prepare(
     `UPDATE budget_bank_accounts SET ${selected.map(column => column + ' = ?').join(', ')} WHERE user_id = ? AND id = ?`
-  ).run(...selected.map(column => data[column]), userId, id)
+  ).run(...selected.map(column => column === 'liens' ? JSON.stringify(data.liens) : data[column]), userId, id)
 }
 
 export async function deleteBankAccount(userId: number, id: number): Promise<void> {

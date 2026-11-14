@@ -12,7 +12,7 @@ beforeEach(() => {
     institution TEXT, account_number_last4 TEXT, current_balance REAL,
     website TEXT, is_active INTEGER, is_income_account INTEGER, interest_rate REAL,
     plaid_account_id TEXT, plaid_item_id INTEGER, loan_kind TEXT DEFAULT 'other',
-    monthly_payment REAL, include_in_available INTEGER DEFAULT 1
+    monthly_payment REAL, include_in_available INTEGER DEFAULT 1, liens TEXT DEFAULT '[]', principal_interest_payment REAL
   )`)
   state.db = { prepare: (query: string) => ({
     all: async (...args: unknown[]) => sqlite.prepare(query).all(...args),
@@ -43,5 +43,19 @@ describe('liability persistence and asset separation', () => {
     await updateBankAccount(1, id, { interest_rate: null, monthly_payment: null })
     expect(sqlite.prepare('SELECT current_balance,interest_rate,monthly_payment FROM budget_bank_accounts WHERE id=?').get(id))
       .toEqual({ current_balance: 1000, interest_rate: null, monthly_payment: null })
+  })
+})
+
+describe('mortgage lien storage', () => {
+  it('persists mortgage, liens and escrow-excluded payoff payment without creating duplicate cash accounts', async () => {
+    const liens = [{ name: 'HUD FHA partial claim', amount: 20441.75 }, { name: 'Midland judgment (Ella)', amount: 7106.10 }]
+    const id = await addBankAccount(1, { name: 'PennyMac', account_type: 'loan', loan_kind: 'mortgage',
+      current_balance: 221897.84, interest_rate: 3.125, monthly_payment: 1776.46, principal_interest_payment: 1093.60, liens })
+    await updateBankAccount(1, id, { current_balance: 221000 })
+    const stored = sqlite.prepare('SELECT liens,principal_interest_payment,current_balance FROM budget_bank_accounts WHERE id=?').get(id) as { liens: string; principal_interest_payment: number; current_balance: number }
+    expect(JSON.parse(stored.liens)).toEqual(liens)
+    expect(stored.principal_interest_payment).toBe(1093.60)
+    expect(stored.current_balance).toBe(221000)
+    expect(await getAvailableAccounts(1)).toEqual([])
   })
 })

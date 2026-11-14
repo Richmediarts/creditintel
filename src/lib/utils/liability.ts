@@ -1,6 +1,11 @@
-export type LiabilityKind = 'auto' | 'settlement' | 'other'
+export type LiabilityKind = 'auto' | 'settlement' | 'mortgage' | 'other'
 export const LIABILITY_LABELS: Record<LiabilityKind, string> = {
-  auto: 'Auto Loan', settlement: 'Law Settlement', other: 'Other Loan',
+  auto: 'Auto Loan', settlement: 'Law Settlement', mortgage: 'Mortgage', other: 'Other Loan',
+}
+
+export interface MortgageLien { name: string; amount: number }
+export function sumLiens(liens: MortgageLien[] = []): number {
+  return liens.reduce((total, lien) => total + Math.round(lien.amount * 100), 0) / 100
 }
 
 /** Fixed-rate monthly estimate; recorded balances are never automatically increased. */
@@ -40,11 +45,24 @@ export function estimateLiability(balance: number, apr: number | null | undefine
 }
 
 export function validateLiabilityTerms(data: Record<string, unknown>): string | null {
-  if (data.loan_kind !== undefined && !['auto', 'settlement', 'other'].includes(String(data.loan_kind))) return 'Choose Auto Loan, Law Settlement, or Other Loan.'
-  for (const [field, label] of [['interest_rate', 'Annual interest rate'], ['monthly_payment', 'Monthly payment']] as const) {
+  if (data.loan_kind !== undefined && !['auto', 'settlement', 'mortgage', 'other'].includes(String(data.loan_kind))) return 'Choose Auto Loan, Law Settlement, Mortgage, or Other Loan.'
+  for (const [field, label] of [['interest_rate', 'Annual interest rate'], ['monthly_payment', 'Monthly payment'], ['principal_interest_payment', 'Principal-and-interest payment']] as const) {
     const value = data[field]
     if (value !== undefined && value !== null && (typeof value !== 'number' || !Number.isFinite(value) || value < 0)) return label + ' must be zero or a positive number, or left unknown.'
   }
   if (data.account_type === 'loan' && (typeof data.current_balance !== 'number' || !Number.isFinite(data.current_balance) || data.current_balance < 0)) return 'Enter the current amount owed as zero or a positive number.'
+  if (data.liens !== undefined) {
+    if (!Array.isArray(data.liens) || data.liens.length > 30) return 'Enter a valid list of up to 30 liens.'
+    if (data.liens.length && (data.loan_kind !== 'mortgage' || data.account_type !== 'loan')) return 'Liens must be attached to a mortgage liability.'
+    const names = new Set<string>()
+    for (const lien of data.liens) {
+      if (!lien || typeof lien !== 'object' || typeof lien.name !== 'string' || !lien.name.trim() || lien.name.trim().length > 200 ||
+        typeof lien.amount !== 'number' || !Number.isFinite(lien.amount) || lien.amount < 0) return 'Each lien needs a name and a known, non-negative balance.'
+      const name = lien.name.trim().toLowerCase()
+      if (names.has(name)) return 'Enter each lien once.'
+      names.add(name)
+    }
+  }
+  if (typeof data.principal_interest_payment === 'number' && typeof data.monthly_payment === 'number' && data.principal_interest_payment > data.monthly_payment) return 'Principal and interest cannot exceed the total monthly payment.'
   return null
 }

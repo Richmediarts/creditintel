@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
 import { PlaidLinkButton } from '@/components/PlaidLinkButton'
 import { LiabilityDetails, LiabilityFields, type LiabilityFormValue } from '@/components/budget/LiabilityDetails'
-import { LIABILITY_LABELS, type LiabilityKind } from '@/lib/utils/liability'
+import { LIABILITY_LABELS, sumLiens, type MortgageLien, type LiabilityKind } from '@/lib/utils/liability'
 
 interface BankAccount {
   id: number
@@ -30,6 +30,8 @@ interface BankAccount {
   interest_rate: number | null
   loan_kind?: LiabilityKind
   monthly_payment?: number | null
+  liens?: MortgageLien[]
+  principal_interest_payment?: number | null
   last_synced_at?: string | null
 }
 
@@ -47,6 +49,8 @@ const EMPTY_FORM = {
   loan_kind: 'other' as LiabilityKind,
   interest_rate: '',
   monthly_payment: '',
+  liens: [] as { name: string; amount: number | null }[],
+  principal_interest_payment: '',
 }
 
 interface RecentTx {
@@ -174,7 +178,7 @@ export default function BankAccountsPage() {
   }, [user, runTransactionSync])
 
   const totalBalance = accounts.filter(a => a.account_type !== 'loan').reduce((sum, a) => sum + (a.current_balance || 0), 0)
-  const totalLoans = accounts.filter(a => a.account_type === 'loan').reduce((sum, a) => sum + (a.current_balance || 0), 0)
+  const totalLoans = accounts.filter(a => a.account_type === 'loan').reduce((sum, a) => sum + (a.current_balance || 0) + sumLiens(a.liens), 0)
   const bankAccounts = accounts.filter(a => a.account_type !== 'loan')
   const loanAccounts = accounts.filter(a => a.account_type === 'loan')
 
@@ -199,6 +203,8 @@ export default function BankAccountsPage() {
           is_active: 1,
           interest_rate: isLiability ? (form.interest_rate.trim() === '' ? null : Number(form.interest_rate)) : 0,
           loan_kind: form.loan_kind,
+          liens: form.liens,
+          principal_interest_payment: form.principal_interest_payment.trim() === '' ? null : Number(form.principal_interest_payment),
           monthly_payment: isLiability && form.monthly_payment.trim() !== '' ? Number(form.monthly_payment) : null,
         }),
       })
@@ -216,7 +222,7 @@ export default function BankAccountsPage() {
     setEditingId(account.id)
     editingOriginalRef.current = account
     setEditName(account.name)
-    setEditLiability({ loan_kind: account.loan_kind || 'other', interest_rate: account.interest_rate == null ? '' : String(account.interest_rate), monthly_payment: account.monthly_payment == null ? '' : String(account.monthly_payment) })
+    setEditLiability({ loan_kind: account.loan_kind || 'other', interest_rate: account.interest_rate == null ? '' : String(account.interest_rate), monthly_payment: account.monthly_payment == null ? '' : String(account.monthly_payment), liens: account.liens ?? [], principal_interest_payment: account.principal_interest_payment == null ? '' : String(account.principal_interest_payment) })
     setEditError('')
     setEditBalance(account.current_balance.toString())
     setEditInstitution(account.institution || '')
@@ -236,7 +242,7 @@ export default function BankAccountsPage() {
       return
     }
     if (editingOriginalRef.current?.account_type === 'loan') {
-      const invalidTerm = [editLiability.interest_rate, editLiability.monthly_payment]
+      const invalidTerm = [editLiability.interest_rate, editLiability.monthly_payment, editLiability.principal_interest_payment ?? '']
         .some(value => value.trim() !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0))
       if (invalidTerm || balance < 0) {
         setEditError('Use zero or positive amounts and rates for liabilities. Leave unknown terms blank.')
@@ -256,6 +262,8 @@ export default function BankAccountsPage() {
           ...(balanceChanged ? { current_balance: balance } : {}),
           ...(editingOriginalRef.current?.account_type === 'loan' ? {
             loan_kind: editLiability.loan_kind,
+            liens: editLiability.liens ?? [],
+            principal_interest_payment: !editLiability.principal_interest_payment?.trim() ? null : Number(editLiability.principal_interest_payment),
             interest_rate: editLiability.interest_rate.trim() === '' ? null : Number(editLiability.interest_rate),
             monthly_payment: editLiability.monthly_payment.trim() === '' ? null : Number(editLiability.monthly_payment),
           } : {}),
@@ -319,7 +327,7 @@ export default function BankAccountsPage() {
           return groups
         }, {})
       ).map(([groupName, groupAccounts]) => {
-        const groupTotal = groupAccounts.reduce((s, a) => s + (Number(a.current_balance) || 0), 0)
+        const groupTotal = groupAccounts.reduce((s, a) => s + (Number(a.current_balance) || 0) + (a.account_type === 'loan' ? sumLiens(a.liens) : 0), 0)
         const groupWebsite = groupAccounts.find((a) => a.website)?.website || ''
         return (
           <div key={groupName}>
@@ -443,7 +451,7 @@ export default function BankAccountsPage() {
             </div>
 
             {account.account_type === 'loan' && editingId !== account.id && (
-              <LiabilityDetails balance={account.current_balance} apr={account.interest_rate} payment={account.monthly_payment ?? null} />
+              <LiabilityDetails balance={account.current_balance} apr={account.interest_rate} payment={account.monthly_payment ?? null} kind={account.loan_kind} liens={account.liens} principalInterest={account.principal_interest_payment} />
             )}
             {/* Inline edit fields */}
             {editingId === account.id && (
@@ -665,8 +673,8 @@ export default function BankAccountsPage() {
                 />
               </div>
               {form.account_type === 'loan' && <LiabilityFields
-                value={{ loan_kind: form.loan_kind, interest_rate: form.interest_rate, monthly_payment: form.monthly_payment }}
-                onChange={terms => setForm({ ...form, ...terms, name: !form.name && terms.loan_kind === 'settlement' ? 'WoodStock - Law Settlement' : form.name })}
+                value={{ loan_kind: form.loan_kind, interest_rate: form.interest_rate, monthly_payment: form.monthly_payment, liens: form.liens, principal_interest_payment: form.principal_interest_payment }}
+                onChange={terms => setForm({ ...form, ...terms, liens: terms.liens ?? [], principal_interest_payment: terms.principal_interest_payment ?? '', name: !form.name && terms.loan_kind === 'settlement' ? 'WoodStock - Law Settlement' : form.name })}
                 disabled={saving} />}
               <div className="flex items-center gap-2 pt-5">
                 <input
