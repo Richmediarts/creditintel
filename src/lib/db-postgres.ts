@@ -150,6 +150,7 @@ export async function initPostgresSchema() {
       last_synced_at TIMESTAMP
     );
   `
+  await sql`ALTER TABLE budget_bank_accounts ADD COLUMN IF NOT EXISTS include_in_available INTEGER NOT NULL DEFAULT 1`;
   await sql`
     CREATE TABLE IF NOT EXISTS budget_credit_cards (
       id SERIAL PRIMARY KEY,

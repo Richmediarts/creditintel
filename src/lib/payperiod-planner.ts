@@ -118,7 +118,7 @@ export async function getPayPeriodDashboard(
   // Bank balance: active accounts excluding loans.
   const bankRow = (await db.prepare(
     `SELECT COALESCE(SUM(current_balance), 0) as t FROM budget_bank_accounts
-     WHERE user_id = ? AND is_active = 1 AND account_type != 'loan'`
+     WHERE user_id = ? AND is_active = 1 AND account_type != 'loan' AND include_in_available = 1`
   ).get(userId)) as { t: number }
   const bankBalance = round2(Number(bankRow.t) || 0)
 

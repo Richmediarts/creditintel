@@ -12,6 +12,7 @@ import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { StatusPill, OwnerPill } from '@/components/ui/status'
 import { useAuth } from '@/lib/auth-context'
+import { AvailableAccounts } from '@/components/budget/AvailableAccounts'
 
 // ---------------------------------------------------------------------------
 // Types mirroring the /api/budget/dashboard payload
@@ -131,6 +132,7 @@ export default function BudgetDashboardPage() {
   const [showScheduleForm, setShowScheduleForm] = useState(false)
   const [showReserveForm, setShowReserveForm] = useState(false)
   const [notice, setNotice] = useState('')
+  const [showAvailableAccounts, setShowAvailableAccounts] = useState(false)
 
   const [scheduleForm, setScheduleForm] = useState({
     name: '', spouse: 'me', pay_start_date: '', net_amount: '', frequency: 'biweekly',
@@ -162,6 +164,19 @@ export default function BudgetDashboardPage() {
     if (!authLoading && !user) { router.push('/login'); return }
     if (user) fetchAll()
   }, [user, authLoading, fetchAll])
+
+  const refreshAvailableAccounts = async () => {
+    const params = new URLSearchParams()
+    if (dashboard) {
+      params.set('payday', dashboard.anchoredPayday)
+      params.set('periods', String(dashboard.periods.length))
+    }
+    const response = await fetch(`/api/budget/dashboard?${params}`)
+    if (!response.ok) throw new Error('Unable to refresh the plan.')
+    const data = await response.json()
+    setDashboard(data.dashboard)
+    setNotice('Available accounts saved — your pay-period plan has been recalculated.')
+  }
 
   const regenerate = async () => {
     const params = new URLSearchParams()
@@ -267,6 +282,8 @@ export default function BudgetDashboardPage() {
 
   return (
     <div className="wealth-budget space-y-6">
+      {showAvailableAccounts && <AvailableAccounts onClose={() => setShowAvailableAccounts(false)}
+        onSaved={refreshAvailableAccounts} projected={current.period.index > dashboard.currentPeriodIndex} />}
       {/* ============================ HERO ============================ */}
       <div className="money-hero rounded-2xl p-6 sm:p-8 shadow-lg">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -284,13 +301,13 @@ export default function BudgetDashboardPage() {
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <div className="rounded-xl bg-white/10 px-5 py-4 text-right">
+            <button type="button" aria-label="Choose accounts for money available right now" aria-haspopup="dialog" onClick={() => setShowAvailableAccounts(true)} className="rounded-xl bg-white/10 px-5 py-4 text-right hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white">
               <p className="stat-label text-xs font-medium uppercase tracking-wider">Money available right now</p>
               <p className={`stat-value text-3xl sm:text-4xl font-bold ${current.availableNow < 0 ? 'text-rose-300' : ''}`}>
                 {fmt(current.availableNow)}
               </p>
-              <p className="text-xs text-blue-200 mt-1">carried cash — before this period&apos;s bills</p>
-            </div>
+              <p className="text-xs text-blue-200 mt-1">Choose accounts · before this period&apos;s bills</p>
+            </button>
           </div>
         </div>
       </div>
@@ -412,8 +429,8 @@ export default function BudgetDashboardPage() {
           title="Money available right now" chip="chip-spending" icon={Wallet}
           value={fmt(current.availableNow)}
           negative={current.availableNow < 0}
-          sub="Cash in accounts this period start"
-          href="/budget/bank-accounts"
+          sub="Selected accounts · click to choose"
+          onClick={() => setShowAvailableAccounts(true)}
         />
         <StatCard
           title="Income this window" chip="chip-income" icon={Banknote}
@@ -805,7 +822,7 @@ function Alert({
 }
 
 function StatCard({
-  title, value, sub, icon: Icon, chip, href, negative,
+  title, value, sub, icon: Icon, chip, href, negative, onClick,
 }: {
   title: string
   value: string
@@ -813,6 +830,7 @@ function StatCard({
   icon: React.ElementType
   chip: string
   href?: string
+  onClick?: () => void
   negative?: boolean
 }) {
   const body = (
@@ -829,6 +847,7 @@ function StatCard({
       </CardContent>
     </Card>
   )
+  if (onClick) return <button type="button" onClick={onClick} aria-haspopup="dialog" className="block h-full w-full text-left rounded-2xl focus-visible:outline-2 focus-visible:outline-blue-500">{body}</button>
   if (href) return <Link href={href} className="block h-full">{body}</Link>
   return body
 }
