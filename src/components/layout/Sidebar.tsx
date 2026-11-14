@@ -7,7 +7,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Upload, FileText, BarChart3, GitCompare,
   AlertTriangle, Search, Brain, Mail, TrendingUp, Download,
-  Sun, Moon, Menu, X, ChevronLeft, ChevronRight,
+  Sun, Moon, Menu, X, ChevronLeft, ChevronRight, ChevronDown,
   Gavel, Shield, LogIn, LogOut, User, Activity, HelpCircle,
   Banknote, Receipt, Landmark, CreditCard, Users, Tag,
   PieChart, Target, FileUp, Plug, FolderArchive, ListChecks, Home, Globe,
@@ -68,6 +68,51 @@ const budgetItems = [
   { href: '/budget/plaid-settings', label: 'Acct Link Settings', icon: Plug },
 ]
 
+function SidebarSection({
+  label, icon: Icon, defaultOpen, collapsed, setCollapsed, children,
+}: {
+  label: string
+  icon: typeof LayoutDashboard
+  defaultOpen: boolean
+  collapsed: boolean
+  setCollapsed: (value: boolean) => void
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = React.useState(defaultOpen)
+  const contentId = React.useId()
+
+  return (
+    <section>
+      <button
+        type="button"
+        aria-label={label}
+        aria-expanded={!collapsed && open}
+        aria-controls={contentId}
+        title={collapsed ? label : undefined}
+        onClick={() => {
+          if (collapsed) {
+            setCollapsed(false)
+            setOpen(true)
+          } else {
+            setOpen(value => !value)
+          }
+        }}
+        className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm font-semibold text-gray-800 hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-blue-500 dark:text-gray-200 dark:hover:bg-gray-800"
+      >
+        <Icon className="h-5 w-5 shrink-0" />
+        {!collapsed && (
+          <>
+            <span className="flex-1">{label}</span>
+            <ChevronDown aria-hidden="true" className={`h-4 w-4 shrink-0 transition-transform ${open ? '' : '-rotate-90'}`} />
+          </>
+        )}
+      </button>
+      <div id={contentId} hidden={collapsed || !open} className="ml-3 space-y-1 border-l border-gray-200 pl-1 dark:border-gray-800">
+        {children}
+      </div>
+    </section>
+  )
+}
 export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mobileOpen, setMobileOpen }: SidebarProps) {
   const pathname = usePathname()
   const { state } = useCredit()
@@ -113,6 +158,14 @@ export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mob
         </div>
 
         <nav className="flex-1 overflow-y-auto p-2 space-y-1">
+          <SidebarSection
+            key={`credit-${pathname}`}
+            label="Credit Dashboard"
+            icon={LayoutDashboard}
+            defaultOpen={navItems.some(item => pathname === item.href || pathname.startsWith(item.href + '/'))}
+            collapsed={collapsed}
+            setCollapsed={setCollapsed}
+          >
           {navItems.map(item => {
             const isActive = pathname === item.href
             const Icon = item.icon
@@ -137,10 +190,16 @@ export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mob
             )
           })}
 
-          {/* Budget section */}
-          <div className="pt-3 pb-1 px-3">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Budget</p>
-          </div>
+          </SidebarSection>
+
+          <SidebarSection
+            key={`budget-${pathname}`}
+            label="Budget Dashboard"
+            icon={Banknote}
+            defaultOpen={pathname === '/budget' || pathname.startsWith('/budget/')}
+            collapsed={collapsed}
+            setCollapsed={setCollapsed}
+          >
           {budgetItems.map(item => {
             const isActive = pathname === item.href || (item.href !== '/budget' && pathname.startsWith(item.href + '/'))
             const Icon = item.icon
@@ -161,6 +220,8 @@ export function Sidebar({ darkMode, toggleDarkMode, collapsed, setCollapsed, mob
               </Link>
             )
           })}
+
+          </SidebarSection>
 
           {/* Admin link - only for admins */}
           {user?.role === 'admin' && !collapsed && (
