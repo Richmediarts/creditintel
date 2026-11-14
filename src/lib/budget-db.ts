@@ -182,7 +182,9 @@ export interface BudgetBankAccount {
   website?: string
   is_active: number
   is_income_account: number
-  interest_rate: number
+  interest_rate: number | null
+  loan_kind?: 'auto' | 'settlement' | 'other'
+  monthly_payment?: number | null
   plaid_account_id?: string
   plaid_item_id?: number
   last_synced_at?: string | null
@@ -604,7 +606,7 @@ export async function mergeBankAccountPlaid(userId: number, accountId: number, d
 export async function addBankAccount(userId: number, data: Partial<BudgetBankAccount>): Promise<number> {
   const db = getDb()
   const result = await db.prepare(
-    'INSERT INTO budget_bank_accounts (user_id, name, account_type, institution, account_number_last4, current_balance, website, is_active, is_income_account, interest_rate, plaid_account_id, plaid_item_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id'
+    'INSERT INTO budget_bank_accounts (user_id, name, account_type, institution, account_number_last4, current_balance, website, is_active, is_income_account, interest_rate, plaid_account_id, plaid_item_id, loan_kind, monthly_payment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id'
   ).run(
     userId,
     data.name || '',
@@ -615,32 +617,25 @@ export async function addBankAccount(userId: number, data: Partial<BudgetBankAcc
     data.website || '',
     data.is_active !== undefined ? data.is_active : 1,
     data.is_income_account || 0,
-    data.interest_rate || 0,
+    data.interest_rate === undefined ? (data.account_type === 'loan' ? null : 0) : data.interest_rate,
     data.plaid_account_id || null,
-    data.plaid_item_id || null
+    data.plaid_item_id || null,
+    data.loan_kind || 'other',
+    data.monthly_payment ?? null
   )
   return Number(result.lastInsertRowid)
 }
 
 export async function updateBankAccount(userId: number, id: number, data: Partial<BudgetBankAccount>): Promise<void> {
-  const db = getDb()
-  await db.prepare(
-    'UPDATE budget_bank_accounts SET name = ?, account_type = ?, institution = ?, account_number_last4 = ?, current_balance = ?, website = ?, is_active = ?, is_income_account = ?, interest_rate = ?, plaid_account_id = ?, plaid_item_id = ? WHERE user_id = ? AND id = ?'
-  ).run(
-    data.name || '',
-    data.account_type || 'checking',
-    data.institution || '',
-    data.account_number_last4 || '',
-    data.current_balance || 0,
-    data.website || '',
-    data.is_active !== undefined ? data.is_active : 1,
-    data.is_income_account || 0,
-    data.interest_rate || 0,
-    data.plaid_account_id || null,
-    data.plaid_item_id || null,
-    userId,
-    id
-  )
+  // Update only supplied fields so Plaid refreshes preserve manually entered liability terms.
+  const columns = ['name', 'account_type', 'institution', 'account_number_last4', 'current_balance',
+    'website', 'is_active', 'is_income_account', 'interest_rate', 'plaid_account_id', 'plaid_item_id',
+    'loan_kind', 'monthly_payment'] as const
+  const selected = columns.filter(column => data[column] !== undefined)
+  if (!selected.length) return
+  await getDb().prepare(
+    `UPDATE budget_bank_accounts SET ${selected.map(column => column + ' = ?').join(', ')} WHERE user_id = ? AND id = ?`
+  ).run(...selected.map(column => data[column]), userId, id)
 }
 
 export async function deleteBankAccount(userId: number, id: number): Promise<void> {

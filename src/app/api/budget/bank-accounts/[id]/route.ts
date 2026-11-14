@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyToken } from '@/lib/auth'
+import { validateLiabilityTerms } from '@/lib/utils/liability'
 import { getBankAccount, updateBankAccount, deleteBankAccount, updateBankAccountBalance } from '@/lib/budget-db'
 import fs from 'fs'
 import path from 'path'
@@ -47,6 +48,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (data.name !== undefined && (typeof data.name !== 'string' || !data.name.trim() || data.name.trim().length > 200)) {
       return NextResponse.json({ error: 'Enter an account name between 1 and 200 characters.' }, { status: 400 })
     }
+    const liabilityError = validateLiabilityTerms({ ...existing, ...data, ...(data.balance !== undefined ? { current_balance: Number(data.balance) } : {}) })
+    if (liabilityError) return NextResponse.json({ error: liabilityError }, { status: 400 })
     if (data.balance !== undefined) {
       if (data.balance === null || String(data.balance).trim() === '' || !Number.isFinite(Number(data.balance))) {
         return NextResponse.json({ error: 'Enter a valid balance.' }, { status: 400 })
@@ -57,9 +60,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: 'Enter a valid balance.' }, { status: 400 })
       }
       await updateBankAccount(auth.userId, accountId, {
-        ...existing,
         ...data,
-        name: data.name !== undefined ? data.name.trim() : existing.name,
+        ...(data.name !== undefined ? { name: data.name.trim() } : {}),
+        ...((data.account_type || existing.account_type) === 'loan' ? { is_income_account: 0 } : {}),
       })
     }
     return NextResponse.json({ success: true })

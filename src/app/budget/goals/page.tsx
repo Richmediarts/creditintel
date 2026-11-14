@@ -10,9 +10,10 @@ import {
 import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
+import { estimateLiability } from '@/lib/utils/liability'
 
 interface BankAccount {
-  id: number; name: string; account_type: string; current_balance: number; interest_rate: number
+  id: number; name: string; account_type: string; current_balance: number; interest_rate: number | null; monthly_payment?: number | null
 }
 interface CreditCardAcc {
   id: number; name: string; current_balance: number; credit_limit: number; interest_rate: number
@@ -21,7 +22,7 @@ interface Stats {
   total_bank: number; total_credit: number; last_paycheck_net: number; monthly_expenses: number
 }
 interface DebtItem {
-  id: string; name: string; type: string; balance: number; rate: number; minPmt: number
+  id: string; name: string; type: string; balance: number; rate: number; unknownRate?: boolean; minPmt: number
 }
 
 const LS_KEY = 'goalsPlan'
@@ -101,7 +102,7 @@ export default function GoalsPage() {
 
   // Build debts
   const allDebts: DebtItem[] = [
-    ...loanAccounts.map(a => ({ id: 'loan_' + a.id, name: a.name, type: 'Loan', balance: a.current_balance || 0, rate: 0, minPmt: debtPayments['loan_' + a.id] || 0 })),
+    ...loanAccounts.map(a => ({ id: 'loan_' + a.id, name: a.name, type: 'Loan', balance: a.current_balance || 0, rate: a.interest_rate ?? 0, unknownRate: a.interest_rate == null, minPmt: debtPayments['loan_' + a.id] ?? a.monthly_payment ?? 0 })),
     ...cards.map(c => ({ id: 'card_' + c.id, name: c.name, type: 'Credit Card', balance: c.current_balance || 0, rate: c.interest_rate || 0, minPmt: debtPayments['card_' + c.id] || 0 })),
   ].filter(d => d.balance > 0)
 
@@ -122,7 +123,7 @@ export default function GoalsPage() {
       if (extraRem > 0 && d.balance > min) { extra = Math.min(extraRem, d.balance - min); extraRem -= extra }
       const pmt = Math.min(min + extra, d.balance)
       debtPmt += pmt
-      const interest = d.type === 'Credit Card' ? d.balance * (d.rate / 100 / 12) : 0
+      const interest = d.balance * (d.rate / 100 / 12)
       d.balance = Math.max(0, d.balance - pmt + interest)
     }
     const sav = Math.min(monthlySavings, monthlyIncome - monthlyBudget - debtPmt)
@@ -240,6 +241,7 @@ export default function GoalsPage() {
         </CardContent></Card>
       </div>
 
+      {allDebts.some(debt => debt.unknownRate) && <p className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">Some liability APRs are unknown. Projections are incomplete and exclude that unknown interest. Enter the terms on Bank Accounts &amp; Liabilities.</p>}
       {/* 6-Month Projection */}
       <Card>
         <CardContent className="p-5">
@@ -310,9 +312,9 @@ export default function GoalsPage() {
                 </thead>
                 <tbody>
                   {allDebts.map(d => {
-                    const monthlyInterest = d.rate > 0 ? d.balance * (d.rate / 100 / 12) : 0
-                    const eff = d.minPmt - monthlyInterest
-                    const payoffMonths = d.minPmt > 0 && d.balance > 0 && eff > 0 ? Math.ceil(d.balance / eff) : d.balance <= 0 ? 0 : -1
+                    const estimate = estimateLiability(d.balance, d.unknownRate ? null : d.rate, d.minPmt)
+                    const monthlyInterest = estimate.monthlyInterest
+                    const payoffMonths = estimate.payoffMonths ?? -1
                     return (
                       <tr key={d.id} className="border-b border-gray-100 dark:border-gray-800">
                         <td className="py-2 px-2 font-medium text-gray-900 dark:text-white">{d.name}</td>
@@ -320,7 +322,7 @@ export default function GoalsPage() {
                           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${d.type === 'Loan' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>{d.type}</span>
                         </td>
                         <td className="py-2 px-2 text-right text-red-600 dark:text-red-400 font-medium">{fmtDec(d.balance)}</td>
-                        <td className="py-2 px-2 text-right text-gray-700 dark:text-gray-300">{d.rate > 0 ? `${d.rate}%` : '—'}</td>
+                        <td className="py-2 px-2 text-right text-gray-700 dark:text-gray-300">{d.unknownRate ? 'Unknown' : `${d.rate}%`}</td>
                         <td className="py-2 px-2 text-right">
                           <input
                             type="number" min="0" step="50"
@@ -329,7 +331,7 @@ export default function GoalsPage() {
                             className="w-20 sm:w-24 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1 text-xs text-right text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
                           />
                         </td>
-                        <td className="py-2 px-2 text-right text-gray-700 dark:text-gray-300">{fmt(monthlyInterest)}</td>
+                        <td className="py-2 px-2 text-right text-gray-700 dark:text-gray-300">{monthlyInterest == null ? 'Unknown' : fmt(monthlyInterest)}</td>
                         <td className="py-2 px-2 text-right text-gray-700 dark:text-gray-300">
                           {payoffMonths === 0 ? <span className="text-green-500">Paid ✓</span> : payoffMonths > 0 ? `${payoffMonths}mo${payoffMonths > 6 ? ' ⚠' : ' ✓'}` : '—'}
                         </td>

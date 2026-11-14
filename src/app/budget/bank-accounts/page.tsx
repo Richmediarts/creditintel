@@ -14,6 +14,8 @@ import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/auth-context'
 import { PlaidLinkButton } from '@/components/PlaidLinkButton'
+import { LiabilityDetails, LiabilityFields, type LiabilityFormValue } from '@/components/budget/LiabilityDetails'
+import { LIABILITY_LABELS, type LiabilityKind } from '@/lib/utils/liability'
 
 interface BankAccount {
   id: number
@@ -25,7 +27,9 @@ interface BankAccount {
   current_balance: number
   is_active: number
   is_income_account: number
-  interest_rate: number
+  interest_rate: number | null
+  loan_kind?: LiabilityKind
+  monthly_payment?: number | null
   last_synced_at?: string | null
 }
 
@@ -40,6 +44,9 @@ const EMPTY_FORM = {
   account_number_last4: '',
   current_balance: '',
   is_income_account: false,
+  loan_kind: 'other' as LiabilityKind,
+  interest_rate: '',
+  monthly_payment: '',
 }
 
 interface RecentTx {
@@ -77,6 +84,7 @@ export default function BankAccountsPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editName, setEditName] = useState('')
+  const [editLiability, setEditLiability] = useState<LiabilityFormValue>({ loan_kind: 'other', interest_rate: '', monthly_payment: '' })
   const [editBalance, setEditBalance] = useState('')
   const [editError, setEditError] = useState('')
   const [savingEdit, setSavingEdit] = useState(false)
@@ -172,34 +180,43 @@ export default function BankAccountsPage() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!form.current_balance.trim() || !Number.isFinite(Number(form.current_balance))) {
+      setError('Enter the current balance.')
+      return
+    }
     setSaving(true)
-    const res = await fetch('/api/budget/bank-accounts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: form.name,
-        account_type: form.account_type,
-        institution: form.institution || null,
-        website: form.website || null,
-        account_number_last4: form.account_number_last4 || null,
-        current_balance: parseFloat(form.current_balance) || 0,
-        is_income_account: form.is_income_account ? 1 : 0,
-        is_active: 1,
-        interest_rate: 0,
-      }),
-    })
-    if (res.ok) {
+    setError('')
+    try {
+      const isLiability = form.account_type === 'loan'
+      const res = await fetch('/api/budget/bank-accounts', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name, account_type: form.account_type,
+          institution: form.institution || null, website: form.website || null,
+          account_number_last4: form.account_number_last4 || null,
+          current_balance: Number(form.current_balance),
+          is_income_account: !isLiability && form.is_income_account ? 1 : 0,
+          is_active: 1,
+          interest_rate: isLiability ? (form.interest_rate.trim() === '' ? null : Number(form.interest_rate)) : 0,
+          loan_kind: form.loan_kind,
+          monthly_payment: isLiability && form.monthly_payment.trim() !== '' ? Number(form.monthly_payment) : null,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Unable to create account.')
       setForm(EMPTY_FORM)
       setShowForm(false)
-      fetchAccounts()
-    }
-    setSaving(false)
+      await fetchAccounts()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unable to create account.')
+    } finally { setSaving(false) }
   }
 
   const startEdit = (account: BankAccount) => {
     setEditingId(account.id)
     editingOriginalRef.current = account
     setEditName(account.name)
+    setEditLiability({ loan_kind: account.loan_kind || 'other', interest_rate: account.interest_rate == null ? '' : String(account.interest_rate), monthly_payment: account.monthly_payment == null ? '' : String(account.monthly_payment) })
     setEditError('')
     setEditBalance(account.current_balance.toString())
     setEditInstitution(account.institution || '')
@@ -218,6 +235,14 @@ export default function BankAccountsPage() {
       setEditError('Enter a valid balance.')
       return
     }
+    if (editingOriginalRef.current?.account_type === 'loan') {
+      const invalidTerm = [editLiability.interest_rate, editLiability.monthly_payment]
+        .some(value => value.trim() !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0))
+      if (invalidTerm || balance < 0) {
+        setEditError('Use zero or positive amounts and rates for liabilities. Leave unknown terms blank.')
+        return
+      }
+    }
     setSavingEdit(true)
     setEditError('')
     try {
@@ -229,6 +254,11 @@ export default function BankAccountsPage() {
           institution: editInstitution,
           website: editWebsite,
           ...(balanceChanged ? { current_balance: balance } : {}),
+          ...(editingOriginalRef.current?.account_type === 'loan' ? {
+            loan_kind: editLiability.loan_kind,
+            interest_rate: editLiability.interest_rate.trim() === '' ? null : Number(editLiability.interest_rate),
+            monthly_payment: editLiability.monthly_payment.trim() === '' ? null : Number(editLiability.monthly_payment),
+          } : {}),
         }),
       })
       const data = await res.json()
@@ -333,7 +363,7 @@ export default function BankAccountsPage() {
                   )}
                   {account.account_type === 'loan' && (
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400">
-                      Loan
+                      {LIABILITY_LABELS[account.loan_kind || 'other']}
                     </span>
                   )}
                 </div>
@@ -388,6 +418,7 @@ export default function BankAccountsPage() {
                 <>
                   <p className={`text-lg font-bold text-right tabular-nums whitespace-nowrap ${account.current_balance < 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>
                     {fmt(account.current_balance)}
+                    {account.account_type === 'loan' && <span className="block text-xs font-normal text-gray-500 dark:text-gray-400">balance owed</span>}
                   </p>
                   <div className="flex items-center gap-1 shrink-0">
                     <button
@@ -411,6 +442,9 @@ export default function BankAccountsPage() {
             </div>
             </div>
 
+            {account.account_type === 'loan' && editingId !== account.id && (
+              <LiabilityDetails balance={account.current_balance} apr={account.interest_rate} payment={account.monthly_payment ?? null} />
+            )}
             {/* Inline edit fields */}
             {editingId === account.id && (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
@@ -453,6 +487,7 @@ export default function BankAccountsPage() {
                   onChange={(e) => setEditBalance(e.target.value)}
                   className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-right text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                {account.account_type === 'loan' && <LiabilityFields value={editLiability} onChange={setEditLiability} disabled={savingEdit} />}
                 {editError && <p role="alert" className="sm:col-span-2 text-sm text-red-600 dark:text-red-400">{editError}</p>}
               </div>
             )}
@@ -479,7 +514,7 @@ export default function BankAccountsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
           <Landmark className="h-7 w-7 text-blue-600 dark:text-blue-400" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Bank Accounts</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Bank Accounts & Liabilities</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <PlaidLinkButton onConnected={fetchAccounts} />
@@ -496,6 +531,7 @@ export default function BankAccountsPage() {
           <Link href="/budget/import-statement">
             <Button variant="secondary" size="sm"><Upload className="h-4 w-4 mr-1" /> Import</Button>
           </Link>
+          <Button variant="secondary" onClick={() => { setForm({ ...EMPTY_FORM, account_type: 'loan' }); setShowForm(true) }} size="sm">Add Liability</Button>
           <Button onClick={() => setShowForm(!showForm)} size="sm">
             <PlusCircle className="h-4 w-4 mr-1" />
             Add
@@ -550,7 +586,7 @@ export default function BankAccountsPage() {
                 <Car className="h-6 w-6 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Total Loan Balance</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Total Liability Balance</p>
                 <p className="text-2xl font-bold text-red-600 dark:text-red-400">{fmt(totalLoans)}</p>
               </div>
             </div>
@@ -571,7 +607,7 @@ export default function BankAccountsPage() {
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="e.g. Main Checking"
+                  placeholder={form.account_type === "loan" ? "e.g. WoodStock - Law Settlement" : "e.g. Main Checking"}
                 />
               </div>
               <div>
@@ -585,7 +621,7 @@ export default function BankAccountsPage() {
                   <option value="savings">Savings</option>
                   <option value="money_market">Money Market</option>
                   <option value="investment">Investment</option>
-                  <option value="loan">Loan</option>
+                  <option value="loan">Liability (Loan / Settlement)</option>
                 </select>
               </div>
               <div>
@@ -628,11 +664,16 @@ export default function BankAccountsPage() {
                   placeholder="0.00"
                 />
               </div>
+              {form.account_type === 'loan' && <LiabilityFields
+                value={{ loan_kind: form.loan_kind, interest_rate: form.interest_rate, monthly_payment: form.monthly_payment }}
+                onChange={terms => setForm({ ...form, ...terms, name: !form.name && terms.loan_kind === 'settlement' ? 'WoodStock - Law Settlement' : form.name })}
+                disabled={saving} />}
               <div className="flex items-center gap-2 pt-5">
                 <input
                   type="checkbox"
                   id="is_income_account"
-                  checked={form.is_income_account}
+                  disabled={form.account_type === 'loan'}
+                  checked={form.account_type !== 'loan' && form.is_income_account}
                   onChange={(e) => setForm({ ...form, is_income_account: e.target.checked })}
                   className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
@@ -687,7 +728,7 @@ export default function BankAccountsPage() {
           <div>
             <div className="flex items-center gap-2 mb-3">
               <Car className="h-5 w-5 text-red-600 dark:text-red-400" />
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Loans</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Liabilities — Loans & Settlements</h2>
               <span className="text-xs text-gray-500 dark:text-gray-400">({loanAccounts.length})</span>
             </div>
             {loanAccounts.length > 0 ? (
@@ -695,7 +736,7 @@ export default function BankAccountsPage() {
             ) : (
               <Card>
                 <CardContent className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                  No loans yet. Add a loan account to track auto, student, or personal loans.
+                  No liabilities yet. Add an Auto Loan or Law Settlement to track the balance and interest.
                 </CardContent>
               </Card>
             )}

@@ -34,13 +34,13 @@ describe('bank account rename', () => {
     const response = await PUT(request({ name: '  Navy Federal Checking  ' }), params)
     expect(response.status).toBe(200)
     expect(mocks.get).toHaveBeenCalledWith(1, 7)
-    expect(mocks.update).toHaveBeenCalledWith(1, 7, { ...original, name: 'Navy Federal Checking' })
+    expect(mocks.update).toHaveBeenCalledWith(1, 7, { name: 'Navy Federal Checking' })
     expect(mocks.balance).not.toHaveBeenCalled()
   })
   it('preserves explicitly entered zero and negative balances', async () => {
     for (const current_balance of [0, -25.5]) {
       expect((await PUT(request({ name: original.name, current_balance }), params)).status).toBe(200)
-      expect(mocks.update).toHaveBeenLastCalledWith(1, 7, { ...original, current_balance })
+      expect(mocks.update).toHaveBeenLastCalledWith(1, 7, { name: original.name, current_balance })
     }
   })
   it.each(['', '  ', 123, null, 'x'.repeat(201)])('rejects invalid names', async name => {
