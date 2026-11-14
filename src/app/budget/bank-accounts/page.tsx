@@ -76,7 +76,11 @@ export default function BankAccountsPage() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(EMPTY_FORM)
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [editName, setEditName] = useState('')
   const [editBalance, setEditBalance] = useState('')
+  const [editError, setEditError] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+  const editingOriginalRef = useRef<BankAccount | null>(null)
   const [editInstitution, setEditInstitution] = useState('')
   const [editWebsite, setEditWebsite] = useState('')
   const [saving, setSaving] = useState(false)
@@ -194,32 +198,47 @@ export default function BankAccountsPage() {
 
   const startEdit = (account: BankAccount) => {
     setEditingId(account.id)
+    editingOriginalRef.current = account
+    setEditName(account.name)
+    setEditError('')
     setEditBalance(account.current_balance.toString())
     setEditInstitution(account.institution || '')
     setEditWebsite(account.website || '')
   }
 
   const saveEdit = async (id: number) => {
-    const account = accounts.find((a) => a.id === id)
-    if (!account) return
-    const res = await fetch(`/api/budget/bank-accounts/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: account.name,
-        account_type: account.account_type,
-        institution: editInstitution,
-        website: editWebsite,
-        account_number_last4: account.account_number_last4 || null,
-        current_balance: parseFloat(editBalance) || 0,
-        is_active: account.is_active,
-        is_income_account: account.is_income_account,
-        interest_rate: account.interest_rate || 0,
-      }),
-    })
-    if (res.ok) {
+    const name = editName.trim()
+    if (!name || name.length > 200) {
+      setEditError('Enter an account name between 1 and 200 characters.')
+      return
+    }
+    const balanceChanged = editBalance !== String(editingOriginalRef.current?.current_balance)
+    const balance = Number(editBalance)
+    if (balanceChanged && (!editBalance.trim() || !Number.isFinite(balance))) {
+      setEditError('Enter a valid balance.')
+      return
+    }
+    setSavingEdit(true)
+    setEditError('')
+    try {
+      const res = await fetch(`/api/budget/bank-accounts/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          institution: editInstitution,
+          website: editWebsite,
+          ...(balanceChanged ? { current_balance: balance } : {}),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Unable to save account.')
+      await Promise.all([fetchAccounts(), fetchRecentTx()])
       setEditingId(null)
-      fetchAccounts()
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : 'Unable to save account. Please try again.')
+    } finally {
+      setSavingEdit(false)
     }
   }
 
@@ -349,17 +368,20 @@ export default function BankAccountsPage() {
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => saveEdit(account.id)}
-                    className="p-1.5 text-green-600 hover:text-green-700 dark:text-green-400 rounded"
+                    disabled={savingEdit}
+                    className="inline-flex items-center gap-1 p-1.5 text-sm font-medium disabled:opacity-50 text-green-600 hover:text-green-700 dark:text-green-400 rounded"
                     title="Save"
                   >
                     <Wallet className="h-4 w-4" />
+                    {savingEdit ? 'Saving…' : 'Save'}
                   </button>
                   <button
                     onClick={() => setEditingId(null)}
-                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded"
+                    disabled={savingEdit}
+                    className="inline-flex items-center gap-1 p-1.5 text-sm disabled:opacity-50 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded"
                     title="Cancel"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    Cancel
                   </button>
                 </div>
               ) : (
@@ -371,6 +393,7 @@ export default function BankAccountsPage() {
                     <button
                       onClick={() => startEdit(account)}
                       className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
+                      aria-label={`Edit ${account.name}`}
                       title="Edit account"
                     >
                       <Edit className="h-4 w-4" />
@@ -390,9 +413,23 @@ export default function BankAccountsPage() {
 
             {/* Inline edit fields */}
             {editingId === account.id && (
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_8rem] gap-2 w-full mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                <label className="sm:col-span-2 block text-xs font-medium text-gray-500 dark:text-gray-400">
+                  Account name
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    maxLength={200}
+                    disabled={savingEdit}
+                    autoFocus
+                    className="mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </label>
                 <input
                   type="text"
+                  aria-label="Institution"
+                  disabled={savingEdit}
                   value={editInstitution}
                   onChange={(e) => setEditInstitution(e.target.value)}
                   placeholder="Institution"
@@ -400,6 +437,8 @@ export default function BankAccountsPage() {
                 />
                 <input
                   type="text"
+                  aria-label="Website"
+                  disabled={savingEdit}
                   value={editWebsite}
                   onChange={(e) => setEditWebsite(e.target.value)}
                   placeholder="URL"
@@ -408,10 +447,13 @@ export default function BankAccountsPage() {
                 <input
                   type="number"
                   step="0.01"
+                  aria-label="Account balance"
+                  disabled={savingEdit}
                   value={editBalance}
                   onChange={(e) => setEditBalance(e.target.value)}
                   className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-2 py-1.5 text-sm text-right text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                {editError && <p role="alert" className="sm:col-span-2 text-sm text-red-600 dark:text-red-400">{editError}</p>}
               </div>
             )}
           </CardContent>
