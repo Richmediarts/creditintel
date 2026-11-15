@@ -12,6 +12,7 @@ import { Card, CardContent, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { StatusPill, OwnerPill } from '@/components/ui/status'
 import { useAuth } from '@/lib/auth-context'
+import { BillCalendarPopup } from '@/components/budget/BillCalendarPopup'
 import { filterBills, EMPTY_BILL_FILTERS, type BillFilters } from '@/lib/utils/bill-filters'
 import { BILL_CATEGORIES as SECTIONS } from '@/lib/utils/billCategories'
 import {
@@ -145,6 +146,7 @@ function BillsContent() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [calMonth, setCalMonth] = useState(() => new Date())
+  const [calendarPeriod, setCalendarPeriod] = useState<PeriodWindow | null>(null)
   const searchParams = useSearchParams()
   const focusId = searchParams.get('bill')
   const rowRefs = useRef<Map<number, HTMLTableRowElement>>(new Map())
@@ -1079,7 +1081,13 @@ function BillsContent() {
               <CardContent className="p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
                   <CardTitle className="text-sm flex items-center gap-2">
-                    <CalendarDays className={`w-4 h-4 ${pg.hasCurrent ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`} />
+                    <button type="button" aria-haspopup="dialog"
+                      aria-label={`Open calendar for ${pg.window.label}`}
+                      title="Open pay-period calendar"
+                      onClick={() => setCalendarPeriod(pg.window)}
+                      className="rounded-md p-1 text-blue-600 hover:bg-blue-100 focus-visible:outline-2 focus-visible:outline-blue-500 dark:text-blue-400 dark:hover:bg-blue-900/40">
+                      <CalendarDays className="h-4 w-4" aria-hidden="true" />
+                    </button>
                     {pg.window.label}
                     {pg.hasCurrent && <StatusPill status="info" label="Current" />}
                   </CardTitle>
@@ -1179,6 +1187,19 @@ function BillsContent() {
           </CardContent>
         </Card>
       )}
+
+      {calendarPeriod && <BillCalendarPopup
+        period={calendarPeriod}
+        entries={visibleBills.filter(bill => billInWindow(bill, calendarPeriod)).map(bill => ({
+          id: bill.id, name: bill.payee_name || 'Bill',
+          date: (bill.is_paid ? bill.paid_date : effectivePayDate(bill)) || '',
+          amount: bill.amount_status === 'missing' ? null : owed(bill),
+          paid: !!bill.is_paid,
+          planned: !!bill.planned_payment_date && bill.planned_payment_date !== bill.due_date,
+        }))}
+        total={visibleBills.filter(bill => billInWindow(bill, calendarPeriod)).reduce((sum, bill) => sum + owed(bill), 0)}
+        onClose={() => setCalendarPeriod(null)}
+      />}
 
       {/* Back link */}
       <Link href="/budget">
