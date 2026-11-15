@@ -21,6 +21,7 @@
  */
 
 import { parseDate, toDateString, advanceDueDate } from '@/lib/utils/recurrence'
+import { expenseWindowForPeriod } from '@/lib/utils/expense-window'
 
 export const PERIOD_LENGTH_DAYS = 14
 
@@ -238,7 +239,8 @@ function normStatus(bill: { amountStatus?: DetailStatus; amount?: number | null 
 
 /**
  * Bills assigned to a period: those whose planned payment date (or due date,
- * when there is no plan yet) falls inside the window. Paid bills only appear
+ * when there is no plan yet) falls inside the earlier expense window.
+ * Each labelled last day rolls into the next period's expenses. Paid bills only appear
  * in the period where they were settled; unpaid ones are the ones needing cash.
  */
 export function assignBillsToPeriod(
@@ -248,11 +250,13 @@ export function assignBillsToPeriod(
   today: string
 ): AssignedBill[] {
   const out: AssignedBill[] = []
+  const expenseWindow = expenseWindowForPeriod(startDate, endDate)
+  if (!expenseWindow) return out
   for (const bill of bills) {
     const payDate = bill.plannedPaymentDate || bill.dueDate || null
     const relevant =
-      bill.isPaid && inRange(bill.paidDate || payDate, startDate, endDate)
-    const unpaidScheduled = !bill.isPaid && inRange(payDate, startDate, endDate)
+      bill.isPaid && inRange(bill.paidDate || payDate, expenseWindow.start, expenseWindow.end)
+    const unpaidScheduled = !bill.isPaid && inRange(payDate, expenseWindow.start, expenseWindow.end)
     if (!relevant && !unpaidScheduled) continue
     out.push({
       bill,
@@ -341,13 +345,14 @@ export function buildPeriodPlan(input: BuildPlanInput): PlanSummary {
 
   for (const period of periods) {
     const historical = period.index < startIndex
+    const expenseWindow = expenseWindowForPeriod(period.start, period.end)!
     // Roll recurring bills whose stored date is in the past into the first
     // occurrence on/after this window, so they keep appearing onward.
     const rolledBills = input.bills.map((bill) => {
       if (bill.isPaid || !bill.recurrence) return bill
       const pay = bill.plannedPaymentDate || bill.dueDate || null
-      if (!pay || pay >= period.start) return bill
-      const rolled = rollRecurringDueDate(bill, period.start)
+      if (!pay || pay >= expenseWindow.start) return bill
+      const rolled = rollRecurringDueDate(bill, expenseWindow.start)
       return rolled && rolled !== pay ? { ...bill, dueDate: rolled } : bill
     })
     const assignments = assignBillsToPeriod(rolledBills, period.start, period.end, today)

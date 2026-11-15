@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { StatusPill, OwnerPill } from '@/components/ui/status'
 import { useAuth } from '@/lib/auth-context'
 import { AvailableAccounts } from '@/components/budget/AvailableAccounts'
+import { expenseWindowForPeriod } from '@/lib/utils/expense-window'
 
 // ---------------------------------------------------------------------------
 // Types mirroring the /api/budget/dashboard payload
@@ -279,6 +280,7 @@ export default function BudgetDashboardPage() {
     dashboard.periods[0]
 
   const periodLabel = current.period.label
+  const expenseWindow = expenseWindowForPeriod(current.period.start, current.period.end)!
 
   return (
     <div className="wealth-budget space-y-6">
@@ -298,6 +300,7 @@ export default function BudgetDashboardPage() {
             <p className="mt-2 text-sm text-blue-200">
               See what is due, what you have set aside, and what remains.
               <span className="block mt-1">Pay window {periodLabel} · anchored to your {dashboard.paydaySource}</span>
+              <span className="block mt-1">Expense dates {shortDate(expenseWindow.start)} – {shortDate(expenseWindow.end)} · last-day bills move to the next period</span>
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
@@ -442,7 +445,7 @@ export default function BudgetDashboardPage() {
           }
         />
         <StatCard
-          title="Bills due in window" chip="chip-bills" icon={Receipt}
+          title="Bills in expense window" chip="chip-bills" icon={Receipt}
           value={dashboard.unconfirmedReserve > 0 || current.unknownCount > 0
             ? `${fmt(current.billsTotal)}${current.unknownCount ? ` +${current.unknownCount} ?` : ''}`
             : fmt(current.billsTotal)}
