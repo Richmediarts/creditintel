@@ -46,9 +46,7 @@ export function BillCalendarPopup({ period, entries, total, onClose }: {
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 id={titleId} className="text-lg font-semibold">Bills calendar</h2>
-          <p className="mt-1 text-sm font-medium">Pay period: {period.label}</p>
           <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-            Expense dates:
             {start.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} – {end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
           </p>
           <p className="mt-1 text-sm">Remaining this period: <strong>{money(total)}</strong></p>
@@ -100,7 +98,7 @@ export function BillCalendarPopup({ period, entries, total, onClose }: {
         })}
       </div>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-3 dark:border-gray-700">
-        <p className="text-xs text-gray-500 dark:text-gray-400">Blue background: expense window · Green: paid · Amber: unknown amount</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">Blue background: selected pay period · Green: paid · Amber: unknown amount</p>
         <button type="button" onClick={close} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">Close calendar</button>
       </div>
     </dialog>

@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button'
 import { StatusPill, OwnerPill } from '@/components/ui/status'
 import { useAuth } from '@/lib/auth-context'
 import { BillCalendarPopup } from '@/components/budget/BillCalendarPopup'
-import { expenseWindowForPeriod, inExpenseWindow } from '@/lib/utils/expense-window'
 import { filterBills, EMPTY_BILL_FILTERS, type BillFilters } from '@/lib/utils/bill-filters'
 import { BILL_CATEGORIES as SECTIONS } from '@/lib/utils/billCategories'
 import {
@@ -245,11 +244,11 @@ function BillsContent() {
   function billInWindow(b: Bill, w: PeriodWindow): boolean {
     const owedAmt = owed(b)
     if (b.is_paid) {
-      return inExpenseWindow(b.paid_date, w.start, w.end)
+      return !!b.paid_date && b.paid_date >= w.start && b.paid_date <= w.end
     }
     if (owedAmt === 0) return false
     const p = effectivePayDate(b)
-    return inExpenseWindow(p, w.start, w.end)
+    return !!p && p >= w.start && p <= w.end
   }
 
   // ---------------- actions ----------------
@@ -1097,9 +1096,6 @@ function BillsContent() {
                     <span className="font-bold tabular-nums text-gray-900 dark:text-white">{fmt(pg.total)}</span>
                   </div>
                 </div>
-                <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
-                  Expenses {formatDate(expenseWindowForPeriod(pg.window.start, pg.window.end)!.start)} – {formatDate(expenseWindowForPeriod(pg.window.start, pg.window.end)!.end)}. Bills on the labelled last day move to the next pay period.
-                </p>
                 {pg.items.length === 0 ? (
                   <p className="text-xs text-gray-400 py-3 text-center">No bills land in this window. Fund a future bill by setting an earlier planned payment date.</p>
                 ) : (
@@ -1193,7 +1189,7 @@ function BillsContent() {
       )}
 
       {calendarPeriod && <BillCalendarPopup
-        period={{ ...calendarPeriod, ...expenseWindowForPeriod(calendarPeriod.start, calendarPeriod.end) }}
+        period={calendarPeriod}
         entries={visibleBills.filter(bill => billInWindow(bill, calendarPeriod)).map(bill => ({
           id: bill.id, name: bill.payee_name || 'Bill',
           date: (bill.is_paid ? bill.paid_date : effectivePayDate(bill)) || '',
