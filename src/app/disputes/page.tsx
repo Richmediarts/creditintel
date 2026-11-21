@@ -250,7 +250,7 @@ export default function DisputesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-y-3">
         <div className="flex items-center gap-3">
           <Link href="/" className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
             <ArrowLeft className="w-5 h-5" />
@@ -264,7 +264,7 @@ export default function DisputesPage() {
             </Link>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {selectedIds.size > 0 && (
             <Button variant="danger" size="sm" onClick={handleBulkDelete}>
               <Trash2 className="w-4 h-4 mr-1" /> Delete Selected ({selectedIds.size})
@@ -452,7 +452,7 @@ export default function DisputesPage() {
                 const ltInfo = LETTER_TYPES.find(lt => lt.value === d.letterType)
                 return (
                   <div key={d.id} className="p-4">
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between flex-wrap gap-y-3">
                       <div className="flex items-start gap-3 flex-1 min-w-0">
                         <input
                           type="checkbox"
@@ -543,8 +543,8 @@ export default function DisputesPage() {
             </p>
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {untrackedItems.map((item, i) => (
-                <div key={i} className="py-2 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                <div key={i} className="py-2 flex items-center justify-between flex-wrap gap-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-base font-semibold text-gray-900 dark:text-white">{item.creditorName}</span>
                     <Badge>{item.bureau}</Badge>
                     {item.derogatoryType && (

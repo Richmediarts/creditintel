@@ -181,7 +181,7 @@ export default function PaycheckViewPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-y-3">
         <Link href="/budget/paychecks">
           <Button variant="secondary" size="sm"><ArrowLeft className="w-4 h-4 mr-2" /> Back to Paychecks</Button>
         </Link>

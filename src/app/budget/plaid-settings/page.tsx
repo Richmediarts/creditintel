@@ -125,7 +125,7 @@ export default function PlaidSettingsPage() {
           ) : (
             <div className="space-y-2">
               {items.map(item => (
-                <div key={item.id} className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3">
+                <div key={item.id} className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3 flex-wrap gap-y-3">
                   <div className="flex items-center gap-3">
                     {item.needs_reconnection ? (
                       <AlertTriangle className="h-5 w-5 text-yellow-400 shrink-0" />

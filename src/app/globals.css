@@ -219,3 +219,50 @@ h1, h2, h3 { letter-spacing: -0.01em; }
   .wealth-shell, .money-hero { background: white !important; color: black !important; box-shadow: none; }
   .money-hero :is(p, h1) { color: black !important; }
 }
+
+
+/* Shared responsive foundation for credit, budget, admin, and detail pages.
+   Tables keep their own scroll containers; page content stays in the viewport. */
+.wealth-page,
+.wealth-page .wealth-card,
+.wealth-page .grid > *,
+.wealth-page .flex > * {
+  min-width: 0;
+}
+.wealth-page .wealth-card,
+.wealth-page input,
+.wealth-page select,
+.wealth-page textarea,
+.wealth-page img,
+.wealth-page canvas {
+  max-width: 100%;
+}
+.wealth-page :where(h1, h2, h3, p, label, a, pre) {
+  overflow-wrap: anywhere;
+}
+.wealth-page pre {
+  white-space: pre-wrap;
+}
+.wealth-page .wealth-button {
+  max-width: 100%;
+  white-space: normal;
+}
+.wealth-page .wealth-button > svg {
+  flex-shrink: 0;
+}
+@media (max-width: 639px) {
+  .wealth-page .flex > .flex-1 {
+    min-width: 0;
+  }
+  .wealth-page input,
+  .wealth-page select,
+  .wealth-page textarea {
+    font-size: 16px;
+  }
+}
+@media (max-width: 379px) {
+  .wealth-page .grid.grid-cols-2,
+  .wealth-page .grid.grid-cols-3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

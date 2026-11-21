@@ -199,7 +199,7 @@ export default function HouseholdPage() {
           </CardTitle>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {members.map((m) => (
-              <div key={m.user_id} className="rounded-xl border border-gray-100 dark:border-gray-700 p-4 flex items-center justify-between gap-2">
+              <div key={m.user_id} className="rounded-xl border border-gray-100 dark:border-gray-700 p-4 flex items-center justify-between gap-2 flex-wrap gap-y-3">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <span role="img" aria-hidden="true">{m.is_owner ? '👑' : '👤'}</span> {m.name}
@@ -281,7 +281,7 @@ export default function HouseholdPage() {
             {contributions.length > 0 && (
               <div className="mt-3 divide-y divide-gray-100 dark:divide-gray-800">
                 {contributions.slice(0, 5).map((c) => (
-                  <div key={c.id} className="flex items-center justify-between text-xs py-1.5">
+                  <div key={c.id} className="flex items-center justify-between text-xs py-1.5 flex-wrap gap-y-3">
                     <span className="text-gray-500 dark:text-gray-400">
                       {new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       {c.notes ? ` — ${c.notes}` : ''}

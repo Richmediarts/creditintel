@@ -760,7 +760,7 @@ function BillsContent() {
         <button
           type="button"
           onClick={() => toggleSection(group.title)}
-          className="flex items-center justify-between w-full text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mt-6 mb-1 hover:text-blue-600 dark:hover:text-blue-400"
+          className="flex items-center justify-between w-full text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mt-6 mb-1 hover:text-blue-600 dark:hover:text-blue-400 flex-wrap gap-y-3"
         >
           <span>Category: {group.title}</span>
           <span>{collapsed ? '▼' : '▲'}</span>
@@ -875,7 +875,7 @@ function BillsContent() {
       {showForm && (
         <Card>
           <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-y-3">
               <CardTitle className="text-sm">{editing ? 'Edit Bill' : 'Add Bill'}</CardTitle>
               <Button variant="ghost" size="sm" onClick={() => { setShowForm(false); setEditing(null); setForm(EMPTY_FORM) }}>
                 <X className="w-4 h-4 mr-1" /> Cancel
@@ -1033,7 +1033,7 @@ function BillsContent() {
       {view === 'category' && (
         <Card>
           <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-y-3">
               <CardTitle className="text-sm">By Category</CardTitle>
               <span className="text-xs text-gray-400">{visibleBills.length} bill{visibleBills.length !== 1 ? 's' : ''}</span>
             </div>
@@ -1131,7 +1131,7 @@ function BillsContent() {
       {view === 'calendar' && (
         <Card>
           <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-y-3">
               <Button variant="secondary" size="sm" onClick={() => setCalMonth(new Date(calMonth.getFullYear(), calMonth.getMonth() - 1, 1))}>←</Button>
               <CardTitle className="text-base">
                 {calMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
@@ -1220,7 +1220,7 @@ function SummaryChip({
 }) {
   return (
     <Card className="lift">
-      <CardContent className="p-4 flex items-center justify-between gap-3">
+      <CardContent className="p-4 flex items-center justify-between gap-3 flex-wrap gap-y-3">
         <div className="min-w-0">
           <p className="text-xs font-medium text-gray-500 dark:text-gray-400 truncate">{label}</p>
           <p className="text-lg sm:text-xl font-bold mt-0.5 text-gray-900 dark:text-white truncate">{value}</p>

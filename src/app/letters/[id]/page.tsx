@@ -86,14 +86,14 @@ export default function LetterDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap gap-y-3">
         <div className="flex items-center gap-3">
           <Link href="/letters" className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white truncate">{letter.creditorName}</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="secondary" size="sm" onClick={handleCopy}>
             {copied ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
             {copied ? 'Copied' : 'Copy'}

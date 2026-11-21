@@ -475,7 +475,7 @@ export default function InteractiveBudgetPage() {
       {/* Allocation bar */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-y-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Where your income goes</p>
             <p className="text-[11px] text-gray-400">Bar width is each bucket's share of your income</p>
           </div>
@@ -551,7 +551,7 @@ export default function InteractiveBudgetPage() {
                         : 'border-gray-200 dark:border-gray-700'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center justify-between mb-1 flex-wrap gap-y-3">
                       <p className="text-xs font-semibold text-gray-900 dark:text-white">
                         {isCurrent ? 'This paycheck' : w.index === 1 ? 'Next paycheck' : `Paycheck +${w.index}`}
                       </p>
@@ -586,7 +586,7 @@ export default function InteractiveBudgetPage() {
                           const overdue = d !== null && d < 0
                           const soon = d !== null && d >= 0 && d <= 3
                           return (
-                            <div key={b.bill.id} className="flex items-center justify-between gap-2 text-[11px]">
+                            <div key={b.bill.id} className="flex items-center justify-between gap-2 text-[11px] flex-wrap gap-y-3">
                               <span className="truncate text-gray-700 dark:text-gray-300">{b.label}</span>
                               <span
                                 className={`shrink-0 tabular-nums ${
@@ -628,7 +628,7 @@ export default function InteractiveBudgetPage() {
                 onClick={() => toggleBucket(status.key)}
                 className="w-full text-left p-5 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors"
               >
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start justify-between gap-2 flex-wrap gap-y-3">
                   <div>
                     <div className="flex items-baseline gap-2">
                       <h2 className="text-base font-bold text-gray-900 dark:text-white">{def.title}</h2>
@@ -649,7 +649,7 @@ export default function InteractiveBudgetPage() {
                       style={{ width: `${Math.min(status.ratio * 100, 100)}%` }}
                     />
                   </div>
-                  <div className="flex justify-between text-[10px] mt-1">
+                  <div className="flex justify-between text-[10px] mt-1 flex-wrap gap-y-3">
                     <span className={status.diff < 0 ? 'text-red-500 font-medium' : 'text-emerald-600 dark:text-emerald-400 font-medium'}>
                       {status.diff < 0
                         ? `${fmt(Math.abs(status.diff))} over`
@@ -679,7 +679,7 @@ export default function InteractiveBudgetPage() {
                               <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
                                 Category: {g.title}
                               </p>
-                              <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                              <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
                                 <table className="w-full text-xs">
                                   <thead>
                                     <tr className="bg-blue-600 text-white">
@@ -749,7 +749,7 @@ export default function InteractiveBudgetPage() {
                           <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
                             Other Needs
                           </p>
-                          <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                          <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
                             <table className="w-full text-xs">
                               <thead>
                                 <tr className="bg-blue-600 text-white">
@@ -881,7 +881,7 @@ export default function InteractiveBudgetPage() {
                                 <button
                                   key={b.id}
                                   onClick={() => addBill(b, status.key)}
-                                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between gap-2"
+                                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center justify-between gap-2 flex-wrap gap-y-3"
                                 >
                                   <span className="truncate">{b.payee_name || 'Unknown payee'}</span>
                                   <span className="text-gray-400 shrink-0 tabular-nums">

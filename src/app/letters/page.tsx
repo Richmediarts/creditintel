@@ -202,7 +202,7 @@ export default function LettersPage() {
             return (
               <Card key={bureau} className={hasLetters ? 'border-t-4 border-t-blue-500' : ''}>
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-3 flex-wrap gap-y-3">
                     <div className="flex items-center gap-2">
                       {hasLetters ? <FolderOpen className="w-5 h-5 text-blue-500" /> : <Folder className="w-5 h-5 text-gray-300 dark:text-gray-600" />}
                       <span className="font-semibold text-gray-900 dark:text-white">{bureau}</span>
@@ -221,12 +221,12 @@ export default function LettersPage() {
 
                   {Object.entries(typeGroups).map(([type, list]) => (
                     <div key={type} className="mb-2">
-                      <div className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800/60 mb-1">
+                      <div className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800/60 mb-1 flex-wrap gap-y-3">
                         <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">{LETTER_TYPE_LABELS[type] || type}</span>
                         <span className="text-[11px] text-gray-400">{list.length}</span>
                       </div>
                       {list.map(letter => (
-                        <div key={letter.id} className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/40 rounded-lg group">
+                        <div key={letter.id} className="flex items-center justify-between px-2 py-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/40 rounded-lg group flex-wrap gap-y-3">
                           <div className="flex items-center gap-2 min-w-0">
                             <input
                               type="checkbox"

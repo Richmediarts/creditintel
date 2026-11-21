@@ -219,7 +219,7 @@ export default function CreditPlanPage() {
         })}
         <Card className="lift">
           <CardContent className="p-5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-y-3">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Card utilization</p>
               <Gauge className={`w-8 h-8 ${utilization == null ? 'text-gray-300' : utilization < 10 ? 'text-emerald-500' : utilization < 30 ? 'text-amber-500' : 'text-red-500'}`} aria-hidden="true" />
             </div>
@@ -393,7 +393,7 @@ export default function CreditPlanPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {activeDisputes.map((d) => (
                 <div key={d.id} className="rounded-xl border border-gray-100 dark:border-gray-700 p-4">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap gap-y-3">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{d.creditorName}</p>
                       <p className="text-xs text-gray-400">{d.bureau} · {d.letterType}</p>

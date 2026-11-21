@@ -105,7 +105,7 @@ export default function OptOutPage() {
         {companies.map(c => (
           <Card key={c.name} className="border-t-4 border-t-blue-500">
             <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-2 flex-wrap gap-y-3">
                 <h3 className="font-semibold text-gray-900 dark:text-white">{c.name}</h3>
                 <Badge variant="info">FCRA CRA</Badge>
               </div>

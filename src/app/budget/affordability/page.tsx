@@ -236,7 +236,7 @@ export default function AffordabilityPage() {
               <MoneyRow label="Buyer closing costs" value={scenario.purchase?.closing} />
               <MoneyRow label="Cash reserves retained" value={scenario.purchase?.reserve} />
               <MoneyRow label="Monthly cash after bills + housing" value={scenario.monthlySurplus} />
-              <div className="flex justify-between gap-2"><dt>Total DTI</dt><dd>{percent(scenario.actualDti)}</dd></div>
+              <div className="flex justify-between gap-2 flex-wrap gap-y-3"><dt>Total DTI</dt><dd>{percent(scenario.actualDti)}</dd></div>
             </dl>
             {scenario.ready && scenario.price === 0 && <p className="text-sm text-red-600 dark:text-red-400">No purchase fits these assumptions. Review cash, missing expenses and monthly debt obligations.</p>}
           </CardContent></Card>)}
@@ -290,7 +290,7 @@ export default function AffordabilityPage() {
       </CardContent></Card>}
 
       <Card><CardContent className="space-y-4 p-5">
-        <button type="button" className="flex w-full items-center justify-between text-left font-semibold" aria-expanded={showDetails} aria-controls="home-debt-details" onClick={() => setShowDetails(value => !value)}>
+        <button type="button" className="flex w-full items-center justify-between text-left font-semibold flex-wrap gap-y-3" aria-expanded={showDetails} aria-controls="home-debt-details" onClick={() => setShowDetails(value => !value)}>
           <span>Review debts, full-payoff choices and living expenses</span><span>{showDetails ? '−' : '+'}</span>
         </button>
         <div id="home-debt-details" hidden={!showDetails} className="space-y-5">

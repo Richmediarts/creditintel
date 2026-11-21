@@ -177,7 +177,7 @@ export default function GoalsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-nowrap sm:flex-wrap gap-y-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Financial Goals & Net Worth</h1>
           <p className="text-sm text-gray-500">Set monthly savings and debt payment goals. Adjust targets and the projection updates automatically.</p>
@@ -247,7 +247,7 @@ export default function GoalsPage() {
       {/* 6-Month Projection */}
       <Card>
         <CardContent className="p-5">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-y-3">
             <CardTitle className="flex items-center gap-2 text-sm"><CalendarCheck className="w-4 h-4" /> 6-Month Projection</CardTitle>
             <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
               <input type="checkbox" checked={avalanche} onChange={(e) => setAvalanche(e.target.checked)} className="rounded border-gray-300" />

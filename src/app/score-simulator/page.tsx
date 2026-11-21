@@ -275,7 +275,7 @@ export default function ScoreSimulatorPage() {
       {results && (
         <Card>
           <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-y-3">
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-emerald-500" />
                 <CardTitle>Projected Scores</CardTitle>
@@ -290,7 +290,7 @@ export default function ScoreSimulatorPage() {
             <div className="space-y-4">
               {results.map((r, i) => (
                 <div key={i} className={`p-4 rounded-xl border ${BUREAU_STYLES[r.bureau].lightBg} border-gray-200 dark:border-gray-700`}>
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between mb-3 flex-wrap gap-y-3">
                     <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{r.bureau}</span>
                     <Badge variant={r.impact > 0 ? 'success' : r.impact < 0 ? 'danger' : 'info'}>
                       {r.impact > 0 ? '+' : ''}{r.impact} pts
@@ -348,7 +348,7 @@ export default function ScoreSimulatorPage() {
             <div className="bg-green-500 h-full flex-[1.5] flex items-center justify-center text-[10px] text-white font-medium">740-799</div>
             <div className="bg-emerald-600 h-full flex-1 rounded-r-lg flex items-center justify-center text-[10px] text-white font-medium">800-850</div>
           </div>
-          <div className="flex justify-between text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+          <div className="flex justify-between text-[11px] text-gray-500 dark:text-gray-400 mt-1 flex-wrap gap-y-3">
             <span>Poor</span><span>Fair</span><span>Good</span><span>Very Good</span><span>Excellent</span>
           </div>
         </CardContent>

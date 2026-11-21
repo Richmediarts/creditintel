@@ -513,7 +513,7 @@ export default function CreditCardsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-nowrap sm:flex-wrap gap-y-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Credit Cards</h1>
           <p className="text-sm text-gray-500">Track balances, limits, and utilization across all your cards.</p>
@@ -595,7 +595,7 @@ export default function CreditCardsPage() {
       {editing && (
         <Card>
           <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-y-3">
               <CardTitle className="text-sm">
                 {editing && editing !== 'new' ? `Edit ${editing.name}` : 'Add Credit Card'}
               </CardTitle>
@@ -714,7 +714,7 @@ export default function CreditCardsPage() {
       {/* Card list */}
       <Card>
         <CardContent className="p-5">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-y-3">
             <CardTitle className="text-sm">Your Cards</CardTitle>
             <span className="text-xs text-gray-400">{cards.length} card{cards.length !== 1 ? 's' : ''}</span>
           </div>
@@ -736,7 +736,7 @@ export default function CreditCardsPage() {
 
                 return (
                   <div key={groupName}>
-                    <div className="flex items-center justify-between mb-3 px-1">
+                    <div className="flex items-center justify-between mb-3 px-1 flex-wrap gap-y-3">
                       <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                         {groupWebsite ? (
                           <a
@@ -776,7 +776,7 @@ export default function CreditCardsPage() {
                         return (
                           <div key={card.id} id={`credit-card-${card.id}`} className="flex flex-col w-[500px] max-w-full scroll-mt-28 rounded-2xl target:ring-2 target:ring-indigo-500 target:ring-offset-4 dark:target:ring-offset-gray-950">
                             {/* Card mockup */}
-                            <div className="rounded-2xl p-[1px] bg-gradient-to-br from-white/50 dark:from-white/15 via-transparent to-black/10 shadow-inner max-w-[500px] mx-auto lg:mx-0">
+                            <div className="rounded-2xl p-[1px] bg-gradient-to-br from-white/50 dark:from-white/15 via-transparent to-black/10 shadow-inner w-full max-w-[500px] mx-auto lg:mx-0">
                               <div className={`relative overflow-hidden rounded-[15px] p-4 sm:p-5 aspect-[400/253] flex flex-col justify-between bg-gradient-to-br ${theme.gradient} shadow-lg`}>
                                 {/* Watermark logo */}
                                 <img
@@ -789,7 +789,7 @@ export default function CreditCardsPage() {
                                 {/* Sheen */}
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/15 via-transparent to-black/15 pointer-events-none" />
 
-                                <div className="relative z-[1] flex items-start justify-between gap-3">
+                                <div className="relative z-[1] flex items-start justify-between gap-3 flex-wrap gap-y-3">
                                   <div className="flex items-center gap-2.5 min-w-0">
                                     <div className="h-12 w-12 shrink-0 rounded-lg bg-white/95 dark:bg-white/90 p-1 border border-black/5 shadow-sm">
                                       <img
@@ -824,7 +824,7 @@ export default function CreditCardsPage() {
                                   <p className={`mt-2.5 font-mono tracking-[0.16em] text-base sm:text-xl font-semibold ${theme.cardNo}`}>{numDisplay}</p>
                                 </div>
 
-                                <div className="relative z-[1] flex items-end justify-between gap-3">
+                                <div className="relative z-[1] flex items-end justify-between gap-3 flex-wrap gap-y-3">
                                   <div className="min-w-0">
                                     <p className={`text-[11px] uppercase tracking-wider ${theme.subtext}`}>Cardholder</p>
                                     <p className={`text-lg font-semibold truncate ${theme.text}`}>{cardholder}</p>
@@ -949,7 +949,7 @@ export default function CreditCardsPage() {
 
       {/* Recent Transactions */}
       <div className="mt-8">
-        <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center justify-between gap-2 mb-3 flex-wrap gap-y-3">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Transactions</h2>
           <Button onClick={() => runTransactionSync(true)} disabled={txSyncing} variant="secondary" size="sm">
             {txSyncing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}

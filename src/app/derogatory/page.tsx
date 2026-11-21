@@ -49,9 +49,9 @@ export default function DerogatoryPage() {
           {derogatoryAccounts.map((item, i) => (
             <Card key={i} className="border-l-4 border-l-red-500">
               <CardContent className="p-4">
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between flex-wrap gap-y-3">
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
                       <h3 className="font-medium text-gray-900 dark:text-white">{item.creditorName}</h3>
                       <Badge>{item.bureau}</Badge>
                       {item.derogatoryType && (
@@ -70,7 +70,7 @@ export default function DerogatoryPage() {
                     </p>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center justify-between gap-2">
+                <div className="mt-2 flex items-center justify-between gap-2 flex-wrap gap-y-3">
                   <div className="text-xs text-gray-500 dark:text-gray-400">
                     Recommended: {item.recommendedAction}
                   </div>

@@ -117,7 +117,7 @@ export default function AdminUsersPage() {
 
   return (
     <div className="space-y-6 max-w-2xl">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-y-3">
         <h1 className="text-xl font-bold text-gray-900 dark:text-white">User Management</h1>
         <Button onClick={() => setShowAdd(!showAdd)}>
           <UserPlus className="w-4 h-4 mr-2" /> Add User
@@ -176,7 +176,7 @@ export default function AdminUsersPage() {
                 <div key={u.id} className="p-4">
                   {editingId === u.id ? (
                     <div className="space-y-3">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between flex-wrap gap-y-3">
                         <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Editing: {u.name}</p>
                         <button onClick={cancelEdit} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                           <X className="w-4 h-4" />
@@ -240,7 +240,7 @@ export default function AdminUsersPage() {
                     </div>
                   ) : (
                     <>
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between flex-wrap gap-y-3">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
                             <span className="text-sm font-medium text-blue-600 dark:text-blue-400">{u.name[0]}</span>
@@ -257,7 +257,7 @@ export default function AdminUsersPage() {
                             </Badge>
                           ) : null}
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           {(u as { is_example?: number }).is_example ? (
                             <span className="text-[10px] text-gray-400" title="This example account is locked and cannot be edited or deleted">
                               Locked

@@ -37,7 +37,7 @@ function BadgeTag({ label, variant }: { label: string; variant: 'derog' | 'ok' |
 
 function AccountRow({ name, balance, badges }: { name: string; balance: string; badges?: React.ReactNode }) {
   return (
-    <div className="flex justify-between items-center py-1 border-b border-gray-100 last:border-b-0 text-sm gap-1.5">
+    <div className="flex justify-between items-center py-1 border-b border-gray-100 last:border-b-0 text-sm gap-1.5 flex-wrap gap-y-3">
       <span className="font-medium truncate flex-1 min-w-0">{name}</span>
       <span className="text-xs text-gray-500 whitespace-nowrap shrink-0">
         {balance}
@@ -50,7 +50,7 @@ function AccountRow({ name, balance, badges }: { name: string; balance: string; 
 function DerogItem({ name, detail, bureau, creditor, isPrinted }: { name: React.ReactNode; detail?: string; bureau: string; creditor: string; isPrinted: (creditorName: string, bureau: string) => boolean }) {
   return (
     <div className="py-1.5 border-b border-gray-100 last:border-b-0 text-sm">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap gap-y-3">
         <div className="font-medium min-w-0">{name}</div>
         {isPrinted(creditor, bureau) ? (
           <PrintedBadge />
@@ -165,7 +165,7 @@ function BureauColumn({ report, isPrinted }: { report: BureauReport; isPrinted: 
       ) : (
         <div className="text-xs text-gray-500 max-h-72 overflow-y-auto">
           {hardInquiries.map((inq, i) => (
-            <div key={i} className="flex items-center justify-between gap-2 py-0.5">
+            <div key={i} className="flex items-center justify-between gap-2 py-0.5 flex-wrap gap-y-3">
               <span>{inq.creditorName} ({inq.date})</span>
               {isPrinted(inq.creditorName, report.bureau) ? (
                 <PrintedBadge />

@@ -124,7 +124,7 @@ export default function CategoriesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-y-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Budget Categories</h1>
           <p className="text-sm text-gray-500">Organize and manage spending categories with monthly limits.</p>
@@ -166,7 +166,7 @@ export default function CategoriesPage() {
       {(editing || !loading) && (
         <Card>
           <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-y-3">
               <CardTitle className="text-sm">
                 {editing ? `Edit Category — ${editing.name}` : 'Add Category'}
               </CardTitle>
@@ -252,7 +252,7 @@ export default function CategoriesPage() {
                 const children = getChildren(cat.id)
                 return (
                   <div key={cat.id}>
-                    <div className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 group">
+                    <div className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 group flex-wrap gap-y-3">
                       <div className="flex items-center gap-3">
                         <div
                           className="w-4 h-4 rounded-full flex-shrink-0"
@@ -280,7 +280,7 @@ export default function CategoriesPage() {
                       </div>
                     </div>
                     {children.map((child) => (
-                      <div key={child.id} className="flex items-center justify-between py-2 pl-4 sm:pl-10 pr-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 group">
+                      <div key={child.id} className="flex items-center justify-between py-2 pl-4 sm:pl-10 pr-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 group flex-wrap gap-y-3">
                         <div className="flex items-center gap-3">
                           <div
                             className="w-3.5 h-3.5 rounded-full flex-shrink-0"

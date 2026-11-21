@@ -174,7 +174,7 @@ export default function SettingsPage() {
           <CardTitle className="mb-3 flex items-center gap-2">
             <Mail className="w-4 h-4" /> Change Email
           </CardTitle>
-          <form onSubmit={handleUpdateEmail} className="flex gap-2">
+          <form onSubmit={handleUpdateEmail} className="flex flex-wrap gap-2">
             <input
               type="email"
               value={email}

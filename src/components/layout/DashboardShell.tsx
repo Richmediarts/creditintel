@@ -61,7 +61,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
       />
-      <div className={`transition-all duration-300 ${collapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
+      <div className={`min-w-0 transition-all duration-300 ${collapsed ? 'lg:ml-16' : 'lg:ml-64'}`}>
         <Header setMobileOpen={setMobileOpen} />
         {isExample && (
           <div className="flex items-center gap-2 bg-amber-100 dark:bg-amber-900/40 border-b border-amber-200 dark:border-amber-800 px-4 py-2 text-xs text-amber-800 dark:text-amber-300">
@@ -70,7 +70,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         )}
         <DashboardSwitcher />
-        <main className={`p-4 lg:p-6 ${isExample ? 'readonly-mode' : ''}`}>
+        <main className={`wealth-page min-w-0 p-4 lg:p-6 ${isExample ? 'readonly-mode' : ''}`}>
           {children}
         </main>
       </div>

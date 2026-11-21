@@ -277,7 +277,7 @@ export default function PaychecksPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-nowrap sm:flex-wrap gap-y-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Paychecks & Paystubs</h1>
           <p className="text-sm text-gray-500">Track biweekly paychecks and view paystubs.</p>
@@ -365,7 +365,7 @@ export default function PaychecksPage() {
       {(editing || (activeTab === 'form' && !paychecks.length)) && (
         <Card>
           <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-y-3">
               <CardTitle className="text-sm">
                 {editing ? `Edit Paycheck — ${editing.check_date || editing.pay_date || ''}` : 'Add Paycheck'}
               </CardTitle>
@@ -483,7 +483,7 @@ export default function PaychecksPage() {
 
       <Card>
         <CardContent className="p-5">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-y-3">
             <CardTitle className="text-sm">Paystub History</CardTitle>
             <Badge variant="info">{paychecks.length} Paychecks</Badge>
           </div>

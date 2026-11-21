@@ -203,7 +203,7 @@ export default function CreditAnalysisPage() {
 
           return (
             <div key={bureau} className={`rounded-xl border p-5 ${BUREAU_BG[bureau]}`}>
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-y-3">
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{bureau}</span>
                 <div className={`w-8 h-8 rounded-full ${BUREAU_ICON_BG[bureau]} flex items-center justify-center`}>
                   <Shield className="w-4 h-4" />
@@ -218,7 +218,7 @@ export default function CreditAnalysisPage() {
                   <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden mt-3">
                     <div className={`h-full rounded-full ${bandColor} transition-all duration-500`} style={{ width: `${pct}%` }} />
                   </div>
-                  <div className="flex justify-between text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+                  <div className="flex justify-between text-[10px] text-gray-400 dark:text-gray-500 mt-1 flex-wrap gap-y-3">
                     <span>300</span>
                     <span>850</span>
                   </div>

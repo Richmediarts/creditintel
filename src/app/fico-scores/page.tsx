@@ -137,7 +137,7 @@ export default function FicoScoresPage() {
             <Card key={bureau} className={`${BUREAU_BG[bureau]} border-t-4 border-t-transparent`}>
               <div className={`h-1.5 rounded-t-xl bg-gradient-to-r ${BUREAU_COLORS[bureau]}`} />
               <CardContent className="p-5">
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-y-3">
                   <h3 className="font-bold text-gray-900 dark:text-white">{bureau}</h3>
                   {score !== null && (
                     <button
@@ -191,7 +191,7 @@ export default function FicoScoresPage() {
                         style={{ width: `${((score - 300) / (850 - 300)) * 100}%` }}
                       />
                     </div>
-                    <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                    <div className="flex justify-between text-[10px] text-gray-400 mt-1 flex-wrap gap-y-3">
                       <span>300</span>
                       <span>850</span>
                     </div>
@@ -235,7 +235,7 @@ export default function FicoScoresPage() {
             <div className="bg-green-500 h-full flex-[1.5] flex items-center justify-center text-[10px] text-white font-medium">740-799</div>
             <div className="bg-emerald-600 h-full flex-1 rounded-r-lg flex items-center justify-center text-[10px] text-white font-medium">800-850</div>
           </div>
-          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1 flex-wrap gap-y-3">
             <span>Poor</span>
             <span>Fair</span>
             <span>Good</span>

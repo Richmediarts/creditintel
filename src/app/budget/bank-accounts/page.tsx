@@ -400,7 +400,7 @@ export default function BankAccountsPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between gap-3 sm:justify-end shrink-0">
+            <div className="flex items-center justify-between gap-3 sm:justify-end shrink-0 flex-wrap gap-y-3">
               {/* Balance / Edit */}
               {editingId === account.id ? (
                 <div className="flex items-center gap-1">
@@ -519,7 +519,7 @@ export default function BankAccountsPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 flex-nowrap sm:flex-wrap gap-y-3">
         <div className="flex items-center gap-3">
           <Landmark className="h-7 w-7 text-blue-600 dark:text-blue-400" />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Bank Accounts & Liabilities</h1>
@@ -752,7 +752,7 @@ export default function BankAccountsPage() {
 
           {/* Recent Transactions */}
           <div className="mt-8">
-            <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center justify-between gap-2 mb-3 flex-wrap gap-y-3">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Transactions</h2>
               <Button onClick={() => runTransactionSync(true)} disabled={txSyncing} variant="secondary" size="sm">
                 {txSyncing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}

@@ -57,7 +57,7 @@ export default function SummaryPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap gap-y-3">
         <div className="flex items-center gap-3">
           <Link href="/" className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
             <ArrowLeft className="w-5 h-5" />
@@ -96,14 +96,14 @@ export default function SummaryPage() {
       {/* Credit Utilization Bar */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-y-3">
             <CardTitle>Credit Utilization</CardTitle>
             <span className="text-lg font-bold text-gray-900 dark:text-white">
               {globalSummary.totalCreditUtilization.toFixed(1)}%
             </span>
           </div>
           <Progress value={globalSummary.totalCreditUtilization} variant={globalSummary.totalCreditUtilization > 50 ? 'danger' : globalSummary.totalCreditUtilization > 30 ? 'warning' : 'success'} className="h-4" showLabel />
-          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1 flex-wrap gap-y-3">
             <span>Total Balance: {formatCurrency(globalSummary.totalBalance)}</span>
             <span>Total Limit: {formatCurrency(globalSummary.totalCreditLimit)}</span>
           </div>
@@ -161,7 +161,7 @@ function Row({ label, value, variant = 'default' }: { label: string; value: stri
     warning: 'text-yellow-500',
   }
   return (
-    <Link href={statHref(label)} className="flex justify-between hover:opacity-80 transition-opacity">
+    <Link href={statHref(label)} className="flex justify-between hover:opacity-80 transition-opacity flex-wrap gap-y-3">
       <span className="text-gray-500 dark:text-gray-400">{label}</span>
       <span className={`font-medium ${colorMap[variant]}`}>{value}</span>
     </Link>

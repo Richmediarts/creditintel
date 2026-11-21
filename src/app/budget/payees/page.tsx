@@ -134,7 +134,7 @@ export default function PayeesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-y-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Payees</h1>
           <p className="text-sm text-gray-500">Manage your payees and payment recipients.</p>
@@ -158,7 +158,7 @@ export default function PayeesPage() {
       {(editing || !payees.length) && (
         <Card>
           <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-y-3">
               <CardTitle className="text-sm">
                 {editing ? `Edit Payee — ${editing.name}` : 'Add Payee'}
               </CardTitle>
@@ -249,7 +249,7 @@ export default function PayeesPage() {
 
       <Card>
         <CardContent className="p-5">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-y-3">
             <CardTitle className="text-sm">All Payees</CardTitle>
             <span className="text-xs font-medium text-gray-400">{payees.length} Payees</span>
           </div>
@@ -265,9 +265,9 @@ export default function PayeesPage() {
                   key={p.id}
                   className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                 >
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 sm:gap-4 flex-nowrap sm:flex-wrap gap-y-3">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
                         <Wallet className="w-4 h-4 text-gray-400 shrink-0" />
                         <span className="font-medium text-gray-900 dark:text-white">{p.name}</span>
                         {p.category && (
@@ -283,11 +283,11 @@ export default function PayeesPage() {
                           </span>
                         )}
                         {p.notes && (
-                          <span className="truncate max-w-xs">{p.notes}</span>
+                          <span className="break-words max-w-full sm:max-w-xs">{p.notes}</span>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 sm:gap-2 shrink-0 ml-6 sm:ml-0">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-2 ml-6 sm:ml-0">
                       {p.website && (
                         <a
                           href={p.website}

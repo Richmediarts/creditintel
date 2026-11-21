@@ -138,7 +138,7 @@ export default function ModifiedIncomePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-y-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Modified / Extra Income</h1>
           <p className="text-sm text-gray-500">Track additional income sources beyond your regular paycheck.</p>
@@ -162,7 +162,7 @@ export default function ModifiedIncomePage() {
       {/* Stats cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardContent className="p-5 flex items-start justify-between gap-3">
+          <CardContent className="p-5 flex items-start justify-between gap-3 flex-wrap gap-y-3">
             <div>
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Modified Income</p>
               <p className="text-2xl font-bold mt-1 text-gray-900 dark:text-white">{fmt(totalModifiedIncome)}</p>
@@ -174,7 +174,7 @@ export default function ModifiedIncomePage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-5 flex items-start justify-between gap-3">
+          <CardContent className="p-5 flex items-start justify-between gap-3 flex-wrap gap-y-3">
             <div>
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Bills Due</p>
               <p className="text-2xl font-bold mt-1 text-gray-900 dark:text-white">{fmt(stats?.bills_before_next_pay_total || 0)}</p>
@@ -186,7 +186,7 @@ export default function ModifiedIncomePage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-5 flex items-start justify-between gap-3">
+          <CardContent className="p-5 flex items-start justify-between gap-3 flex-wrap gap-y-3">
             <div>
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Total Paid</p>
               <p className="text-2xl font-bold mt-1 text-gray-900 dark:text-white">{fmt(stats?.total_expenses_paid || 0)}</p>
@@ -198,7 +198,7 @@ export default function ModifiedIncomePage() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-5 flex items-start justify-between gap-3">
+          <CardContent className="p-5 flex items-start justify-between gap-3 flex-wrap gap-y-3">
             <div>
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Remaining</p>
               <p className={`text-2xl font-bold mt-1 ${(stats?.remaining || 0) < 0 ? 'text-red-500' : 'text-gray-900 dark:text-white'}`}>
@@ -274,7 +274,7 @@ export default function ModifiedIncomePage() {
       {/* Income history */}
       <Card>
         <CardContent className="p-5">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-y-3">
             <CardTitle className="text-sm">Income History</CardTitle>
             <Badge variant="info">{incomes.length} Entries</Badge>
           </div>
@@ -325,7 +325,7 @@ export default function ModifiedIncomePage() {
       {stats && stats.bills_before_next_pay.length > 0 && (
         <Card>
           <CardContent className="p-5">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-y-3">
               <CardTitle className="text-sm">Upcoming Bills</CardTitle>
               <Badge variant="warning">{stats.bills_before_next_pay.length} Bills</Badge>
             </div>

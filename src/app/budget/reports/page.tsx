@@ -239,7 +239,7 @@ export default function PayPeriodReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-y-3">
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <BarChart3 className="w-5 h-5" /> Pay Period Reports
@@ -297,7 +297,7 @@ export default function PayPeriodReportsPage() {
           {/* Chart */}
           <Card>
             <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-y-3">
                 <CardTitle className="text-sm">Income vs. Expenses</CardTitle>
                 <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Income</span>
@@ -347,7 +347,7 @@ export default function PayPeriodReportsPage() {
           {/* Period breakdown */}
           <Card>
             <CardContent className="p-5">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-y-3">
                 <CardTitle className="text-sm">Pay Period Summary</CardTitle>
                 <Badge variant="info">{visibleKeys.length} Period{visibleKeys.length !== 1 ? 's' : ''}</Badge>
               </div>
@@ -394,7 +394,7 @@ export default function PayPeriodReportsPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                   {p.bills && p.bills.length > 0 ? (
                                     p.bills.map((b) => (
-                                      <div key={b.id} className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm">
+                                      <div key={b.id} className="flex items-center justify-between gap-2 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm flex-wrap gap-y-3">
                                         <div className="flex items-center gap-2 min-w-0">
                                           {b.is_paid ? (
                                             <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
@@ -545,16 +545,16 @@ export default function PayPeriodReportsPage() {
                       const color = categoryColor(label)
                       const pct = totalSpend > 0 ? (Number(c.spend) / totalSpend) * 100 : 0
                       return (
-                        <div key={c.category} className="flex items-center gap-3">
+                        <div key={c.category} className="grid grid-cols-[minmax(0,1fr)_auto_auto] sm:flex items-center gap-2 sm:gap-3">
                           <span
-                            className="w-28 shrink-0 text-xs text-gray-600 dark:text-gray-400 truncate cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400"
+                            className="sm:w-28 min-w-0 shrink-0 text-xs text-gray-600 dark:text-gray-400 truncate cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400"
                             onClick={() => { setSelCategory(selCategory === c.category ? '' : c.category); setTxTableLimit(50) }}
                             title={`Filter to ${label}`}
                           >
                             <span className="inline-block w-2.5 h-2.5 rounded-full mr-1.5" style={{ backgroundColor: color }} />
                             {label}
                           </span>
-                          <div className="flex-1 h-2.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                          <div className="col-span-3 order-last sm:order-none flex-1 h-2.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
                             <div
                               className="h-full rounded-full"
                               style={{ width: `${maxCat > 0 ? (Number(c.spend) / maxCat) * 100 : 0}%`, backgroundColor: color }}
