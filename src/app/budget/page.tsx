@@ -13,6 +13,8 @@ import { Button } from '@/components/ui/button'
 import { StatusPill, OwnerPill } from '@/components/ui/status'
 import { useAuth } from '@/lib/auth-context'
 import { AvailableAccounts } from '@/components/budget/AvailableAccounts'
+import { BudgetVisualOverview } from '@/components/budget/BudgetVisualOverview'
+import './budget-dashboard.css'
 
 // ---------------------------------------------------------------------------
 // Types mirroring the /api/budget/dashboard payload
@@ -281,36 +283,12 @@ export default function BudgetDashboardPage() {
   const periodLabel = current.period.label
 
   return (
-    <div className="wealth-budget space-y-6">
+    <div className="wealth-budget budget-studio space-y-5">
       {showAvailableAccounts && <AvailableAccounts onClose={() => setShowAvailableAccounts(false)}
         onSaved={refreshAvailableAccounts} projected={current.period.index > dashboard.currentPeriodIndex} />}
-      {/* ============================ HERO ============================ */}
-      <div className="money-hero rounded-2xl p-6 sm:p-8 shadow-lg">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-widest text-blue-300">
-              Household Pay-Period Plan
-            </p>
-            <h1 className="mt-1 text-2xl sm:text-3xl font-bold text-white leading-snug">
-              Your next two weeks,
-              with a clearer plan.
-            </h1>
-            <p className="mt-2 text-sm text-blue-200">
-              See what is due, what you have set aside, and what remains.
-              <span className="block mt-1">Pay window {periodLabel} · anchored to your {dashboard.paydaySource}</span>
-            </p>
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            <button type="button" aria-label="Choose accounts for money available right now" aria-haspopup="dialog" onClick={() => setShowAvailableAccounts(true)} className="rounded-xl bg-white/10 px-5 py-4 text-right hover:bg-white/20 focus-visible:outline-2 focus-visible:outline-white">
-              <p className="stat-label text-xs font-medium uppercase tracking-wider">Money available right now</p>
-              <p className={`stat-value text-3xl sm:text-4xl font-bold ${current.availableNow < 0 ? 'text-rose-300' : ''}`}>
-                {fmt(current.availableNow)}
-              </p>
-              <p className="text-xs text-blue-200 mt-1">Choose accounts · before this period&apos;s bills</p>
-            </button>
-          </div>
-        </div>
-      </div>
+      <BudgetVisualOverview current={current} anchor={dashboard.anchoredPayday}
+        periodCount={dashboard.periods.length} projected={current.period.index > dashboard.currentPeriodIndex}
+        reserves={dashboard.reserves} onChooseAccounts={() => setShowAvailableAccounts(true)} />
 
       <nav aria-label="Household budget shortcuts" className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Link href="/budget/bills" className="wealth-shortcut"><Receipt className="h-5 w-5 text-rose-600 dark:text-rose-300" /><span><strong>Bills this pay period</strong><small>See due dates and payment plans</small></span><ChevronRight className="h-4 w-4 ml-auto" /></Link>
@@ -424,6 +402,8 @@ export default function BudgetDashboardPage() {
       </Card>
 
       {/* ==================== ACTIVE PERIOD DETAIL ==================== */}
+      <details className="budget-stat-details">
+      <summary>Detailed pay-period totals &amp; account links</summary>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
           title="Money available right now" chip="chip-spending" icon={Wallet}
@@ -484,6 +464,8 @@ export default function BudgetDashboardPage() {
         />
       </div>
 
+      </details>
+
       {/* ======== HOW THE NUMBERS WORK ======== */}
       <Card className="lift border-blue-200 dark:border-blue-800/60">
         <CardContent className="p-5">
@@ -514,7 +496,7 @@ export default function BudgetDashboardPage() {
 
       {/* ======== BILLS + INCOME IN THE WINDOW ======== */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <Card className="xl:col-span-2 lift">
+        <Card className="xl:col-span-2 lift budget-panel-bills">
           <CardContent className="p-5">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <CardTitle className="text-base">Bills & Payments · {current.period.label}</CardTitle>
@@ -577,7 +559,7 @@ export default function BudgetDashboardPage() {
 
         <div className="space-y-4">
           {/* Income in window */}
-          <Card className="lift">
+          <Card className="lift budget-panel-income">
             <CardContent className="p-5">
               <CardTitle className="text-sm mb-3">Income · {current.period.label}</CardTitle>
               {current.incoming.income.length === 0 ? (
@@ -641,7 +623,8 @@ export default function BudgetDashboardPage() {
       </div>
 
       {/* ======== RESERVES ======== */}
-      <Card className="lift">
+      <div id="budget-reserves" className="scroll-mt-24" />
+      <Card className="lift budget-panel-reserves">
         <CardContent className="p-5">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <CardTitle className="text-base flex items-center gap-2">

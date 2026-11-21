@@ -308,12 +308,12 @@ export function Header({ setMobileOpen }: { setMobileOpen: (v: boolean) => void 
   const { darkMode, toggleDarkMode } = useTheme()
 
   return (
-    <header className="wealth-header h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30">
-      <button aria-label="Open navigation" onClick={() => setMobileOpen(true)} className="lg:hidden text-gray-600 dark:text-gray-400">
+    <header className="wealth-header min-w-0 gap-3 h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30">
+      <button aria-label="Open navigation" onClick={() => setMobileOpen(true)} className="lg:hidden shrink-0 text-gray-600 dark:text-gray-400">
         <Menu className="w-6 h-6" />
       </button>
-      <div className="flex-1" />
-      <div className="flex items-center gap-3">
+      <div className="hidden lg:block min-w-0 flex-1" />
+      <div className="flex min-w-0 flex-1 lg:flex-initial items-center justify-end gap-2 sm:gap-3">
         <form onSubmit={(e) => {
           e.preventDefault()
           const formData = new FormData(e.currentTarget as HTMLFormElement)
@@ -321,28 +321,29 @@ export function Header({ setMobileOpen }: { setMobileOpen: (v: boolean) => void 
           if (query) {
             window.location.href = `/search?q=${encodeURIComponent(query.toString())}`
           }
-        }} className="relative flex items-center">
+        }} className="relative flex min-w-0 flex-1 max-w-72 items-center">
           <input
             type="text"
             name="search"
+            aria-label="Search accounts, bills and cards"
             placeholder="Search accounts, bills, cards..."
-            className="pl-8 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
+            className="pl-8 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-0 w-full lg:w-64"
           />
           <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-2.5 h-4 w-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
         </form>
         <button
           onClick={toggleDarkMode}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          className="flex shrink-0 items-center gap-2 px-3 py-2 rounded-lg text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
         >
           {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           <span className="hidden sm:inline">{darkMode ? 'Light Mode' : 'Dark Mode'}</span>
         </button>
-        <span className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-[40vw] sm:max-w-none">
+        <span className="hidden sm:block min-w-0 text-sm text-gray-500 dark:text-gray-400 truncate max-w-40 xl:max-w-56 2xl:max-w-none">
           {user ? (
             <>
               {user.name}
-              <span className="hidden md:inline"> — Credit Intelligence Dashboard</span>
+              <span className="hidden 2xl:inline"> — Credit Intelligence Dashboard</span>
             </>
           ) : (
             'Credit Intelligence Dashboard'
