@@ -109,8 +109,8 @@ export default function AuthForm({ initialMode }: { initialMode: 'signin' | 'sig
             </span>
           </div>
 
-          <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-3">
-            <p className="text-xs text-amber-700 dark:text-amber-300">
+          <div className="rounded-lg bg-amber-50 dark:bg-slate-900 border border-amber-200 dark:border-slate-600 p-4">
+            <p className="text-sm leading-6 break-words text-amber-900 dark:text-slate-100 [&_strong]:font-semibold dark:[&_strong]:text-sky-200">
               <strong>Try the demo:</strong> sign in with <strong>example@retteewealth.me</strong> / <strong>example123</strong> to explore the score simulator and budget pages (read-only, mirrors the admin data). Editing, deleting, and account settings are locked.
             </p>
           </div>
